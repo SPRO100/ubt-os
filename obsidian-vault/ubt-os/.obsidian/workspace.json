@@ -174,7 +174,8 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 300,
+    "collapsed": true
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -189,7 +190,7 @@
       "templater-obsidian:Templater": false
     }
   },
-  "active": "43ce3464faef4c49",
+  "active": "fa44a820e360335e",
   "lastOpenFiles": [
     "Добро пожаловать.md"
   ]
