@@ -70,8 +70,7 @@
               "title": "Закладки"
             }
           }
-        ],
-        "currentTab": 1
+        ]
       }
     ],
     "direction": "horizontal",
@@ -190,8 +189,9 @@
       "templater-obsidian:Templater": false
     }
   },
-  "active": "fa44a820e360335e",
+  "active": "ed41e78206b77652",
   "lastOpenFiles": [
+    "создайте ссылку.md",
     "Добро пожаловать.md"
   ]
 }
