@@ -1,0 +1,202 @@
+# ─────────────────────────────────────────────────────────
+# vertical_configs/cars_korea.yaml
+# ─────────────────────────────────────────────────────────
+vertical:
+  id: cars_korea
+  name: "Авто из Кореи"
+  category: ecommerce
+  status: active
+
+audience:
+  geo: ["RU", "KZ", "BY"]
+  language: ["ru"]
+  age_range: "28-48"
+  gender: male
+  pain_points:
+    - "непонятно как растаможить"
+    - "боятся нарваться на мошенников"
+    - "дилеры задирают цены"
+
+content:
+  tone: "экспертный, как от человека который сам прошёл путь"
+  first_15_sec_rule: "показать боль — не называть цену"
+  cta_style: "мягкий — консультация, не покупка"
+  forbidden_words: ["гарантия", "дёшево", "лучшее"]
+  hook_patterns:
+    - "Я купил Kia из Кореи. Вот что случилось"
+    - "Разница с дилером — 800,000₽. Объясняю"
+    - "3 ошибки при растаможке — я все совершил"
+
+formats:
+  primary:
+    - name: story_buyer
+      duration_sec: 45
+      visual_style: ugc
+  secondary:
+    - name: fact_comparison
+      duration_sec: 25
+      visual_style: cinematic
+
+platforms:
+  allowed: ["tiktok", "youtube", "instagram", "telegram"]
+  primary: youtube
+  tiktok_sensitivity: low
+
+monetization:
+  model: lead_generation
+  funnel_type: full
+  funnel:
+    prelanding_template: expert_review
+    form_fields: ["name", "phone", "city", "budget", "model_interest"]
+    crm: bitrix24
+    cta_button: "Получить консультацию бесплатно"
+
+seo:
+  seed_keywords: ["авто из Кореи", "Kia б/у", "растаможка 2025", "авто пригон"]
+  hashtags_tiktok: ["#автоизкореи", "#растаможка", "#kia"]
+
+---
+# ─────────────────────────────────────────────────────────
+# vertical_configs/infoproducts.yaml
+# ─────────────────────────────────────────────────────────
+vertical:
+  id: infoproducts_marketing
+  name: "Онлайн-курсы по маркетингу"
+  category: infoproduct
+  status: active
+
+audience:
+  geo: ["RU", "KZ", "UA"]
+  language: ["ru"]
+  age_range: "20-40"
+  gender: any
+  pain_points:
+    - "работают на нелюбимой работе"
+    - "хотят зарабатывать онлайн но не знают как"
+    - "боятся потратить деньги на бесполезный курс"
+
+content:
+  tone: "вдохновляющий, честный — показываем результаты без хайпа"
+  first_15_sec_rule: "трансформация героя — было / стало"
+  cta_style: "бесплатный первый шаг — вебинар или PDF"
+  forbidden_words: ["гарантирую заработок", "пассивный доход", "без вложений"]
+  hook_patterns:
+    - "Я бросил офис 2 года назад. Вот цифры сейчас"
+    - "Почему 90% курсов не работают (я проверил)"
+    - "С нуля до 150,000₽/мес за 6 месяцев — мой путь"
+
+platforms:
+  allowed: ["youtube", "instagram", "telegram"]
+  primary: youtube
+  tiktok_sensitivity: medium
+
+monetization:
+  model: direct_sales
+  funnel_type: full
+  funnel:
+    prelanding_template: case_study
+    form_fields: ["name", "email", "phone", "experience_level"]
+    crm: amocrm
+    cta_button: "Записаться на бесплатный вебинар"
+    auto_reply: telegram_bot
+
+seo:
+  seed_keywords: ["онлайн курсы маркетинг", "заработок в интернете", "smm обучение"]
+  hashtags_tiktok: ["#онлайнкурсы", "#маркетинг", "#заработоконлайн"]
+
+---
+# ─────────────────────────────────────────────────────────
+# vertical_configs/realestate.yaml
+# ─────────────────────────────────────────────────────────
+vertical:
+  id: realestate_dubai
+  name: "Недвижимость в Дубае"
+  category: realestate
+  status: active
+
+audience:
+  geo: ["RU", "KZ", "UA", "BY"]
+  language: ["ru"]
+  age_range: "30-55"
+  gender: any
+  pain_points:
+    - "не знают как купить за рубежом"
+    - "боятся юридических рисков"
+    - "ищут куда вложить капитал"
+
+content:
+  tone: "экспертный, спокойный — цифры и факты"
+  first_15_sec_rule: "конкретная цифра доходности или факт"
+  cta_style: "консультация с экспертом"
+  forbidden_words: ["100% доход", "гарантированная прибыль"]
+  hook_patterns:
+    - "Апартаменты в Дубае от $150,000. Разбираю варианты"
+    - "Почему россияне массово покупают жильё в ОАЭ"
+    - "Мой клиент купил студию — вот его доходность"
+
+platforms:
+  allowed: ["youtube", "telegram", "instagram"]
+  primary: youtube
+  tiktok_sensitivity: low
+
+monetization:
+  model: lead_generation
+  funnel_type: full
+  funnel:
+    prelanding_template: expert_review
+    form_fields: ["name", "phone", "budget", "purpose"]
+    crm: bitrix24
+    cta_button: "Получить подборку объектов"
+
+seo:
+  seed_keywords: ["недвижимость Дубай", "купить квартиру ОАЭ", "инвестиции дубай"]
+  hashtags_tiktok: ["#недвижимость", "#дубай", "#инвестиции"]
+
+---
+# ─────────────────────────────────────────────────────────
+# vertical_configs/crypto_education.yaml
+# ─────────────────────────────────────────────────────────
+vertical:
+  id: crypto_education
+  name: "Крипто — обучение и биржи"
+  category: crypto
+  status: active
+
+audience:
+  geo: ["RU", "KZ", "UA"]
+  language: ["ru"]
+  age_range: "22-40"
+  gender: male
+  pain_points:
+    - "боятся потерять деньги"
+    - "не понимают как начать безопасно"
+    - "видели как другие заработали и хотят тоже"
+
+content:
+  tone: "образовательный, без хайпа и pump-схем"
+  first_15_sec_rule: "образовательный факт или история — не обещания дохода"
+  cta_style: "регистрация на бирже (партнёрская ссылка)"
+  forbidden_words: ["сделай ×10", "гарантированный профит", "инсайд"]
+  hook_patterns:
+    - "Bitcoin в 2015 стоил $200. Почему я не купил"
+    - "3 ошибки новичка в крипте — я их все делал"
+    - "Как работает биржа — объясняю за 30 секунд"
+
+platforms:
+  allowed: ["youtube", "telegram"]
+  primary: youtube
+  tiktok_sensitivity: high   # крипта часто режется
+  instagram_sensitivity: high
+
+monetization:
+  model: affiliate_cpa
+  funnel_type: prelanding
+  affiliate:
+    network: "bybit_partners"
+    tracking_url: "https://partner.bybit.com/..."
+    cookie_days: 30
+    event: "first_deposit"
+
+seo:
+  seed_keywords: ["крипта для начинающих", "bitcoin 2025", "bybit обучение"]
+  hashtags_tiktok: ["#крипта", "#bitcoin", "#трейдинг"]

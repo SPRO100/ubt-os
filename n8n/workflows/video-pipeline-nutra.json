@@ -1,0 +1,78 @@
+{
+  "name": "video-pipeline-nutra",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Cron Trigger",
+      "type": "n8n-nodes-base.cron",
+      "position": [240, 300],
+      "parameters": {
+        "rule": { "interval": [{ "field": "minutes", "minutesInterval": 30 }] }
+      }
+    },
+    {
+      "id": "lock",
+      "name": "FIX#3 — Pipeline Lock",
+      "type": "n8n-nodes-base.code",
+      "position": [460, 300],
+      "parameters": {
+        "jsCode": "// FIX #3: Redis Distributed Lock\n// Предотвращает двойной запуск пайплайна\n\nconst LOCK_KEY = 'pipeline_lock:video-pipeline-nutra';\nconst LOCK_TTL = 600;\nconst LOCK_TOKEN = `nutra-${Date.now()}-${Math.random().toString(36).slice(2)}`;\n\nconst redis = $getWorkflowStaticData('global');\n\n// Пытаемся захватить lock\nconst acquired = await $redis.set(LOCK_KEY, LOCK_TOKEN, 'EX', LOCK_TTL, 'NX');\n\nif (!acquired) {\n  const ttlLeft = await $redis.ttl(LOCK_KEY);\n  console.log(`[Lock] Занят. Осталось ${ttlLeft}s. Пропускаем итерацию.`);\n  return [{ json: { status: 'skipped', reason: 'lock_busy', ttl_left: ttlLeft } }];\n}\n\n// Сохраняем token для освобождения в конце\n$execution.customData.set('lock_token', LOCK_TOKEN);\n$execution.customData.set('lock_key', LOCK_KEY);\nconsole.log('[Lock] Захвачен ✅');\n\nreturn [{ json: { status: 'acquired', token: LOCK_TOKEN } }];"
+      }
+    },
+    {
+      "id": "check_skip",
+      "name": "Пропустить если lock занят?",
+      "type": "n8n-nodes-base.if",
+      "position": [680, 300],
+      "parameters": {
+        "conditions": {
+          "string": [{ "value1": "={{ $json.status }}", "value2": "skipped", "operation": "equal" }]
+        }
+      }
+    },
+    {
+      "id": "webhook_nutra",
+      "name": "Запустить NUTRA пайплайн",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_URL }}/run/nutra",
+        "options": { "timeout": 580000 },
+        "bodyContentType": "json",
+        "body": {
+          "action": "run_pipeline",
+          "vertical": "nutra",
+          "timestamp": "={{ new Date().toISOString() }}"
+        }
+      }
+    },
+    {
+      "id": "release_lock",
+      "name": "FIX#3 — Освободить Lock",
+      "type": "n8n-nodes-base.code",
+      "position": [1120, 200],
+      "parameters": {
+        "jsCode": "const lockKey   = $execution.customData.get('lock_key');\nconst lockToken = $execution.customData.get('lock_token');\n\nif (lockKey && lockToken) {\n  const lua = `if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end`;\n  const result = await $redis.eval(lua, 1, lockKey, lockToken);\n  console.log(result === 1 ? '[Lock] Освобождён ✅' : '[Lock] Уже истёк');\n}\nreturn [{ json: { status: 'done' } }];"
+      }
+    },
+    {
+      "id": "skip_end",
+      "name": "Конец (пропущено)",
+      "type": "n8n-nodes-base.noOp",
+      "position": [900, 420]
+    }
+  ],
+  "connections": {
+    "Cron Trigger":                   { "main": [[{ "node": "FIX#3 — Pipeline Lock" }]] },
+    "FIX#3 — Pipeline Lock":          { "main": [[{ "node": "Пропустить если lock занят?" }]] },
+    "Пропустить если lock занят?":    {
+      "main": [
+        [{ "node": "Конец (пропущено)" }],
+        [{ "node": "Запустить NUTRA пайплайн" }]
+      ]
+    },
+    "Запустить NUTRA пайплайн":       { "main": [[{ "node": "FIX#3 — Освободить Lock" }]] }
+  },
+  "settings": { "errorWorkflow": "error-handler" }
+}

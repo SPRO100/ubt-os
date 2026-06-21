@@ -1,0 +1,171 @@
+{
+  "name": "strategy-engine-weekly",
+  "nodes": [
+    {
+      "id": "trigger_weekly",
+      "name": "Воскресенье 20:00",
+      "type": "n8n-nodes-base.cron",
+      "position": [200, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "cronExpression", "expression": "0 20 * * 0"}]
+        }
+      }
+    },
+    {
+      "id": "trigger_daily",
+      "name": "Ежедневно 07:30",
+      "type": "n8n-nodes-base.cron",
+      "position": [200, 480],
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "cronExpression", "expression": "30 7 * * *"}]
+        }
+      }
+    },
+    {
+      "id": "lock",
+      "name": "FIX#3 — Lock",
+      "type": "n8n-nodes-base.code",
+      "position": [420, 300],
+      "parameters": {
+        "jsCode": "const KEY='pipeline_lock:strategy-engine';\nconst TOKEN=`strategy-${Date.now()}`;\nconst ok=await $redis.set(KEY,TOKEN,'EX',3600,'NX');\nif(!ok) return [{json:{status:'skipped'}}];\n$execution.customData.set('lk',KEY);\n$execution.customData.set('lt',TOKEN);\nreturn [{json:{status:'acquired',mode:$input.first().json.mode||'weekly'}}];"
+      }
+    },
+    {
+      "id": "gate",
+      "name": "IF acquired",
+      "type": "n8n-nodes-base.if",
+      "position": [620, 300],
+      "parameters": {
+        "conditions": {
+          "string": [{"value1":"={{ $json.status }}","value2":"acquired","operation":"equal"}]
+        }
+      }
+    },
+    {
+      "id": "fetch_data",
+      "name": "Собрать данные",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [840, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AGENTS_WEBHOOK }}/strategy/collect",
+        "options": {"timeout": 30000},
+        "bodyContentType": "json",
+        "body": {"lookback_days": 7}
+      }
+    },
+    {
+      "id": "claude_analysis",
+      "name": "Claude — Анализ (Sonnet)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1060, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LITELLM_BASE_URL }}/v1/chat/completions",
+        "headers": {
+          "Authorization": "Bearer {{ $env.LITELLM_MASTER_KEY }}"
+        },
+        "bodyContentType": "json",
+        "body": {
+          "model": "heavy",
+          "max_tokens": 4096,
+          "response_format": {"type": "json_object"},
+          "messages": [
+            {
+              "role": "system",
+              "content": "Ты STRATEGY_ENGINE системы UBT OS. Анализируй данные и возвращай СТРОГО JSON по схеме StrategyBrief. Никаких пояснений вне JSON."
+            },
+            {
+              "role": "user",
+              "content": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "parse_brief",
+      "name": "Парсинг Brief",
+      "type": "n8n-nodes-base.code",
+      "position": [1280, 200],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.choices[0].message.content;\nconst brief = JSON.parse(raw);\nbrief.created_at = new Date().toISOString();\nbrief.approved_by_user = false;\nreturn [{json: brief}];"
+      }
+    },
+    {
+      "id": "save_supabase",
+      "name": "Сохранить в Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1500, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/strategy_briefs",
+        "headers": {
+          "apikey": "={{ $env.SUPABASE_SERVICE_KEY }}",
+          "Authorization": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}",
+          "Content-Type": "application/json",
+          "Prefer": "return=representation"
+        },
+        "bodyContentType": "json",
+        "body": "={{ $json }}"
+      }
+    },
+    {
+      "id": "save_obsidian",
+      "name": "Записать в Obsidian",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1500, 360],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AGENTS_WEBHOOK }}/obsidian/write",
+        "bodyContentType": "json",
+        "body": {
+          "path": "60 Daily/strategy-{{ $now.format('YYYY-[W]WW') }}.md",
+          "content": "={{ $json.markdown_report }}"
+        }
+      }
+    },
+    {
+      "id": "telegram_notify",
+      "name": "Telegram — Уведомление",
+      "type": "n8n-nodes-base.telegram",
+      "position": [1500, 500],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TELEGRAM_ALERT_CHAT_ID }}",
+        "text": "🧭 *STRATEGY_ENGINE — Недельный бриф готов*\n\nВертикаль: {{ $json.vertical }}\nПриоритет ГЕО: {{ $json.geo_priority.join(', ') }}\nТоп формат: {{ $json.top_formats[0].format }}\nУверенность: {{ ($json.confidence_score * 100).toFixed(0) }}%\n\n⏳ Ожидает одобрения в Dashboard",
+        "additionalFields": {"parse_mode": "Markdown"}
+      }
+    },
+    {
+      "id": "release_lock",
+      "name": "Release Lock",
+      "type": "n8n-nodes-base.code",
+      "position": [1700, 200],
+      "parameters": {
+        "jsCode": "const k=$execution.customData.get('lk'),t=$execution.customData.get('lt');\nif(k&&t){const lua=`if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end`;await $redis.eval(lua,1,k,t);}\nreturn [{json:{done:true}}];"
+      }
+    },
+    {
+      "id": "skip",
+      "name": "Skip",
+      "type": "n8n-nodes-base.noOp",
+      "position": [620, 480]
+    }
+  ],
+  "connections": {
+    "Воскресенье 20:00":       {"main": [[{"node": "FIX#3 — Lock"}]]},
+    "Ежедневно 07:30":         {"main": [[{"node": "FIX#3 — Lock"}]]},
+    "FIX#3 — Lock":            {"main": [[{"node": "IF acquired"}]]},
+    "IF acquired":             {"main": [[{"node": "Skip"}], [{"node": "Собрать данные"}]]},
+    "Собрать данные":          {"main": [[{"node": "Claude — Анализ (Sonnet)"}]]},
+    "Claude — Анализ (Sonnet)":{"main": [[{"node": "Парсинг Brief"}]]},
+    "Парсинг Brief":           {"main": [[{"node": "Сохранить в Supabase"}]]},
+    "Сохранить в Supabase":    {"main": [[{"node": "Записать в Obsidian"}]]},
+    "Записать в Obsidian":     {"main": [[{"node": "Telegram — Уведомление"}]]},
+    "Telegram — Уведомление":  {"main": [[{"node": "Release Lock"}]]}
+  },
+  "settings": {"errorWorkflow": "error-handler", "timezone": "Europe/Moscow"}
+}

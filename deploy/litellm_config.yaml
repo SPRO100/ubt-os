@@ -1,0 +1,132 @@
+# ============================================================
+# FIX #6: LiteLLM Router — Cost Cap + Rate Limits
+# ============================================================
+# Проблема: агенты могут уйти в бесконечный цикл и потратить
+# сотни долларов за ночь без ограничений.
+#
+# Решение:
+#   - max_budget: $20/день на всю систему
+#   - per-agent бюджеты
+#   - rpm/tpm лимиты
+#   - max_tokens на запрос
+#   - алерт при 80% бюджета
+# ============================================================
+
+model_list:
+
+  # ── ТЯЖЁЛЫЕ АГЕНТЫ (Claude Sonnet 4.6) ─────────────────
+  - model_name: sonnet-heavy
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+      max_tokens: 4096
+      timeout: 30
+      stream: false
+
+  - model_name: sonnet-heavy-stream
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+      max_tokens: 4096
+      timeout: 30
+      stream: true
+
+  # ── ЛЁГКИЕ АГЕНТЫ (Claude Haiku 4.5) ────────────────────
+  - model_name: haiku-light
+    litellm_params:
+      model: anthropic/claude-haiku-4-5-20251001
+      api_key: os.environ/ANTHROPIC_API_KEY
+      max_tokens: 2048
+      timeout: 15
+      stream: false
+
+
+# ── ГЛОБАЛЬНЫЕ ЛИМИТЫ ────────────────────────────────────
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 3
+  retry_after: 5               # секунд между попытками
+  allowed_fails: 3             # ошибок до fallback
+  cooldown_time: 60            # секунд в cooldown после ошибок
+  timeout: 30                  # глобальный timeout на запрос
+
+litellm_settings:
+  max_budget: 20               # USD в сутки — ГЛОБАЛЬНЫЙ CAP
+  budget_duration: 1d
+  set_verbose: false
+  json_logs: true
+
+  # Алерт при 80% использования бюджета
+  alerting:
+    - slack                    # или telegram
+  alerting_threshold: 16       # USD (80% от 20)
+
+
+# ── PER-AGENT КЛЮЧИ (виртуальные) ────────────────────────
+# Каждый агент получает свой key с индивидуальным бюджетом
+# Создаётся через: litellm --generate_master_key
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL   # PostgreSQL для аудита
+
+  # Бюджеты по агентам (сумма = 20 USD/день)
+  default_team_settings:
+    budget_duration: 1d
+
+  team_list:
+    - team_id: orchestrator
+      team_alias: ORCHESTRATOR
+      max_budget: 5.0          # USD/день
+      budget_duration: 1d
+      models: [sonnet-heavy]
+      rpm_limit: 30            # requests per minute
+      tpm_limit: 100000        # tokens per minute
+
+    - team_id: content-creator
+      team_alias: CONTENT_CREATOR
+      max_budget: 4.0
+      budget_duration: 1d
+      models: [sonnet-heavy, sonnet-heavy-stream]
+      rpm_limit: 20
+      tpm_limit: 80000
+
+    - team_id: research
+      team_alias: RESEARCH
+      max_budget: 3.0
+      budget_duration: 1d
+      models: [sonnet-heavy]
+      rpm_limit: 15
+      tpm_limit: 60000
+
+    - team_id: optimizer
+      team_alias: OPTIMIZER
+      max_budget: 2.0
+      budget_duration: 1d
+      models: [sonnet-heavy]
+      rpm_limit: 10
+      tpm_limit: 40000
+
+    - team_id: seo-publishing
+      team_alias: SEO_PUBLISHING
+      max_budget: 2.0
+      budget_duration: 1d
+      models: [haiku-light]
+      rpm_limit: 60
+      tpm_limit: 120000
+
+    - team_id: analytics-kb
+      team_alias: ANALYTICS_KB
+      max_budget: 2.0
+      budget_duration: 1d
+      models: [haiku-light]
+      rpm_limit: 60
+      tpm_limit: 120000
+
+    - team_id: tg-commenter
+      team_alias: TG_COMMENTER
+      max_budget: 2.0
+      budget_duration: 1d
+      models: [haiku-light]
+      rpm_limit: 30
+      tpm_limit: 60000

@@ -1,0 +1,134 @@
+{
+  "name": "risk-engine-monitor",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Cron каждые 6ч",
+      "type": "n8n-nodes-base.cron",
+      "position": [200, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "cronExpression", "expression": "0 */6 * * *"}]
+        }
+      }
+    },
+    {
+      "id": "lock",
+      "name": "FIX#3 — Lock",
+      "type": "n8n-nodes-base.code",
+      "position": [420, 300],
+      "parameters": {
+        "jsCode": "const KEY='pipeline_lock:risk-engine';const TOKEN=`risk-${Date.now()}`;\nconst ok=await $redis.set(KEY,TOKEN,'EX',1800,'NX');\nif(!ok) return [{json:{status:'skipped'}}];\n$execution.customData.set('lk',KEY);$execution.customData.set('lt',TOKEN);\nreturn [{json:{status:'acquired'}}];"
+      }
+    },
+    {
+      "id": "gate",
+      "name": "IF acquired",
+      "type": "n8n-nodes-base.if",
+      "position": [620, 300],
+      "parameters": {
+        "conditions": {
+          "string": [{"value1":"={{ $json.status }}","value2":"acquired","operation":"equal"}]
+        }
+      }
+    },
+    {
+      "id": "run_engine",
+      "name": "Запустить Risk Engine",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [840, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AGENTS_WEBHOOK }}/risk/run",
+        "options": {"timeout": 300000}
+      }
+    },
+    {
+      "id": "get_at_risk",
+      "name": "Получить аккаунты в зоне риска",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1060, 200],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/accounts_at_risk",
+        "headers": {
+          "apikey": "={{ $env.SUPABASE_SERVICE_KEY }}",
+          "Authorization": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+        }
+      }
+    },
+    {
+      "id": "check_critical",
+      "name": "Есть STOP-аккаунты?",
+      "type": "n8n-nodes-base.if",
+      "position": [1280, 200],
+      "parameters": {
+        "conditions": {
+          "number": [{
+            "value1": "={{ $json.filter(a => a.risk_level === 'stop').length }}",
+            "value2": 0,
+            "operation": "larger"
+          }]
+        }
+      }
+    },
+    {
+      "id": "pause_stop_accounts",
+      "name": "Приостановить STOP-аккаунты",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1500, 140],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AGENTS_WEBHOOK }}/risk/pause-accounts",
+        "bodyContentType": "json",
+        "body": "={{ { accounts: $json.filter(a=>a.risk_level==='stop').map(a=>a.account_id) } }}"
+      }
+    },
+    {
+      "id": "telegram_critical",
+      "name": "Telegram — CRITICAL алерт",
+      "type": "n8n-nodes-base.telegram",
+      "position": [1500, 280],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TELEGRAM_ALERT_CHAT_ID }}",
+        "text": "🛑 *RISK ENGINE — CRITICAL*\n\nАккаунтов на СТОП: {{ $json.filter(a=>a.risk_level==='stop').length }}\nАккаунтов HIGH: {{ $json.filter(a=>a.risk_level==='high').length }}\n\nТоп угроза: `{{ $json[0]?.account_id }}` — score {{ $json[0]?.risk_score?.toFixed(0) }}/100\nПричина: {{ $json[0]?.risk_factors?.[0] }}\n\nАктивированы автодействия.",
+        "additionalFields": {"parse_mode": "Markdown"}
+      }
+    },
+    {
+      "id": "telegram_summary",
+      "name": "Telegram — Ежедневный дайджест",
+      "type": "n8n-nodes-base.telegram",
+      "position": [1500, 420],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TELEGRAM_ALERT_CHAT_ID }}",
+        "text": "🔒 *RISK ENGINE — Отчёт*\n\n✅ Безопасных: {{ $json.filter(a=>a.risk_level==='safe').length }}\n🟡 Осторожно: {{ $json.filter(a=>a.risk_level==='caution').length }}\n🔴 Высокий риск: {{ $json.filter(a=>a.risk_level==='high').length }}\n🛑 Стоп: {{ $json.filter(a=>a.risk_level==='stop').length }}\n\nСледующая проверка через 6ч",
+        "additionalFields": {"parse_mode": "Markdown"}
+      }
+    },
+    {
+      "id": "release",
+      "name": "Release Lock",
+      "type": "n8n-nodes-base.code",
+      "position": [1700, 300],
+      "parameters": {
+        "jsCode": "const k=$execution.customData.get('lk'),t=$execution.customData.get('lt');\nif(k&&t){const lua=`if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end`;await $redis.eval(lua,1,k,t);}\nreturn [{json:{done:true}}];"
+      }
+    },
+    {"id":"skip","name":"Skip","type":"n8n-nodes-base.noOp","position":[620,420]}
+  ],
+  "connections": {
+    "Cron каждые 6ч":            {"main": [[{"node":"FIX#3 — Lock"}]]},
+    "FIX#3 — Lock":              {"main": [[{"node":"IF acquired"}]]},
+    "IF acquired":               {"main": [[{"node":"Skip"}],[{"node":"Запустить Risk Engine"}]]},
+    "Запустить Risk Engine":     {"main": [[{"node":"Получить аккаунты в зоне риска"}]]},
+    "Получить аккаунты в зоне риска": {"main":[[{"node":"Есть STOP-аккаунты?"}]]},
+    "Есть STOP-аккаунты?":       {"main":[[{"node":"Telegram — Ежедневный дайджест"}],[{"node":"Приостановить STOP-аккаунты"}]]},
+    "Приостановить STOP-аккаунты":{"main":[[{"node":"Telegram — CRITICAL алерт"}]]},
+    "Telegram — CRITICAL алерт": {"main":[[{"node":"Release Lock"}]]},
+    "Telegram — Ежедневный дайджест":{"main":[[{"node":"Release Lock"}]]}
+  },
+  "settings": {"errorWorkflow":"error-handler","timezone":"Europe/Moscow"}
+}
