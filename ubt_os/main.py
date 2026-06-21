@@ -52,13 +52,14 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/strategy/collect":      self._run_strategy_collect,
             "/risk/run":              self._run_risk,
             "/knowledge/synthesize":  self._run_knowledge_synthesize,
-            "/obsidian/write":        self._run_obsidian,  # алиас на тот же sync
+            "/obsidian/write":        self._run_obsidian_write,
+            "/obsidian/append":       self._run_obsidian_append,
         }
 
         handler = routes.get(self.path)
         if handler:
-            asyncio.run(handler(body))
-            self._respond(200, {"status": "accepted"})
+            result = asyncio.run(handler(body))
+            self._respond(200, result if isinstance(result, dict) else {"status": "accepted"})
         else:
             self._respond(404, {"error": "unknown route"})
 
@@ -118,6 +119,36 @@ class WebhookHandler(BaseHTTPRequestHandler):
             sync = ObsidianSync()
             await sync.sync()
 
+    @staticmethod
+    def _safe_vault_path(rel_path: str):
+        from pathlib import Path
+        vault = Path(os.getenv("OBSIDIAN_VAULT_PATH", "/opt/ubt-os/obsidian-vault")).resolve()
+        target = (vault / rel_path).resolve()
+        if not str(target).startswith(str(vault)):
+            raise ValueError(f"Path escapes vault: {rel_path}")
+        return target
+
+    async def _run_obsidian_write(self, body: dict):
+        """PATCH: реальная запись файла в vault (path+content из тела запроса)."""
+        rel_path = body.get("path")
+        content  = body.get("content", "")
+        append   = bool(body.get("append", False))
+        if not rel_path:
+            logger.warning("obsidian/write: пустой path, пропускаем")
+            return
+        target = self._safe_vault_path(rel_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        mode = "a" if append else "w"
+        with open(target, mode, encoding="utf-8") as f:
+            f.write(content)
+        logger.info(f"obsidian/write: записано {target} (append={append})")
+
+    async def _run_obsidian_append(self, body: dict):
+        """PATCH: алиас append=true для /obsidian/append."""
+        body = dict(body)
+        body["append"] = True
+        await self._run_obsidian_write(body)
+
     async def _run_report(self, body: dict):
         from ubt_os.core import pipeline_lock
         from ubt_os.pipelines import DeadLetterQueueManager
@@ -168,7 +199,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 if mode == "weekly"
                 else await run_daily_synthesis()
             )
-            logger.info(f"knowledge/synthesize ({mode}) завершён: {result}")
+            logger.info(f"knowledge/synthesize ({mode}) завершён")
+            return result
+        return {"status": "skipped", "reason": "lock_busy"}
 
     async def _run_health_check(self):
         """GET /health/check-all — проверка доступности Supabase и Redis."""

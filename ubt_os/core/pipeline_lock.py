@@ -27,15 +27,23 @@ logger = logging.getLogger("pipeline.lock")
 # ══════════════════════════════════════════════════════════
 
 _redis: Optional[aioredis.Redis] = None
+_redis_loop = None
 
 async def get_redis() -> aioredis.Redis:
-    global _redis
-    if _redis is None:
+    global _redis, _redis_loop
+    current_loop = asyncio.get_running_loop()
+    if _redis is None or _redis_loop is not current_loop:
+        if _redis is not None:
+            try:
+                await _redis.close()
+            except Exception:
+                pass
         _redis = await aioredis.from_url(
             os.environ["REDIS_URL"],
             encoding="utf-8",
             decode_responses=True,
         )
+        _redis_loop = current_loop
     return _redis
 
 

@@ -8,6 +8,16 @@ import asyncio, json, logging, os
 from datetime import datetime, timedelta
 from supabase import create_client, Client
 from anthropic import AsyncAnthropic
+import re
+
+def _extract_json(text: str):
+    """PATCH: Claude иногда оборачивает JSON в markdown ```json ... ``` —
+    убираем обёртку перед json.loads, иначе JSONDecodeError на char 0."""
+    t = text.strip()
+    m = re.match(r"^```(?:json)?\s*\n(.*)\n```\s*$", t, re.DOTALL)
+    if m:
+        t = m.group(1).strip()
+    return json.loads(t)
 
 logger = logging.getLogger("ubt_os.knowledge_synthesizer")
 
@@ -141,7 +151,7 @@ class KnowledgeAnalyst:
                 )
             }],
         )
-        return json.loads(resp.content[0].text)
+        return _extract_json(resp.content[0].text)
 
     async def synthesize_weekly(self, data: dict) -> dict:
         resp = await self.client.messages.create(
@@ -152,7 +162,7 @@ class KnowledgeAnalyst:
                 )
             }],
         )
-        return json.loads(resp.content[0].text)
+        return _extract_json(resp.content[0].text)
 
 
 # ── Writer ────────────────────────────────────────────────
