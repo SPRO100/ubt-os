@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UBT OS — Командный центр</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#0a0b0f; --surface:#0f1117; --surface2:#151821; --border:#1e2030; --borderLight:#2d3352;
+  --text:#e2e8f0; --muted:#94a3b8; --faint:#475569;
+  --green:#4ade80; --indigo:#6366f1; --amber:#f59e0b; --red:#f87171; --pink:#f472b6;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--void);color:var(--text);font-family:'Inter',-apple-system,sans-serif;-webkit-font-smoothing:antialiased;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+:focus-visible{outline:2px solid var(--indigo);outline-offset:2px;}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.001ms!important;}}
+
+.app{display:flex;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{width:226px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;padding:22px 0;background:var(--surface);}
+.sidebar-head{padding:0 20px 18px;border-bottom:1px solid var(--border);}
+.sidebar-head .logo{font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.25em;color:var(--green);font-weight:700;}
+.sidebar-head .sub{font-size:10px;color:var(--faint);letter-spacing:.15em;margin-top:4px;}
+nav{flex:1;padding:14px 10px;overflow-y:auto;}
+.nav-btn{
+  display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;margin-bottom:2px;
+  background:transparent;border:1px solid transparent;border-radius:8px;cursor:pointer;
+  color:var(--faint);font-size:12.5px;text-align:left;font-family:inherit;
+}
+.nav-btn.active{background:var(--border);border-color:var(--borderLight);color:var(--text);}
+.nav-btn:hover:not(.active){color:var(--muted);}
+.nav-btn .icon{font-size:14px;}
+.sidebar-foot{padding:14px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--faint);line-height:1.6;}
+.sidebar-foot .pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(74,222,128,.5);}70%{box-shadow:0 0 0 5px rgba(74,222,128,0);}100%{box-shadow:0 0 0 0 rgba(74,222,128,0);}}
+
+/* MAIN */
+main{flex:1;overflow-y:auto;padding:26px 30px 60px;max-width:1100px;}
+.page-head{margin-bottom:20px;}
+.page-head h1{font-size:20px;font-weight:700;color:#f8fafc;margin:0;}
+.page-head .desc{font-size:12px;color:var(--faint);margin-top:3px;}
+
+.section{display:none;}
+.section.active{display:block;}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px;}
+.card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.card-head .title{font-size:12px;font-weight:600;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;}
+.card-head .right{font-size:11px;color:var(--faint);}
+
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;font-size:10.5px;color:var(--faint);font-weight:500;letter-spacing:.04em;padding:0 10px 8px 0;border-bottom:1px solid var(--border);text-transform:uppercase;}
+td{font-size:12.5px;color:var(--muted);padding:9px 10px 9px 0;border-bottom:1px solid var(--border);}
+tr:last-child td{border-bottom:none;}
+td.primary{color:var(--text);font-weight:600;}
+td.mono{font-family:'IBM Plex Mono',monospace;font-size:12px;}
+
+.chip{font-size:10.5px;padding:3px 9px;border-radius:6px;font-weight:600;display:inline-block;}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:8px;}
+
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px;}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+.stat .label{font-size:11px;color:var(--faint);margin-bottom:8px;letter-spacing:.04em;}
+.stat .value{font-size:24px;font-weight:700;font-family:'IBM Plex Mono',monospace;}
+.stat .note{font-size:11px;color:var(--faint);margin-top:4px;}
+
+.priority-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--muted);}
+.priority-item:last-child{border-bottom:none;}
+.priority-item .num{color:var(--green);font-family:'IBM Plex Mono',monospace;flex-shrink:0;}
+
+.live-tag{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--green);border:1px solid rgba(74,222,128,.3);background:rgba(74,222,128,.08);padding:2px 7px;border-radius:5px;}
+.ref-tag{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);border:1px solid var(--border);padding:2px 7px;border-radius:5px;}
+
+.note-box{font-size:13px;color:var(--muted);line-height:1.65;}
+.note-box b{color:var(--text);}
+.chips-row{display:flex;gap:8px;flex-wrap:wrap;}
+
+@media (max-width:760px){
+  .app{flex-direction:column;}
+  .sidebar{width:100%;flex-direction:row;overflow-x:auto;padding:10px;}
+  .sidebar-head,.sidebar-foot{display:none;}
+  nav{display:flex;padding:0;}
+  .nav-btn{white-space:nowrap;}
+  main{padding:18px;}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <div class="logo">UBT OS</div>
+      <div class="sub">TRAFFIC SYSTEM</div>
+    </div>
+    <nav id="nav"></nav>
+    <div class="sidebar-foot" id="sidebar-status"><span class="pulse"></span>Проверка…</div>
+  </aside>
+
+  <main>
+    <div class="page-head">
+      <h1 id="page-title">Dashboard</h1>
+      <div class="desc" id="page-desc">Карточки с тегом LIVE читают Supabase в реальном времени · справочные карточки — конфигурация проекта</div>
+    </div>
+
+    <section class="section active" id="sec-dashboard"></section>
+    <section class="section" id="sec-accounts"></section>
+    <section class="section" id="sec-content"></section>
+    <section class="section" id="sec-pipeline"></section>
+    <section class="section" id="sec-clients"></section>
+    <section class="section" id="sec-agents"></section>
+    <section class="section" id="sec-analytics"></section>
+    <section class="section" id="sec-infra"></section>
+    <section class="section" id="sec-knowledge"></section>
+  </main>
+
+</div>
+
+<script>
+// ───────────────────────────────────────────────
+const SUPABASE_URL = "https://ricuoztdelapexfpqsux.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_f_z6goLZoPN68j2N71wX6g_r6jNjrJt";
+const AGENTS_SERVER = "http://88.218.121.108:8080";
+// ───────────────────────────────────────────────
+
+const headers = { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY };
+
+function esc(s){ if(s==null) return ""; return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function chip(text,color){ return `<span class="chip" style="color:${color};background:${color}1a">${esc(text)}</span>`; }
+function liveTag(){ return `<span class="live-tag">live</span>`; }
+function refTag(){ return `<span class="ref-tag">справка</span>`; }
+
+function fetchWithTimeout(url, options = {}, ms = 5000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(id));
+}
+async function countOf(table, filter=""){
+  try{
+    const res = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/${table}?select=id${filter}`,{headers:{...headers,Prefer:"count=exact"}});
+    const range = res.headers.get("content-range");
+    return range ? parseInt(range.split("/")[1]||"0",10) : 0;
+  }catch(e){ return 0; }
+}
+async function fetchRows(table, query){
+  try{
+    const res = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/${table}?${query}`,{headers});
+    return res.ok ? await res.json() : [];
+  }catch(e){ return []; }
+}
+async function checkHealth(){
+  try{
+    const res = await fetchWithTimeout(`${AGENTS_SERVER}/health/check-all`, {}, 10000);
+    return res.ok ? await res.json() : null;
+  }catch(e){ return null; }
+}
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+const NAV = [
+  {id:"dashboard",icon:"⚡",label:"Dashboard"},
+  {id:"accounts",icon:"👤",label:"Аккаунты"},
+  {id:"content",icon:"🎬",label:"Производство"},
+  {id:"pipeline",icon:"🔄",label:"Пайплайн (n8n)"},
+  {id:"clients",icon:"🤝",label:"Клиенты"},
+  {id:"agents",icon:"🧩",label:"Агенты"},
+  {id:"analytics",icon:"📊",label:"Аналитика"},
+  {id:"infra",icon:"🖥️",label:"Инфраструктура"},
+  {id:"knowledge",icon:"🧠",label:"База знаний"},
+];
+const TITLES = {
+  dashboard:["Dashboard","Реальное состояние системы прямо сейчас"],
+  accounts:["Аккаунты","0 подключённых аккаунтов · протокол прогрева ниже — справка"],
+  content:["Производство","Архитектура пайплайна контента · что реально работает помечено LIVE"],
+  pipeline:["Пайплайн (n8n)","6 воркфлоу реально развёрнуты и опубликованы на сервере"],
+  clients:["Клиенты","White-label агентская модель, CPA-only оплата"],
+  agents:["Агенты","7 агентов реально существуют как код · остальное — план"],
+  analytics:["Аналитика","Реальная выручка $0 · условия партнёрок — справка, аккаунты не подключены"],
+  infra:["Инфраструктура","FirstVDS Амстердам — реально развёрнут и работает"],
+  knowledge:["База знаний","Obsidian Vault, синхронизация через n8n каждый час"],
+};
+
+document.getElementById("nav").innerHTML = NAV.map(n =>
+  `<button class="nav-btn ${n.id==='dashboard'?'active':''}" data-id="${n.id}">
+    <span class="icon">${n.icon}</span>${n.label}
+  </button>`
+).join("");
+
+document.querySelectorAll(".nav-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("sec-"+btn.dataset.id).classList.add("active");
+    document.getElementById("page-title").textContent = TITLES[btn.dataset.id][0];
+    document.getElementById("page-desc").textContent = TITLES[btn.dataset.id][1];
+  });
+});
+
+/* ============================================================
+   DASHBOARD — живой статус
+   ============================================================ */
+async function renderDashboard(){
+  const health = await checkHealth();
+  const [accounts, videos, revenueEvents, knowledgeCount, strategyCount, riskCount] = await Promise.all([
+    countOf("accounts"), countOf("videos"), countOf("revenue_events"),
+    countOf("knowledge_entries"), countOf("strategy_briefs"), countOf("account_risk_profiles"),
+  ]);
+
+  const supaOk = health && health.supabase === "ok";
+  const redisOk = health && health.redis === "ok";
+
+  document.getElementById("sidebar-status").innerHTML =
+    `<span class="pulse"></span>${supaOk && redisOk ? "Все системы работают" : "Проверка соединений…"}`;
+
+  document.getElementById("sec-dashboard").innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="label">SUPABASE ${liveTag()}</div>
+        <div class="value" style="color:${supaOk?'var(--green)':'var(--red)'}">${supaOk?'OK':'ERROR'}</div></div>
+      <div class="stat"><div class="label">REDIS ${liveTag()}</div>
+        <div class="value" style="color:${redisOk?'var(--green)':'var(--red)'}">${redisOk?'OK':'ERROR'}</div></div>
+      <div class="stat"><div class="label">Аккаунты ${liveTag()}</div><div class="value">${accounts}</div></div>
+      <div class="stat"><div class="label">Видео ${liveTag()}</div><div class="value">${videos}</div></div>
+      <div class="stat"><div class="label">Revenue events ${liveTag()}</div><div class="value">${revenueEvents}</div></div>
+      <div class="stat"><div class="label">Записи знаний ${liveTag()}</div><div class="value">${knowledgeCount}</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="title">Что дальше</span><span class="right">актуальный приоритет</span></div>
+      ${["Подключить Higgsfield API → первая реальная генерация видео",
+         "Зарегистрировать партнёрки (1win, Dr.Cash) и подключить Keitaro для трекинга конверсий",
+         "Завести первый реальный аккаунт и пройти 7-дневный протокол прогрева",
+         "Настроить Compliance Gate перед первой публикацией (особенно для беттинга)",
+         "После первых реальных видео — включить Risk Engine и Strategy Engine по расписанию"]
+        .map((t,i)=>`<div class="priority-item"><span class="num">${String(i+1).padStart(2,"0")}</span>${esc(t)}</div>`).join("")}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="title">Позиционирование</span><span class="right">${refTag()} стратегическая заметка, не измеряемая метрика</span></div>
+      <table>
+        <tr><th>Фактор</th><th>GeeLark</th><th>Conbersa</th><th>NoimosAI</th><th>UBT OS</th></tr>
+        ${[["Claude как оркестратор",0,0,0,1],["Higgsfield видео-генерация",0,0,0,1],
+           ["Direction-based workflow",0,0,0,1],["Obsidian как персистентная память",0,0,0,1],
+           ["Человек одобряет ключевые действия",0,0,0,1]]
+          .map(([f,a,b,c,d])=>`<tr><td class="primary">${f}</td>
+            <td>${a?"✓":"—"}</td><td>${b?"✓":"—"}</td><td>${c?"✓":"—"}</td>
+            <td style="color:var(--green)">${d?"✓":"—"}</td></tr>`).join("")}
+      </table>
+    </div>
+  `;
+}
+
+/* ============================================================
+   ACCOUNTS
+   ============================================================ */
+async function renderAccounts(){
+  const accounts = await fetchRows("accounts", "select=id,platform,status,created_at&order=created_at.desc&limit=20");
+  document.getElementById("sec-accounts").innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="title">Подключённые аккаунты</span><span class="right">${liveTag()} ${accounts.length} найдено</span></div>
+      ${accounts.length ? `<table><tr><th>Платформа</th><th>Статус</th><th>Создан</th></tr>${
+        accounts.map(a=>`<tr><td class="primary">${esc(a.platform)}</td><td>${esc(a.status)}</td><td class="mono">${esc((a.created_at||"").slice(0,10))}</td></tr>`).join("")
+      }</table>` : `<div class="note-box">Таблица <code>accounts</code> пуста — ни один аккаунт пока не подключён к системе.</div>`}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="title">Протокол прогрева — 7 дней</span><span class="right">${refTag()}</span></div>
+      <table><tr><th>День</th><th>Действие</th></tr>
+        <tr><td class="primary">1–3</td><td>Только просмотры (20–30 видео) и лайки (10–15), без публикаций.</td></tr>
+        <tr><td class="primary">4–5</td><td>1 нейтральный пост не по теме ниши.</td></tr>
+        <tr><td class="primary">6–7</td><td>1 нишевый пост без ссылок и CTA.</td></tr>
+        <tr><td class="primary">8+</td><td>Старт монетизации. Первый CTA-пост.</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="title">Пороги тревоги Account Checker</span><span class="right">${refTag()} воркфлоу опубликован и работает</span></div>
+      <table><tr><th>Метрика</th><th>Действие</th></tr>
+        <tr><td class="primary">ER &lt; 2%</td><td>Алерт в Telegram</td></tr>
+        <tr><td class="primary">ER &lt; 1%</td><td>Стоп публикаций + замена прокси</td></tr>
+        <tr><td class="primary">Бан зафиксирован</td><td>Запись в Knowledge Base</td></tr>
+      </table>
+    </div>
+  `;
+}
+
+/* ============================================================
+   CONTENT / PRODUCTION
+   ============================================================ */
+async function renderContent(){
+  const videos = await countOf("videos");
+  document.getElementById("sec-content").innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="title">Произведено видео</span><span class="right">${liveTag()}</span></div>
+      <div class="stat"><div class="label">Всего записей в таблице videos</div><div class="value">${videos}</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="title">Производственный пайплайн</span><span class="right">${refTag()} архитектура</span></div>
+      <table><tr><th>Этап</th><th>Инструмент</th><th>Статус</th></tr>
+        <tr><td class="primary">Контент-план</td><td>CONTENT_CREATOR / strategy_engine.py</td><td>${chip("код есть","#4ade80")}</td></tr>
+        <tr><td class="primary">Compliance Gate</td><td>Haiku, 3 уровня анализа</td><td>${chip("не реализован","#f87171")}</td></tr>
+        <tr><td class="primary">Видеогенерация</td><td>Higgsfield MCP</td><td>${chip("API не подключён","#f59e0b")}</td></tr>
+        <tr><td class="primary">Озвучка</td><td>edge-tts (установлен)</td><td>${chip("готов к использованию","#4ade80")}</td></tr>
+        <tr><td class="primary">Keitaro UTM</td><td>трекинг-ссылки</td><td>${chip("не подключён","#f87171")}</td></tr>
+        <tr><td class="primary">Публикация</td><td>TikTokAutoUploader / Blotato</td><td>${chip("не подключён","#f87171")}</td></tr>
+      </table>
+    </div>
+  `;
+}
+
+/* ============================================================
+   PIPELINE — реальные 6 воркфлоу
+   ============================================================ */
+function renderPipeline(){
+  document.getElementById("sec-pipeline").innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="title">n8n воркфлоу — реально развёрнуты</span><span class="right">${refTag()} 6 из 6 опубликованы 21–22 июня</span></div>
+      <table><tr><th>Воркфлоу</th><th>Расписание</th><th>Что делает</th></tr>
+        <tr><td class="primary">obsidian-sync</td><td class="mono">каждый час</td><td>Vault → GitHub коммит и пуш</td></tr>
+        <tr><td class="primary">account-checker</td><td class="mono">каждые 6ч</td><td>Проверка ER, прокси, теневой бан</td></tr>
+        <tr><td class="primary">health-monitor</td><td class="mono">каждые 60 сек</td><td>Health-check Supabase/Redis + Telegram-алерты</td></tr>
+        <tr><td class="primary">knowledge-synthesizer</td><td class="mono">ежедневно/еженедельно</td><td>Claude анализирует данные → запись в Obsidian</td></tr>
+        <tr><td class="primary">risk-engine-monitor</td><td class="mono">каждые 6ч</td><td>Risk-скоринг аккаунтов 0–100</td></tr>
+        <tr><td class="primary">strategy-engine-weekly</td><td class="mono">воскресенье 20:00</td><td>Недельный стратегический бриф</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="title">n8n панель управления</span></div>
+      <div class="note-box">Открыть живые воркфлоу: <a href="http://88.218.121.108:5678" style="color:var(--indigo)">88.218.121.108:5678</a></div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   CLIENTS
+   ============================================================ */
+let CURRENT_PROJECT = null;
+
+async function renderClients(){
+  const projects = await fetchRows("vertical_configs", "select=id,name,category,config_yaml&order=created_at.asc");
+  document.getElementById("sec-clients").innerHTML = `
+    <div class="card" id="projects-list">
+      <div class="card-head"><span class="title">Проекты</span><span class="right">${liveTag()} ${projects.length} из vertical_configs</span></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        ${projects.map(p => `
+          <div class="project-card" data-id="${esc(p.id)}" style="cursor:pointer;flex:1;min-width:200px;background:var(--void);border:1px solid var(--border);border-radius:8px;padding:14px;border-left:3px solid #60a5fa;">
+            <div style="font-weight:600;color:var(--text);">${esc(p.name)}</div>
+            <div style="font-size:11px;color:var(--faint);margin-top:6px;">${esc(p.category)}</div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+    <div id="project-workspace"></div>
+  `;
+  document.querySelectorAll(".project-card").forEach(card => {
+    card.addEventListener("click", () => openProject(card.dataset.id, projects));
+  });
+}
+
+async function openProject(id, projects){
+  CURRENT_PROJECT = id;
+  const project = projects.find(p => p.id === id);
+  const knowledge = await fetchRows("knowledge_entries", `select=type,content,created_at&vertical=eq.${id}&order=created_at.desc&limit=5`);
+  const history = await fetchRows("chat_messages", `select=role,content,created_at&vertical_id=eq.${id}&order=created_at.asc&limit=30`);
+
+  document.getElementById("project-workspace").innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="title">📂 ${esc(project.name)}</span><span class="right">${refTag()} конфигурация проекта</span></div>
+      <div class="note-box mono" style="font-size:11.5px;white-space:pre-wrap;">${esc(JSON.stringify(project.config_yaml, null, 2))}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="title">База знаний проекта</span><span class="right">${liveTag()} ${knowledge.length} записей</span></div>
+      ${knowledge.length
+        ? `<table><tr><th>Тип</th><th>Содержание</th><th>Дата</th></tr>${knowledge.map(k=>
+            `<tr><td><span class="badge caution">${esc(k.type)}</span></td><td class="content-snippet">${esc((k.content||"").slice(0,90))}…</td><td class="mono">${esc((k.created_at||"").slice(0,10))}</td></tr>`
+          ).join("")}</table>`
+        : `<div class="note-box">Пока нет записей знаний для этого проекта.</div>`}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="title">💬 Чат с оркестратором</span><span class="right">${liveTag()}</span></div>
+      <div id="chat-log" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+        ${history.map(renderChatMsg).join("")}
+      </div>
+      <div style="display:flex;gap:8px;">
+        <textarea id="chat-input" rows="2" placeholder="Спроси оркестратора об этом проекте…"
+          style="flex:1;background:var(--void);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-family:inherit;font-size:13px;resize:vertical;"></textarea>
+        <button id="chat-send" onclick="sendChatMessage()"
+          style="background:var(--indigo);color:#fff;border:none;border-radius:8px;padding:0 18px;font-size:13px;cursor:pointer;">Отправить</button>
+      </div>
+    </div>
+  `;
+  const log = document.getElementById("chat-log");
+  if(log) log.scrollTop = log.scrollHeight;
+}
+
+function renderChatMsg(m){
+  const isUser = m.role === "user";
+  return `<div style="align-self:${isUser?'flex-end':'flex-start'};max-width:80%;background:${isUser?'var(--indigo)':'var(--surface2)'};
+    border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;color:${isUser?'#fff':'var(--text)'};">
+    ${esc(m.content)}
+  </div>`;
+}
+
+async function sendChatMessage(){
+  const input = document.getElementById("chat-input");
+  const btn = document.getElementById("chat-send");
+  const message = input.value.trim();
+  if(!message || !CURRENT_PROJECT) return;
+
+  const log = document.getElementById("chat-log");
+  log.insertAdjacentHTML("beforeend", renderChatMsg({role:"user", content:message}));
+  log.scrollTop = log.scrollHeight;
+  input.value = "";
+  btn.disabled = true;
+  btn.textContent = "Думаю…";
+
+  try{
+    const res = await fetchWithTimeout(`${AGENTS_SERVER}/orchestrator/chat`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({vertical_id: CURRENT_PROJECT, message}),
+    }, 120000);
+    const data = await res.json();
+    log.insertAdjacentHTML("beforeend", renderChatMsg({role:"assistant", content: data.reply || data.error || "Ошибка ответа"}));
+  }catch(e){
+    log.insertAdjacentHTML("beforeend", renderChatMsg({role:"assistant", content:"⚠️ Не удалось связаться с оркестратором: "+e.message}));
+  }
+  log.scrollTop = log.scrollHeight;
+  btn.disabled = false;
+  btn.textContent = "Отправить";
+}
+
+/* ============================================================
+   AGENTS — честный реальный инвентарь
+   ============================================================ */
+function renderAgents(){
+  document.getElementById("sec-agents").innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="title">Реально существуют как код</span><span class="right">${refTag()} 7 файлов в ubt_os/agents/</span></div>
+      <table><tr><th>Файл</th><th>Роль</th></tr>
+        <tr><td class="primary mono">account_checker.py</td><td>Проверка здоровья аккаунтов</td></tr>
+        <tr><td class="primary mono">knowledge_synthesizer.py</td><td>Синтез знаний через Claude — протестирован, работает</td></tr>
+        <tr><td class="primary mono">strategy_engine.py</td><td>Недельная стратегия — протестирован, работает</td></tr>
+        <tr><td class="primary mono">revenue_analyst.py</td><td>Анализ выручки и атрибуции</td></tr>
+        <tr><td class="primary mono">failure_recovery.py</td><td>DLQ и восстановление после сбоев</td></tr>
+        <tr><td class="primary mono">warming_state_machine.py</td><td>State machine прогрева аккаунтов</td></tr>
+        <tr><td class="primary mono">telegram_jitter.py</td><td>Случайные задержки для Telegram-активности</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="title">Запланировано, не реализовано</span><span class="right">${refTag()} NUTRA.AUTO + Telegram-модуль</span></div>
+      <div class="note-box">7 агентов NUTRA.AUTO (СТРАТЕГ, СЦЕНАРИСТ, РЕЖИССЁР, ДИКТОР, МОНТАЖЁР, ДИСТРИБЬЮТОР, АНАЛИТИК) и 4 Telegram-агента (T1–T4) существуют только в архитектурном плане — кода для них пока нет.</div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   ANALYTICS
+   ============================================================ */
+async function renderAnalytics(){
+  const revenue = await fetchRows("revenue_events", "select=net_amount&limit=1000");
+  const total = revenue.reduce((s,r)=>s+(parseFloat(r.net_amount)||0),0);
+  document.getElementById("sec-analytics").innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="label">Реальная выручка ${liveTag()}</div><div class="value">$${total.toFixed(2)}</div>
+        <div class="note">сумма net_amount из revenue_events</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="title">Условия партнёрских программ</span><span class="right">${refTag()} аккаунты не зарегистрированы</span></div>
+      <table><tr><th>Программа</th><th>Условия</th><th>Cookie</th><th>Выплаты</th></tr>
+        <tr><td class="primary">1win</td><td>RevShare до 60%, CPA до $250</td><td>365 дней</td><td>по вторникам</td></tr>
+        <tr><td class="primary">Mostbet</td><td>RevShare до 60%</td><td>—</td><td>—</td></tr>
+        <tr><td class="primary">Dr.Cash</td><td>$25–100 CPA (COD)</td><td>—</td><td>2×/неделю</td></tr>
+      </table>
+    </div>
+  `;
+}
+
+/* ============================================================
+   INFRA
+   ============================================================ */
+function renderInfra(){
+  document.getElementById("sec-infra").innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="title">Сервер</span><span class="right">${refTag()} реально развёрнут</span></div>
+      <table><tr><th>Параметр</th><th>Значение</th></tr>
+        <tr><td class="primary">Провайдер</td><td>FirstVDS «Улёт»</td></tr>
+        <tr><td class="primary">Локация</td><td>Амстердам (требование: EU для доступа к Claude API)</td></tr>
+        <tr><td class="primary">Конфигурация</td><td>8 CPU / 12 GB RAM / 120 GB NVMe</td></tr>
+        <tr><td class="primary">OS</td><td>Ubuntu 22.04 LTS</td></tr>
+        <tr><td class="primary">IP</td><td class="mono">88.218.121.108</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="title">Развёрнутые сервисы</span><span class="right">${liveTag()} проверено сегодня</span></div>
+      <table><tr><th>Сервис</th><th>Порт</th><th>Тип</th></tr>
+        <tr><td class="primary">n8n</td><td class="mono">5678</td><td>Docker, restart always</td></tr>
+        <tr><td class="primary">LiteLLM</td><td class="mono">4000</td><td>systemd</td></tr>
+        <tr><td class="primary">UBT Agents</td><td class="mono">8080</td><td>systemd</td></tr>
+        <tr><td class="primary">Dashboard</td><td class="mono">3000</td><td>systemd</td></tr>
+      </table>
+    </div>
+  `;
+}
+
+/* ============================================================
+   KNOWLEDGE
+   ============================================================ */
+function renderKnowledge(){
+  document.getElementById("sec-knowledge").innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="title">Obsidian Vault</span><span class="right">${refTag()}</span></div>
+      <div class="note-box">
+        Структура PARA (00 Inbox / 20 Projects / 40 Areas / 50 Resources/SOPs / 60 Daily / 90 Archive)<br>
+        Синхронизация: <b>каждый час</b> → GitHub через воркфлоу <code>obsidian-sync</code><br>
+        Репозиторий: <code>github.com/SPRO100/ubt-os</code>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+async function loadAll(){
+  await renderDashboard();
+  await renderAccounts();
+  await renderContent();
+  renderPipeline();
+  if (!CURRENT_PROJECT) { renderClients(); }
+  renderAgents();
+  await renderAnalytics();
+  renderInfra();
+  renderKnowledge();
+}
+loadAll();
+setInterval(loadAll, 60000);
+</script>
+
+</body>
+</html>

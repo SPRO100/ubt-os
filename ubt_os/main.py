@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 
 logging.basicConfig(
@@ -54,6 +54,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/knowledge/synthesize":  self._run_knowledge_synthesize,
             "/obsidian/write":        self._run_obsidian_write,
             "/obsidian/append":       self._run_obsidian_append,
+            "/orchestrator/chat":     self._run_orchestrator_chat,
         }
 
         handler = routes.get(self.path)
@@ -73,11 +74,20 @@ class WebhookHandler(BaseHTTPRequestHandler):
     def _respond(self, code: int, data: dict):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
 
     def log_message(self, *_):
         pass  # подавляем стандартные логи HTTPServer
+
+    def do_OPTIONS(self):
+        """PATCH: CORS preflight для POST-запросов с Content-Type: application/json."""
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
 
     # ── Обработчики пайплайнов ────────────────────────────
 
@@ -148,6 +158,65 @@ class WebhookHandler(BaseHTTPRequestHandler):
         body = dict(body)
         body["append"] = True
         await self._run_obsidian_write(body)
+
+    async def _run_orchestrator_chat(self, body: dict):
+        """PATCH: чат с оркестратором, со контекстом конкретного проекта (vertical)."""
+        from anthropic import AsyncAnthropic
+
+        vertical_id = body.get("vertical_id")
+        message = (body.get("message") or "").strip()
+        if not vertical_id or not message:
+            return {"error": "vertical_id и message обязательны"}
+
+        db = _get_db()
+
+        vconf = db.table("vertical_configs").select("id,name,config_yaml").eq("id", vertical_id).limit(1).execute()
+        if not vconf.data:
+            return {"error": f"проект '{vertical_id}' не найден"}
+        project = vconf.data[0]
+
+        knowledge = (
+            db.table("knowledge_entries")
+            .select("type,content,created_at")
+            .eq("vertical", vertical_id)
+            .order("created_at", desc=True)
+            .limit(5)
+            .execute()
+        ).data
+
+        history = (
+            db.table("chat_messages")
+            .select("role,content")
+            .eq("vertical_id", vertical_id)
+            .order("created_at", desc=False)
+            .limit(20)
+            .execute()
+        ).data
+
+        system_prompt = (
+            f"Ты — ORCHESTRATOR проекта «{project['name']}» в системе UBT OS.\n"
+            f"Конфигурация проекта: {project['config_yaml']}\n\n"
+            f"Последние записи базы знаний этого проекта:\n"
+            + ("\n".join(f"- [{k['type']}] {k['content'][:200]}" for k in knowledge) if knowledge else "пока нет записей")
+            + "\n\nОтвечай по-русски, кратко и по делу, в контексте именно этого проекта."
+        )
+
+        messages = [{"role": h["role"], "content": h["content"]} for h in history]
+        messages.append({"role": "user", "content": message})
+
+        client = AsyncAnthropic()
+        resp = await client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            system=system_prompt,
+            messages=messages,
+        )
+        reply = resp.content[0].text
+
+        db.table("chat_messages").insert({"vertical_id": vertical_id, "role": "user", "content": message}).execute()
+        db.table("chat_messages").insert({"vertical_id": vertical_id, "role": "assistant", "content": reply}).execute()
+
+        return {"reply": reply, "vertical_id": vertical_id}
 
     async def _run_report(self, body: dict):
         from ubt_os.core import pipeline_lock
@@ -229,7 +298,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
 def main():
     port = int(os.getenv("AGENTS_PORT", "8080"))
     logger.info(f"UBT OS запущен на порту {port}")
-    server = HTTPServer(("0.0.0.0", port), WebhookHandler)
+    server = ThreadingHTTPServer(("0.0.0.0", port), WebhookHandler)
     server.serve_forever()
 
 
