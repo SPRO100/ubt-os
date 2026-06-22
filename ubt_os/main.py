@@ -169,7 +169,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 return
             lookback_days = int(body.get("lookback_days", 7))
             result = await run_strategy_engine(lookback_days=lookback_days)
-            logger.info(f"strategy/collect завершён: {result}")
+            logger.info(f"strategy/collect завершён: brief_id={result.get('brief_id')}")
+            return result
+        return {"status": "skipped", "reason": "lock_busy"}
 
     async def _run_risk(self, body: dict):
         """Risk Engine: пересчитывает риск-скор всех активных аккаунтов."""

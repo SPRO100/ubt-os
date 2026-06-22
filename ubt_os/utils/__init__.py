@@ -1,4 +1,4 @@
 from .obsidian_git_sync import ObsidianSync
-from .attribution       import AttributionTracker, build_utm
+from .attribution       import AttributionAnalyzer, build_utm
 
-__all__ = ["ObsidianSync", "AttributionTracker", "build_utm"]
+__all__ = ["ObsidianSync", "AttributionAnalyzer", "build_utm"]

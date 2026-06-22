@@ -12,6 +12,17 @@ from typing import Any
 
 from supabase import create_client, Client
 from anthropic import AsyncAnthropic
+import re
+import json
+
+def _extract_json(text: str):
+    """PATCH: Claude иногда оборачивает JSON в markdown ```json ... ``` —
+    убираем обёртку перед json.loads."""
+    t = text.strip()
+    m = re.match(r"^```(?:json)?\s*\n(.*)\n```\s*$", t, re.DOTALL)
+    if m:
+        t = m.group(1).strip()
+    return json.loads(t)
 
 logger = logging.getLogger("ubt_os.strategy_engine")
 
@@ -68,7 +79,7 @@ class StrategyDataCollector:
     def _fetch_revenue(self) -> list:
         res = (
             self.db.table("revenue_events")
-            .select("vertical,geo,platform,source_video_id,amount,partner")
+            .select("vertical,geo,platform,source_video_id,net_amount,partner")
             .gte("created_at", self.since)
             .execute()
         )
@@ -160,7 +171,7 @@ class StrategyAnalyst:
         )
 
         import json
-        brief = json.loads(resp.content[0].text)
+        brief = _extract_json(resp.content[0].text)
         brief["raw_json"]  = brief.copy()
         brief["week_label"] = f"{year}-W{week_num:02d}"
         return brief
@@ -206,14 +217,14 @@ class StrategyWriter:
                 "date":               date.isoformat(),
                 "strategy_brief_id":  brief_id,
                 "vertical":           brief.get("vertical", "nutra"),
-                "platform":           brief.get("platform_priority", ["tiktok"])[0],
+                "platform":           (brief.get("platform_priority") or ["tiktok"])[0],
                 "geo":                entry.get("geo", "PL"),
                 "formats":            entry.get("formats", []),
                 "status":             "pending",
             })
 
         if rows:
-            self.db.table("daily_queues").insert(rows).execute()
+            self.db.table("daily_queues").upsert(rows, on_conflict="date,vertical,platform,geo").execute()
 
     def to_markdown(self, brief: dict) -> str:
         lines = [
