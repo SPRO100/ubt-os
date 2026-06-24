@@ -111,6 +111,7 @@ td.mono{font-family:'IBM Plex Mono',monospace;font-size:12px;}
     <section class="section active" id="sec-dashboard"></section>
     <section class="section" id="sec-accounts"></section>
     <section class="section" id="sec-content"></section>
+    <section class="section" id="sec-compliance"></section>
     <section class="section" id="sec-pipeline"></section>
     <section class="section" id="sec-clients"></section>
     <section class="section" id="sec-agents"></section>
@@ -167,6 +168,7 @@ const NAV = [
   {id:"dashboard",icon:"⚡",label:"Dashboard"},
   {id:"accounts",icon:"👤",label:"Аккаунты"},
   {id:"content",icon:"🎬",label:"Производство"},
+  {id:"compliance",icon:"🛡️",label:"Compliance"},
   {id:"pipeline",icon:"🔄",label:"Пайплайн (n8n)"},
   {id:"clients",icon:"🤝",label:"Клиенты"},
   {id:"agents",icon:"🧩",label:"Агенты"},
@@ -178,10 +180,11 @@ const TITLES = {
   dashboard:["Dashboard","Реальное состояние системы прямо сейчас"],
   accounts:["Аккаунты","0 подключённых аккаунтов · протокол прогрева ниже — справка"],
   content:["Производство","Архитектура пайплайна контента · что реально работает помечено LIVE"],
+  compliance:["Compliance Gate","Проверка контента перед публикацией — regex + Haiku LLM · Sprint 2"],
   pipeline:["Пайплайн (n8n)","6 воркфлоу реально развёрнуты и опубликованы на сервере"],
   clients:["Клиенты","White-label агентская модель, CPA-only оплата"],
   agents:["Агенты","7 агентов реально существуют как код · остальное — план"],
-  analytics:["Аналитика","Реальная выручка $0 · условия партнёрок — справка, аккаунты не подключены"],
+  analytics:["Аналитика","Выручка из conversion_events · Keitaro postback подключён"],
   infra:["Инфраструктура","FirstVDS Амстердам — реально развёрнут и работает"],
   knowledge:["База знаний","Obsidian Vault, синхронизация через n8n каждый час"],
 };
@@ -232,11 +235,22 @@ async function renderDashboard(){
     </div>
 
     <div class="card">
+      <div class="card-head"><span class="title">Sprint 2 — статус</span><span class="right">${liveTag()} задеплоено</span></div>
+      <table><tr><th>Блок</th><th>Статус</th><th>Роут</th></tr>
+        <tr><td class="primary">Compliance Gate</td><td style="color:var(--green)">✓ задеплоен</td><td class="mono">/compliance/check</td></tr>
+        <tr><td class="primary">Warmup Automation</td><td style="color:var(--green)">✓ задеплоен</td><td class="mono">warming_state_machine.py</td></tr>
+        <tr><td class="primary">Keitaro postback</td><td style="color:var(--green)">✓ задеплоен</td><td class="mono">/keitaro/postback</td></tr>
+        <tr><td class="primary">Higgsfield Queue</td><td style="color:var(--amber)">⏸ холд (оплата)</td><td class="mono">—</td></tr>
+        <tr><td class="primary">Cross-platform</td><td style="color:var(--amber)">⏸ холд</td><td class="mono">—</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
       <div class="card-head"><span class="title">Что дальше</span><span class="right">актуальный приоритет</span></div>
-      ${["Подключить Higgsfield API → первая реальная генерация видео",
-         "Зарегистрировать партнёрки (1win, Dr.Cash) и подключить Keitaro для трекинга конверсий",
-         "Завести первый реальный аккаунт и пройти 7-дневный протокол прогрева",
-         "Настроить Compliance Gate перед первой публикацией (особенно для беттинга)",
+      ${["Зарегистрироваться в партнёрках (1win, Dr.Cash) и настроить S2S postback в Keitaro → /keitaro/postback",
+         "Завести первый реальный аккаунт и запустить 7-дневный протокол прогрева",
+         "Применить SQL-миграцию conversion_events в Supabase (если не применена)",
+         "После оплаты Higgsfield — разблокировать Higgsfield Queue и Cross-platform Repurposing",
          "После первых реальных видео — включить Risk Engine и Strategy Engine по расписанию"]
         .map((t,i)=>`<div class="priority-item"><span class="num">${String(i+1).padStart(2,"0")}</span>${esc(t)}</div>`).join("")}
     </div>
@@ -464,18 +478,94 @@ function renderAgents(){
 }
 
 /* ============================================================
+   COMPLIANCE
+   ============================================================ */
+async function renderCompliance(){
+  // Тест compliance gate через agents server
+  let testResult = null;
+  try {
+    const res = await fetchWithTimeout(`${AGENTS_SERVER}/compliance/check`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({text:"This product guarantees cure", vertical:"nutra", geo:"PL"})
+    }, 5000);
+    testResult = res.ok ? await res.json() : null;
+  } catch(e) {}
+
+  const verdictColor = v => v==="pass"?"var(--green)":v==="warn"?"var(--amber)":"var(--red)";
+
+  document.getElementById("sec-compliance").innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="label">Gate статус ${liveTag()}</div>
+        <div class="value" style="color:${testResult?"var(--green)":"var(--red)"}">
+          ${testResult?"ONLINE":"OFFLINE"}</div>
+        <div class="note">POST /compliance/check</div></div>
+      <div class="stat"><div class="label">Тест-запрос ${liveTag()}</div>
+        <div class="value" style="color:${testResult?verdictColor(testResult.verdict):"var(--faint)"}">
+          ${testResult?testResult.verdict.toUpperCase():"—"}</div>
+        <div class="note">${testResult?esc(testResult.reason):"нет ответа"}</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="title">Архитектура проверки</span><span class="right">${refTag()}</span></div>
+      <table><tr><th>Шаг</th><th>Метод</th><th>Время</th></tr>
+        <tr><td class="primary">1. Regex</td><td>Словари бан-слов по GEO × вертикаль</td><td class="mono">~0ms</td></tr>
+        <tr><td class="primary">2. LLM</td><td>Haiku — edge cases и тексты >200 символов</td><td class="mono">~1–2s</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="title">Покрытие вертикалей и GEO</span><span class="right">${refTag()}</span></div>
+      <table><tr><th>Вертикаль</th><th>GEO</th><th>Тип проверки</th></tr>
+        <tr><td class="primary">Nutra</td><td>PL, RO, MX, BR, IN</td><td>Медицинские claims + локальные бан-слова</td></tr>
+        <tr><td class="primary">Betting</td><td>RU, KZ</td><td>Гарантии выигрыша, несовершеннолетние</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="title">Использование в n8n</span><span class="right">${refTag()}</span></div>
+      <div class="note-box">
+        Перед публикацией добавить HTTP Request ноду в воркфлоу:<br>
+        <code>POST http://88.218.121.108:8080/compliance/check</code><br>
+        Body: <code>{"text": "{{caption}}", "vertical": "nutra", "geo": "PL"}</code><br>
+        Если <code>verdict == "block"</code> → стоп, не публиковать.
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
    ANALYTICS
    ============================================================ */
 async function renderAnalytics(){
-  const revenue = await fetchRows("revenue_events", "select=net_amount&limit=1000");
-  const total = revenue.reduce((s,r)=>s+(parseFloat(r.net_amount)||0),0);
+  const [revenue, conversions] = await Promise.all([
+    fetchRows("revenue_events", "select=net_amount&limit=1000"),
+    fetchRows("conversion_events", "select=payout_usd,partner,conversion_type,converted_at&order=converted_at.desc&limit=50"),
+  ]);
+  const totalRevenue = revenue.reduce((s,r)=>s+(parseFloat(r.net_amount)||0),0);
+  const totalConv    = conversions.reduce((s,r)=>s+(parseFloat(r.payout_usd)||0),0);
+  const convCount    = conversions.length;
+
   document.getElementById("sec-analytics").innerHTML = `
     <div class="stat-grid">
-      <div class="stat"><div class="label">Реальная выручка ${liveTag()}</div><div class="value">$${total.toFixed(2)}</div>
-        <div class="note">сумма net_amount из revenue_events</div></div>
+      <div class="stat"><div class="label">Выручка revenue_events ${liveTag()}</div>
+        <div class="value">$${totalRevenue.toFixed(2)}</div><div class="note">net_amount из Supabase</div></div>
+      <div class="stat"><div class="label">Keitaro конверсии ${liveTag()}</div>
+        <div class="value">${convCount}</div><div class="note">записей в conversion_events</div></div>
+      <div class="stat"><div class="label">Выплаты (payout) ${liveTag()}</div>
+        <div class="value">$${totalConv.toFixed(2)}</div><div class="note">сумма payout_usd</div></div>
     </div>
+    ${conversions.length ? `
     <div class="card">
-      <div class="card-head"><span class="title">Условия партнёрских программ</span><span class="right">${refTag()} аккаунты не зарегистрированы</span></div>
+      <div class="card-head"><span class="title">Последние конверсии ${liveTag()}</span><span class="right">Keitaro postback → Supabase</span></div>
+      <table><tr><th>Партнёрка</th><th>Тип</th><th>Выплата</th><th>Дата</th></tr>
+        ${conversions.slice(0,15).map(c=>`<tr>
+          <td class="primary">${esc(c.partner)}</td>
+          <td>${esc(c.conversion_type)}</td>
+          <td class="mono">$${parseFloat(c.payout_usd||0).toFixed(2)}</td>
+          <td class="mono">${esc((c.converted_at||"").slice(0,10))}</td>
+        </tr>`).join("")}
+      </table>
+    </div>` : `<div class="card"><div class="note-box">Конверсий пока нет — настройте S2S postback в Keitaro на <code>POST http://88.218.121.108:8080/keitaro/postback</code></div></div>`}
+    <div class="card">
+      <div class="card-head"><span class="title">Условия партнёрских программ</span><span class="right">${refTag()}</span></div>
       <table><tr><th>Программа</th><th>Условия</th><th>Cookie</th><th>Выплаты</th></tr>
         <tr><td class="primary">1win</td><td>RevShare до 60%, CPA до $250</td><td>365 дней</td><td>по вторникам</td></tr>
         <tr><td class="primary">Mostbet</td><td>RevShare до 60%</td><td>—</td><td>—</td></tr>
@@ -535,6 +625,7 @@ async function loadAll(){
   await renderDashboard();
   await renderAccounts();
   await renderContent();
+  await renderCompliance();
   renderPipeline();
   if (!CURRENT_PROJECT) { renderClients(); }
   renderAgents();
