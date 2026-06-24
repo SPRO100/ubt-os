@@ -289,3 +289,89 @@ class AttributionAnalyzer:
             .execute()
             .data
         )
+
+
+# ══════════════════════════════════════════════════════════
+# 6. POSTBACK HANDLER — приём конверсий от Keitaro
+# ══════════════════════════════════════════════════════════
+
+class KeitaroPostbackHandler:
+    """
+    Принимает S2S postback от Keitaro и записывает revenue_event в Supabase.
+    URL: POST /keitaro/postback
+    Параметры от Keitaro: click_id, status, payout, offer_id, partner
+    """
+
+    def __init__(self, db_client):
+        self.db = db_client
+
+    def handle(self, params: dict) -> dict:
+        """
+        Обрабатывает входящий postback.
+        params — query string или JSON тело от Keitaro.
+        """
+        click_id   = params.get("click_id") or params.get("keitaro_click_id")
+        status     = params.get("status", "unknown")
+        payout     = float(params.get("payout") or 0)
+        offer_id   = params.get("offer_id", "")
+        partner    = params.get("partner") or self._detect_partner(offer_id)
+
+        if not click_id:
+            return {"ok": False, "error": "missing click_id"}
+
+        # Находим исходный клик
+        click_rows = (
+            self.db.table("click_events")
+            .select("id, video_id, clicked_at, partner, geo")
+            .eq("keitaro_click_id", click_id)
+            .limit(1)
+            .execute()
+            .data
+        )
+
+        click_row = click_rows[0] if click_rows else None
+        days_since = None
+        within_window = False
+
+        if click_row:
+            clicked_at = datetime.fromisoformat(click_row["clicked_at"].replace("Z", "+00:00"))
+            days_since = (datetime.now(timezone.utc) - clicked_at).days
+            window_cfg = ATTRIBUTION_WINDOWS.get(click_row.get("partner", partner), {})
+            within_window = days_since <= window_cfg.get("click_window_days", 30)
+
+        # Записываем revenue_event
+        event = {
+            "keitaro_click_id":   click_id,
+            "click_id":           click_row["id"] if click_row else None,
+            "partner":            partner,
+            "offer_id":           offer_id,
+            "conversion_type":    status,
+            "payout_usd":         payout,
+            "days_since_click":   days_since,
+            "attribution_model":  "last_click",
+            "is_within_window":   within_window,
+            "converted_at":       datetime.now(timezone.utc).isoformat(),
+        }
+
+        try:
+            self.db.table("conversion_events").insert(event).execute()
+            logger.info(
+                f"Postback recorded: partner={partner} status={status} "
+                f"payout=${payout} within_window={within_window}"
+            )
+            return {"ok": True, "within_window": within_window, "payout": payout}
+        except Exception as e:
+            logger.error(f"Failed to record postback: {e}")
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
+    def _detect_partner(offer_id: str) -> str:
+        """Определяет партнёрку по offer_id если не передана явно."""
+        oid = offer_id.lower()
+        if "1win" in oid or "1w" in oid:
+            return "1win"
+        if "mostbet" in oid or "mb" in oid:
+            return "mostbet"
+        if "drca" in oid or "cash" in oid:
+            return "dr_cash"
+        return "unknown"

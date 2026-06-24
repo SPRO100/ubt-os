@@ -63,6 +63,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/orchestrator/chat":     self._run_orchestrator_chat,
             # Sprint 2
             "/compliance/check":      self._run_compliance_check,
+            "/keitaro/postback":      self._run_keitaro_postback,
         }
 
         handler = routes.get(self.path)
@@ -149,6 +150,14 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "geo":      result.geo,
             "vertical": result.vertical,
         })
+
+    async def _run_keitaro_postback(self, body: dict):
+        """Приём S2S postback от Keitaro — запись revenue_event в Supabase."""
+        from ubt_os.utils.attribution import KeitaroPostbackHandler
+        handler = KeitaroPostbackHandler(db_client=_get_db())
+        result  = handler.handle(body)
+        status  = 200 if result.get("ok") else 400
+        self._send(status, result)
 
     async def _run_checker(self, body: dict):
         from ubt_os.core import pipeline_lock

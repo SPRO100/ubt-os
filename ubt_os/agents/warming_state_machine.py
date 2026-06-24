@@ -277,3 +277,61 @@ return results.map(r => ({ json: r }));
 
 class InvalidTransition(Exception):
     """Недопустимый переход состояния."""
+
+
+# ══════════════════════════════════════════════════════════
+# 5. ПЛАТФОРМО-СПЕЦИФИЧНЫЕ ЛИМИТЫ ПРОГРЕВА
+# ══════════════════════════════════════════════════════════
+
+# Публикационный график по платформам (часы UTC+2/CEST)
+PLATFORM_POST_HOURS: dict[str, list[int]] = {
+    "tiktok":    [8, 12, 19],
+    "youtube":   [9, 14, 20],
+    "instagram": [9, 13, 20],
+    "telegram":  [10, 15, 21, 23],
+}
+
+# Максимум постов в день по платформе × фазе
+PLATFORM_DAILY_LIMIT: dict[str, dict[WarmingPhase, int]] = {
+    "tiktok": {
+        WarmingPhase.IDLE:            0,
+        WarmingPhase.VIEWS_ONLY:      0,
+        WarmingPhase.NEUTRAL_CONTENT: 1,
+        WarmingPhase.NICHE_CONTENT:   2,
+        WarmingPhase.MONETIZATION:    3,
+    },
+    "youtube": {
+        WarmingPhase.IDLE:            0,
+        WarmingPhase.VIEWS_ONLY:      0,
+        WarmingPhase.NEUTRAL_CONTENT: 1,
+        WarmingPhase.NICHE_CONTENT:   1,
+        WarmingPhase.MONETIZATION:    2,
+    },
+    "instagram": {
+        WarmingPhase.IDLE:            0,
+        WarmingPhase.VIEWS_ONLY:      0,
+        WarmingPhase.NEUTRAL_CONTENT: 1,
+        WarmingPhase.NICHE_CONTENT:   2,
+        WarmingPhase.MONETIZATION:    3,
+    },
+    "telegram": {
+        WarmingPhase.IDLE:            0,
+        WarmingPhase.VIEWS_ONLY:      0,
+        WarmingPhase.NEUTRAL_CONTENT: 2,
+        WarmingPhase.NICHE_CONTENT:   3,
+        WarmingPhase.MONETIZATION:    4,
+    },
+}
+
+
+def get_platform_daily_limit(platform: str, phase: WarmingPhase) -> int:
+    """Лимит постов для конкретной платформы в текущей фазе прогрева."""
+    return PLATFORM_DAILY_LIMIT.get(platform, {}).get(phase, 0)
+
+
+def can_post_now(platform: str, phase: WarmingPhase, hour_utc_plus2: int) -> bool:
+    """Проверяет, является ли текущий час допустимым для публикации."""
+    if get_platform_daily_limit(platform, phase) == 0:
+        return False
+    allowed_hours = PLATFORM_POST_HOURS.get(platform, [])
+    return hour_utc_plus2 in allowed_hours
