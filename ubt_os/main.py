@@ -37,7 +37,13 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         length  = int(self.headers.get("Content-Length", 0))
-        body    = json.loads(self.rfile.read(length)) if length else {}
+        raw     = self.rfile.read(length) if length else b""
+        try:
+            body = json.loads(raw) if raw.strip() else {}
+        except json.JSONDecodeError as e:
+            logger.warning(f"Bad JSON body: {e}")
+            self._send(400, {"error": "invalid JSON body"})
+            return
         action  = body.get("action", "unknown")
 
         logger.info(f"Webhook: {self.path} action={action}")
