@@ -21,6 +21,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ubt_os.main")
 
+# AgentOps — трекинг LiteLLM расходов (регистрирует callback один раз при старте)
+try:
+    from ubt_os.core.agentops_tracker import setup_agentops
+    setup_agentops()
+except Exception as _ao_err:
+    logger.warning(f"AgentOps init skipped: {_ao_err}")
+
 
 def _get_db():
     """Ленивый Supabase-клиент. Создаётся только при обработке запроса,
@@ -64,6 +71,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             # Sprint 2
             "/compliance/check":      self._run_compliance_check,
             "/keitaro/postback":      self._run_keitaro_postback,
+            "/usage/summary":         self._run_usage_summary,
         }
 
         handler = routes.get(self.path)
@@ -276,6 +284,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
             if not acquired:
                 return
             await DeadLetterQueueManager.daily_report()
+
+    async def _run_usage_summary(self, body: dict):
+        """GET/POST /usage/summary — агрегат расходов LiteLLM за N дней."""
+        from ubt_os.core.agentops_tracker import get_usage_summary
+        days = int(body.get("days", 7))
+        return get_usage_summary(days=days)
 
     # ── FIX #1: новые обработчики ──────────────────────────
 

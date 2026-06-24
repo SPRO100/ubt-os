@@ -619,6 +619,53 @@ function renderKnowledge(){
 }
 
 /* ============================================================
+   LLM USAGE (AgentOps)
+   ============================================================ */
+async function renderLlmUsage(){
+  let usage = null;
+  try {
+    const res = await fetchWithTimeout(`${AGENTS_SERVER}/usage/summary`, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({days:7})
+    }, 8000);
+    usage = res.ok ? await res.json() : null;
+  } catch(e) {}
+
+  const byModel = usage?.by_model || {};
+  const byAgent = usage?.by_agent || {};
+  const modelRows = Object.entries(byModel).map(([m,c])=>`<tr><td class="primary mono">${esc(m)}</td><td class="mono">$${c.toFixed(4)}</td></tr>`).join("");
+  const agentRows = Object.entries(byAgent).map(([a,c])=>`<tr><td class="primary">${esc(a)}</td><td class="mono">$${c.toFixed(4)}</td></tr>`).join("");
+
+  const llmCard = `
+    <div class="card" style="margin-top:16px">
+      <div class="card-head"><span class="title">LLM расходы — 7 дней</span><span class="right">${usage?"<span class='live-tag'>live</span>":"<span style='color:var(--faint)'>offline</span>"}</span></div>
+      ${usage ? `
+      <div class="stat-grid" style="margin-bottom:12px">
+        <div class="stat"><div class="label">Всего вызовов</div><div class="value">${usage.calls}</div></div>
+        <div class="stat"><div class="label">Стоимость</div><div class="value mono">$${usage.total_cost_usd.toFixed(4)}</div></div>
+        <div class="stat"><div class="label">Токены (in/out)</div><div class="value mono">${(usage.total_input_tokens/1000).toFixed(1)}K / ${(usage.total_output_tokens/1000).toFixed(1)}K</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <table><tr><th>Модель</th><th>Расход</th></tr>${modelRows||"<tr><td colspan=2 style='color:var(--faint)'>нет данных</td></tr>"}</table>
+        <table><tr><th>Агент</th><th>Расход</th></tr>${agentRows||"<tr><td colspan=2 style='color:var(--faint)'>нет данных</td></tr>"}</table>
+      </div>` : `<div class="note-box">AgentOps недоступен — возможно сервер не запущен или таблица llm_usage_events не создана</div>`}
+    </div>`;
+
+  // Добавляем карточку в конец аналитики
+  const sec = document.getElementById("sec-analytics");
+  if(sec){
+    // Удаляем старую LLM карточку если есть
+    const old = sec.querySelector(".llm-usage-card");
+    if(old) old.remove();
+    const div = document.createElement("div");
+    div.className = "llm-usage-card";
+    div.innerHTML = llmCard;
+    sec.appendChild(div);
+  }
+}
+
+/* ============================================================
    INIT
    ============================================================ */
 async function loadAll(){
@@ -630,6 +677,7 @@ async function loadAll(){
   if (!CURRENT_PROJECT) { renderClients(); }
   renderAgents();
   await renderAnalytics();
+  await renderLlmUsage();
   renderInfra();
   renderKnowledge();
 }

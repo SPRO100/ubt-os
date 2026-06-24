@@ -1,0 +1,78 @@
+{
+  "name": "UBT OS — Compliance Gate",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [200, 300],
+      "parameters": {
+        "path": "compliance-check",
+        "responseMode": "lastNode",
+        "httpMethod": "POST"
+      }
+    },
+    {
+      "id": "compliance-check",
+      "name": "Compliance Gate",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [480, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://88.218.121.108:8080/compliance/check",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "text",     "value": "={{ $json.text }}" },
+            { "name": "vertical", "value": "={{ $json.vertical ?? 'nutra' }}" },
+            { "name": "geo",      "value": "={{ $json.geo ?? 'PL' }}" }
+          ]
+        },
+        "options": { "timeout": 10000 }
+      }
+    },
+    {
+      "id": "check-verdict",
+      "name": "Check Verdict",
+      "type": "n8n-nodes-base.if",
+      "position": [760, 300],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.verdict }}",
+              "operation": "notEqual",
+              "value2": "block"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "pass-log",
+      "name": "Pass — Continue Pipeline",
+      "type": "n8n-nodes-base.noOp",
+      "position": [1040, 200],
+      "parameters": {}
+    },
+    {
+      "id": "block-log",
+      "name": "Block — Stop & Alert",
+      "type": "n8n-nodes-base.telegram",
+      "position": [1040, 420],
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_ALERT_CHAT_ID }}",
+        "text": "🚫 Compliance BLOCK\nVertical: {{ $('Compliance Gate').item.json.vertical }}\nGeo: {{ $('Compliance Gate').item.json.geo }}\nReason: {{ $('Compliance Gate').item.json.reason }}\nMatched: {{ $('Compliance Gate').item.json.matched }}"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger":       { "main": [[{ "node": "Compliance Gate",          "type": "main", "index": 0 }]] },
+    "Compliance Gate":       { "main": [[{ "node": "Check Verdict",            "type": "main", "index": 0 }]] },
+    "Check Verdict":         { "main": [
+      [{ "node": "Pass — Continue Pipeline", "type": "main", "index": 0 }],
+      [{ "node": "Block — Stop & Alert",     "type": "main", "index": 0 }]
+    ]}
+  },
+  "settings": { "executionOrder": "v1" }
+}
