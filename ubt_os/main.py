@@ -61,6 +61,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/obsidian/write":        self._run_obsidian_write,
             "/obsidian/append":       self._run_obsidian_append,
             "/orchestrator/chat":     self._run_orchestrator_chat,
+            # Sprint 2
+            "/compliance/check":      self._run_compliance_check,
         }
 
         handler = routes.get(self.path)
@@ -99,20 +101,54 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
     async def _run_nutra(self, body: dict):
         from ubt_os.core import pipeline_lock
+        from ubt_os.core.compliance_gate import get_gate
         async with pipeline_lock("video-pipeline-nutra", 600) as acquired:
             if not acquired:
                 logger.info("NUTRA: lock занят, пропускаем")
                 return
+            text = body.get("caption") or body.get("text") or body.get("description", "")
+            geo  = body.get("geo", "PL")
+            if text:
+                result = get_gate().check(text, vertical="nutra", geo=geo)
+                if result.verdict == "block":
+                    logger.warning(f"NUTRA compliance BLOCK [{geo}]: {result.reason}")
+                    return
+                if result.verdict == "warn":
+                    logger.warning(f"NUTRA compliance WARN [{geo}]: {result.reason}")
             logger.info("NUTRA pipeline: запуск ✅")
-            # TODO: подключить агентов после FIX #1 применения
 
     async def _run_ubt(self, body: dict):
         from ubt_os.core import pipeline_lock
+        from ubt_os.core.compliance_gate import get_gate
         async with pipeline_lock("video-pipeline-ubt", 600) as acquired:
             if not acquired:
                 logger.info("UBT: lock занят, пропускаем")
                 return
+            text = body.get("caption") or body.get("text") or body.get("description", "")
+            geo  = body.get("geo", "RU")
+            if text:
+                result = get_gate().check(text, vertical="betting", geo=geo)
+                if result.verdict == "block":
+                    logger.warning(f"UBT compliance BLOCK [{geo}]: {result.reason}")
+                    return
+                if result.verdict == "warn":
+                    logger.warning(f"UBT compliance WARN [{geo}]: {result.reason}")
             logger.info("UBT pipeline: запуск ✅")
+
+    async def _run_compliance_check(self, body: dict):
+        """Прямая проверка текста — для n8n и ручного тестирования."""
+        from ubt_os.core.compliance_gate import get_gate
+        text     = body.get("text", "")
+        vertical = body.get("vertical", "nutra")
+        geo      = body.get("geo", "PL")
+        result   = get_gate().check(text, vertical=vertical, geo=geo)
+        self._send(200, {
+            "verdict":  result.verdict,
+            "reason":   result.reason,
+            "matched":  result.matched,
+            "geo":      result.geo,
+            "vertical": result.vertical,
+        })
 
     async def _run_checker(self, body: dict):
         from ubt_os.core import pipeline_lock
