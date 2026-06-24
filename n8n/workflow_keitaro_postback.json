@@ -1,8 +1,8 @@
 {
-  "name": "UBT OS — Keitaro S2S Postback",
+  "name": "keitaro-postback",
   "nodes": [
     {
-      "id": "webhook-trigger",
+      "id": "trigger",
       "name": "Postback Webhook",
       "type": "n8n-nodes-base.webhook",
       "position": [200, 300],
@@ -10,84 +10,61 @@
         "path": "keitaro-postback",
         "responseMode": "lastNode",
         "httpMethod": "POST"
-      },
-      "notes": "Этот endpoint прописывается в Keitaro как S2S postback URL:\nPOST http://88.218.121.108:5678/webhook/keitaro-postback\n\nKeitaro параметры: {click_id}, {offer_id}, {revenue}, {payout}, {conversion_type}"
-    },
-    {
-      "id": "map-fields",
-      "name": "Map Keitaro Fields",
-      "type": "n8n-nodes-base.set",
-      "position": [460, 300],
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            { "name": "keitaro_click_id",  "value": "={{ $json.click_id }}",         "type": "string" },
-            { "name": "offer_id",          "value": "={{ $json.offer_id }}",          "type": "string" },
-            { "name": "revenue_usd",       "value": "={{ $json.revenue ?? 0 }}",      "type": "number" },
-            { "name": "payout_usd",        "value": "={{ $json.payout ?? 0 }}",       "type": "number" },
-            { "name": "conversion_type",   "value": "={{ $json.conversion_type ?? 'lead' }}", "type": "string" },
-            { "name": "partner",           "value": "={{ $json.partner ?? '' }}",     "type": "string" },
-            { "name": "geo",               "value": "={{ $json.geo ?? '' }}",         "type": "string" }
-          ]
-        }
       }
     },
     {
-      "id": "send-to-agents",
+      "id": "send",
       "name": "Send to UBT OS",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [740, 300],
+      "position": [460, 300],
       "parameters": {
         "method": "POST",
         "url": "http://88.218.121.108:8080/keitaro/postback",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
-        "options": { "timeout": 15000 }
+        "bodyContentType": "json",
+        "jsonBody": "={{ JSON.stringify({keitaro_click_id: $json.click_id, offer_id: $json.offer_id, revenue_usd: $json.revenue || 0, payout_usd: $json.payout || 0, conversion_type: $json.conversion_type || 'lead', partner: $json.partner || '', geo: $json.geo || ''}) }}",
+        "options": {"timeout": 15000}
       }
     },
     {
-      "id": "check-result",
-      "name": "Check Result",
+      "id": "gate",
+      "name": "Saved ok?",
       "type": "n8n-nodes-base.if",
-      "position": [1020, 300],
+      "position": [720, 300],
       "parameters": {
         "conditions": {
-          "boolean": [
-            { "value1": "={{ $json.ok }}", "operation": "equal", "value2": true }
-          ]
+          "boolean": [{"value1": "={{ $json.ok }}", "operation": "equal", "value2": true}]
         }
       }
     },
     {
-      "id": "alert-success",
-      "name": "Alert — Conversion Saved",
+      "id": "alert_ok",
+      "name": "Telegram — Conversion",
       "type": "n8n-nodes-base.telegram",
-      "position": [1300, 180],
+      "position": [980, 180],
       "parameters": {
+        "operation": "sendMessage",
         "chatId": "={{ $env.TELEGRAM_ALERT_CHAT_ID }}",
-        "text": "💰 Conversion\nOffer: {{ $('Map Keitaro Fields').item.json.offer_id }}\nRevenue: ${{ $('Map Keitaro Fields').item.json.revenue_usd }}\nWithin window: {{ $('Send to UBT OS').item.json.within_window }}\nPayout: ${{ $('Send to UBT OS').item.json.payout }}"
+        "text": "💰 *Конверсия*\nOffer: `{{ $('Send to UBT OS').item.json.offer_id || '—' }}`\nPayout: ${{ $json.payout || 0 }}\nWithin window: {{ $json.within_window }}",
+        "additionalFields": {"parse_mode": "Markdown"}
       }
     },
     {
-      "id": "alert-error",
-      "name": "Alert — Error",
+      "id": "alert_err",
+      "name": "Telegram — Error",
       "type": "n8n-nodes-base.telegram",
-      "position": [1300, 420],
+      "position": [980, 420],
       "parameters": {
+        "operation": "sendMessage",
         "chatId": "={{ $env.TELEGRAM_ALERT_CHAT_ID }}",
-        "text": "⚠️ Keitaro postback error\nclick_id: {{ $('Map Keitaro Fields').item.json.keitaro_click_id }}\nResponse: {{ JSON.stringify($('Send to UBT OS').item.json) }}"
+        "text": "⚠️ *Keitaro postback error*\nclick_id: `{{ $('Postback Webhook').item.json.click_id }}`\nResponse: {{ JSON.stringify($json) }}",
+        "additionalFields": {"parse_mode": "Markdown"}
       }
     }
   ],
   "connections": {
-    "Postback Webhook":    { "main": [[{ "node": "Map Keitaro Fields", "type": "main", "index": 0 }]] },
-    "Map Keitaro Fields":  { "main": [[{ "node": "Send to UBT OS",     "type": "main", "index": 0 }]] },
-    "Send to UBT OS":      { "main": [[{ "node": "Check Result",       "type": "main", "index": 0 }]] },
-    "Check Result":        { "main": [
-      [{ "node": "Alert — Conversion Saved", "type": "main", "index": 0 }],
-      [{ "node": "Alert — Error",            "type": "main", "index": 0 }]
-    ]}
+    "Postback Webhook": {"main": [[{"node": "Send to UBT OS"}]]},
+    "Send to UBT OS":   {"main": [[{"node": "Saved ok?"}]]},
+    "Saved ok?":        {"main": [[{"node": "Telegram — Conversion"}], [{"node": "Telegram — Error"}]]}
   },
-  "settings": { "executionOrder": "v1" }
+  "settings": {"timezone": "Europe/Moscow"}
 }
