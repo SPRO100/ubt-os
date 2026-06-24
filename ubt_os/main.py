@@ -42,7 +42,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             body = json.loads(raw) if raw.strip() else {}
         except json.JSONDecodeError as e:
             logger.warning(f"Bad JSON body: {e}")
-            self._send(400, {"error": "invalid JSON body"})
+            self._respond(400, {"error": "invalid JSON body"})
             return
         action  = body.get("action", "unknown")
 
@@ -143,7 +143,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
         vertical = body.get("vertical", "nutra")
         geo      = body.get("geo", "PL")
         result   = get_gate().check(text, vertical=vertical, geo=geo)
-        self._send(200, {
+        self._respond(200, {
             "verdict":  result.verdict,
             "reason":   result.reason,
             "matched":  result.matched,
@@ -157,7 +157,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
         handler = KeitaroPostbackHandler(db_client=_get_db())
         result  = handler.handle(body)
         status  = 200 if result.get("ok") else 400
-        self._send(status, result)
+        self._respond(status, result)
 
     async def _run_checker(self, body: dict):
         from ubt_os.core import pipeline_lock
