@@ -1102,7 +1102,6 @@ async function renderAnalytics(){
     (async()=>{ try{ const r=await ft(`${AGENTS}/usage/summary`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({days:7})},8000); return r.ok?await r.json():null; }catch(e){return null;} })(),
     rows("revenue_events","select=account_id,net_amount&limit=5000"),
   ]);
-  ]);
 
   const totalRev = rev.reduce((s,r)=>s+(parseFloat(r.net_amount)||0),0);
   const totalConv = convs.reduce((s,r)=>s+(parseFloat(r.payout_usd)||0),0);
