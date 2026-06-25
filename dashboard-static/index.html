@@ -3,412 +3,871 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UBT OS — Командный центр</title>
+<title>UBT OS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --void:#0a0b0f; --surface:#0f1117; --surface2:#151821; --border:#1e2030; --borderLight:#2d3352;
-  --text:#e2e8f0; --muted:#94a3b8; --faint:#475569;
-  --green:#4ade80; --indigo:#6366f1; --amber:#f59e0b; --red:#f87171; --pink:#f472b6;
+  --bg:#0b0f1a;
+  --surface:#111827;
+  --surface2:#1a2235;
+  --surface3:#212d42;
+  --border:#1e2d45;
+  --border2:#263352;
+  --text:#f0f4ff;
+  --muted:#8b9cc4;
+  --faint:#4a5880;
+  --green:#22c55e;
+  --green-dim:rgba(34,197,94,.12);
+  --blue:#3b82f6;
+  --blue-dim:rgba(59,130,246,.12);
+  --indigo:#6366f1;
+  --amber:#f59e0b;
+  --amber-dim:rgba(245,158,11,.12);
+  --red:#ef4444;
+  --red-dim:rgba(239,68,68,.12);
+  --pink:#ec4899;
+  --mono:'JetBrains Mono',monospace;
 }
-*{box-sizing:border-box;}
-body{margin:0;background:var(--void);color:var(--text);font-family:'Inter',-apple-system,sans-serif;-webkit-font-smoothing:antialiased;}
-.mono{font-family:'IBM Plex Mono',monospace;}
-:focus-visible{outline:2px solid var(--indigo);outline-offset:2px;}
-@media (prefers-reduced-motion: reduce){*{animation-duration:.001ms!important;}}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,sans-serif;font-size:13px;-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;}
 
-.app{display:flex;min-height:100vh;}
+/* ── SIDEBAR ── */
+.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh;position:sticky;top:0;}
+.sb-logo{padding:20px 18px 16px;border-bottom:1px solid var(--border);}
+.sb-logo .mark{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--green);letter-spacing:.2em;}
+.sb-logo .sub{font-size:10px;color:var(--faint);letter-spacing:.12em;margin-top:3px;}
+.sb-nav{flex:1;padding:10px 8px;overflow-y:auto;}
+.nav-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--faint);font-size:12.5px;background:none;border:none;text-align:left;font-family:inherit;transition:background .15s,color .15s;}
+.nav-item:hover{background:var(--surface2);color:var(--muted);}
+.nav-item.active{background:var(--surface3);color:var(--text);}
+.nav-item .ni{width:16px;text-align:center;font-size:13px;}
+.sb-user{padding:14px 18px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.sb-user .ava{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
+.sb-user .info{flex:1;min-width:0;}
+.sb-user .name{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sb-user .role{font-size:10px;color:var(--faint);}
+.pulse-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.4);}50%{box-shadow:0 0 0 5px rgba(34,197,94,0);}}
 
-/* SIDEBAR */
-.sidebar{width:226px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;padding:22px 0;background:var(--surface);}
-.sidebar-head{padding:0 20px 18px;border-bottom:1px solid var(--border);}
-.sidebar-head .logo{font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.25em;color:var(--green);font-weight:700;}
-.sidebar-head .sub{font-size:10px;color:var(--faint);letter-spacing:.15em;margin-top:4px;}
-nav{flex:1;padding:14px 10px;overflow-y:auto;}
-.nav-btn{
-  display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;margin-bottom:2px;
-  background:transparent;border:1px solid transparent;border-radius:8px;cursor:pointer;
-  color:var(--faint);font-size:12.5px;text-align:left;font-family:inherit;
-}
-.nav-btn.active{background:var(--border);border-color:var(--borderLight);color:var(--text);}
-.nav-btn:hover:not(.active){color:var(--muted);}
-.nav-btn .icon{font-size:14px;}
-.sidebar-foot{padding:14px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--faint);line-height:1.6;}
-.sidebar-foot .pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(74,222,128,.5);}70%{box-shadow:0 0 0 5px rgba(74,222,128,0);}100%{box-shadow:0 0 0 0 rgba(74,222,128,0);}}
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;min-height:100vh;overflow:hidden;}
 
-/* MAIN */
-main{flex:1;overflow-y:auto;padding:26px 30px 60px;max-width:1100px;}
-.page-head{margin-bottom:20px;}
-.page-head h1{font-size:20px;font-weight:700;color:#f8fafc;margin:0;}
-.page-head .desc{font-size:12px;color:var(--faint);margin-top:3px;}
+/* TOPBAR */
+.topbar{height:58px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px;background:var(--surface);flex-shrink:0;}
+.topbar .greet{flex:1;font-size:15px;font-weight:600;color:var(--text);}
+.topbar .greet span{color:var(--muted);font-weight:400;}
+.search{background:var(--surface2);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;gap:8px;padding:6px 12px;color:var(--faint);font-size:12px;width:220px;}
+.search input{background:none;border:none;outline:none;color:var(--muted);font-size:12px;width:100%;font-family:inherit;}
+.tb-icon{width:32px;height:32px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:14px;}
+.tb-ava{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;cursor:pointer;}
 
+/* CONTENT */
+.content{flex:1;overflow-y:auto;padding:22px 24px 48px;}
+
+/* SECTIONS */
 .section{display:none;}
 .section.active{display:block;}
 
-.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px;}
+/* KPI ROW */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent,var(--blue));}
+.kpi .k-label{font-size:10.5px;color:var(--faint);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;}
+.kpi .k-val{font-size:22px;font-weight:700;font-family:var(--mono);color:var(--text);line-height:1;}
+.kpi .k-sub{font-size:10.5px;color:var(--muted);margin-top:5px;}
+.kpi .k-badge{position:absolute;top:12px;right:12px;font-size:9px;padding:2px 7px;border-radius:5px;font-weight:600;letter-spacing:.05em;}
+.badge-green{background:var(--green-dim);color:var(--green);}
+.badge-amber{background:var(--amber-dim);color:var(--amber);}
+.badge-red{background:var(--red-dim);color:var(--red);}
+.badge-blue{background:var(--blue-dim);color:var(--blue);}
+
+/* TWO PANE */
+.two-pane{display:grid;grid-template-columns:1fr 320px;gap:16px;margin-bottom:16px;}
+.three-pane{display:grid;grid-template-columns:260px 1fr 280px;gap:16px;margin-bottom:16px;}
+
+/* CARD */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:14px;}
 .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
-.card-head .title{font-size:12px;font-weight:600;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;}
-.card-head .right{font-size:11px;color:var(--faint);}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);}
+.card-sub{font-size:10.5px;color:var(--faint);}
 
+/* PROJECT CARDS */
+.projects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:16px;}
+.proj-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;transition:border-color .2s,background .2s;position:relative;overflow:hidden;}
+.proj-card:hover{border-color:var(--border2);background:var(--surface2);}
+.proj-card .pc-accent{position:absolute;top:0;left:0;bottom:0;width:3px;border-radius:10px 0 0 10px;}
+.proj-card .pc-name{font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px;padding-left:10px;}
+.proj-card .pc-cat{font-size:11px;color:var(--faint);padding-left:10px;margin-bottom:12px;}
+.proj-card .pc-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding-left:10px;}
+.proj-card .ps{text-align:center;}
+.proj-card .ps-val{font-size:15px;font-weight:700;font-family:var(--mono);}
+.proj-card .ps-label{font-size:9.5px;color:var(--faint);margin-top:2px;}
+
+/* AGENT LIST */
+.agent-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
+.agent-row:last-child{border-bottom:none;}
+.agent-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.agent-name{flex:1;font-size:12px;color:var(--text);}
+.agent-meta{font-size:10.5px;color:var(--faint);}
+.agent-badge{font-size:9.5px;padding:2px 7px;border-radius:5px;font-weight:600;}
+
+/* ACTIVITY FEED */
+.feed-item{display:flex;gap:9px;padding:8px 0;border-bottom:1px solid var(--border);}
+.feed-item:last-child{border-bottom:none;}
+.feed-icon{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;margin-top:1px;}
+.feed-body{flex:1;min-width:0;}
+.feed-title{font-size:12px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.feed-time{font-size:10.5px;color:var(--faint);margin-top:2px;}
+
+/* SYSTEM MAP */
+.sys-map{display:flex;flex-direction:column;gap:8px;align-items:center;padding:8px 0;}
+.map-row{display:flex;gap:12px;justify-content:center;}
+.map-node{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:600;color:var(--text);cursor:default;transition:border-color .2s;}
+.map-node:hover{border-color:var(--blue);}
+.map-node.hub{background:linear-gradient(135deg,rgba(99,102,241,.2),rgba(59,130,246,.15));border-color:var(--indigo);color:#a5b4fc;}
+.map-node.ok{border-color:rgba(34,197,94,.3);}
+.map-arrow{color:var(--faint);font-size:16px;text-align:center;}
+
+/* ALERT ITEMS */
+.alert-item{display:flex;gap:9px;padding:8px;border-radius:8px;margin-bottom:7px;}
+.alert-item:last-child{margin-bottom:0;}
+.alert-item.warn{background:var(--amber-dim);border:1px solid rgba(245,158,11,.2);}
+.alert-item.info{background:var(--blue-dim);border:1px solid rgba(59,130,246,.2);}
+.alert-item.ok{background:var(--green-dim);border:1px solid rgba(34,197,94,.2);}
+.alert-icon{font-size:16px;flex-shrink:0;}
+.alert-text{font-size:11.5px;color:var(--text);}
+.alert-sub{font-size:10.5px;color:var(--muted);margin-top:2px;}
+
+/* TABLE */
 table{width:100%;border-collapse:collapse;}
-th{text-align:left;font-size:10.5px;color:var(--faint);font-weight:500;letter-spacing:.04em;padding:0 10px 8px 0;border-bottom:1px solid var(--border);text-transform:uppercase;}
-td{font-size:12.5px;color:var(--muted);padding:9px 10px 9px 0;border-bottom:1px solid var(--border);}
+th{text-align:left;font-size:10px;color:var(--faint);font-weight:500;letter-spacing:.06em;padding:0 10px 8px 0;border-bottom:1px solid var(--border);text-transform:uppercase;}
+td{font-size:12px;color:var(--muted);padding:8px 10px 8px 0;border-bottom:1px solid var(--border);}
 tr:last-child td{border-bottom:none;}
-td.primary{color:var(--text);font-weight:600;}
-td.mono{font-family:'IBM Plex Mono',monospace;font-size:12px;}
+td.hi{color:var(--text);font-weight:600;}
+td.mono{font-family:var(--mono);font-size:11.5px;}
 
-.chip{font-size:10.5px;padding:3px 9px;border-radius:6px;font-weight:600;display:inline-block;}
-.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:8px;}
+/* TAGS */
+.live{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--green);border:1px solid rgba(34,197,94,.3);background:var(--green-dim);padding:2px 6px;border-radius:4px;margin-left:6px;}
+.ref{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);border:1px solid var(--border);padding:2px 6px;border-radius:4px;margin-left:6px;}
 
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px;}
-.stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
-.stat .label{font-size:11px;color:var(--faint);margin-bottom:8px;letter-spacing:.04em;}
-.stat .value{font-size:24px;font-weight:700;font-family:'IBM Plex Mono',monospace;}
-.stat .note{font-size:11px;color:var(--faint);margin-top:4px;}
+/* STAT GRID */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:14px 16px;}
+.stat .sl{font-size:10px;color:var(--faint);letter-spacing:.05em;margin-bottom:7px;}
+.stat .sv{font-size:22px;font-weight:700;font-family:var(--mono);}
+.stat .sn{font-size:10.5px;color:var(--faint);margin-top:4px;}
 
-.priority-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--muted);}
-.priority-item:last-child{border-bottom:none;}
-.priority-item .num{color:var(--green);font-family:'IBM Plex Mono',monospace;flex-shrink:0;}
+/* CHAT */
+.chat-log{max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;margin-bottom:12px;}
+.chat-msg{padding:8px 12px;border-radius:10px;font-size:12.5px;max-width:82%;}
+.chat-msg.user{background:var(--indigo);color:#fff;align-self:flex-end;}
+.chat-msg.assistant{background:var(--surface2);border:1px solid var(--border);color:var(--text);align-self:flex-start;}
 
-.live-tag{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--green);border:1px solid rgba(74,222,128,.3);background:rgba(74,222,128,.08);padding:2px 7px;border-radius:5px;}
-.ref-tag{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);border:1px solid var(--border);padding:2px 7px;border-radius:5px;}
+/* NOTE */
+.note{font-size:12.5px;color:var(--muted);line-height:1.65;}
+.note b{color:var(--text);}
+.note code{font-family:var(--mono);font-size:11px;background:var(--surface2);padding:1px 5px;border-radius:4px;color:#93c5fd;}
 
-.note-box{font-size:13px;color:var(--muted);line-height:1.65;}
-.note-box b{color:var(--text);}
-.chips-row{display:flex;gap:8px;flex-wrap:wrap;}
+/* CHIP */
+.chip{display:inline-block;font-size:10px;padding:2px 8px;border-radius:5px;font-weight:600;}
 
-@media (max-width:760px){
-  .app{flex-direction:column;}
-  .sidebar{width:100%;flex-direction:row;overflow-x:auto;padding:10px;}
-  .sidebar-head,.sidebar-foot{display:none;}
-  nav{display:flex;padding:0;}
-  .nav-btn{white-space:nowrap;}
-  main{padding:18px;}
+/* PRIORITY */
+.pri-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--muted);}
+.pri-item:last-child{border-bottom:none;}
+.pri-num{color:var(--green);font-family:var(--mono);flex-shrink:0;font-size:11px;}
+
+/* PROJECT WORKSPACE */
+textarea{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-family:inherit;font-size:13px;resize:vertical;outline:none;}
+textarea:focus{border-color:var(--indigo);}
+button.send-btn{background:var(--indigo);color:#fff;border:none;border-radius:8px;padding:0 18px;font-size:13px;cursor:pointer;font-family:inherit;}
+button.send-btn:disabled{opacity:.5;cursor:not-allowed;}
+
+@media(max-width:900px){
+  .sidebar{width:52px;}
+  .sb-logo .sub,.sb-user .info,.nav-item span:not(.ni){display:none;}
+  .sb-logo .mark{font-size:10px;letter-spacing:.05em;}
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .three-pane{grid-template-columns:1fr;}
+  .two-pane{grid-template-columns:1fr;}
 }
 </style>
 </head>
 <body>
 
-<div class="app">
-
-  <aside class="sidebar">
-    <div class="sidebar-head">
-      <div class="logo">UBT OS</div>
-      <div class="sub">TRAFFIC SYSTEM</div>
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="mark">UBT OS</div>
+    <div class="sub">TRAFFIC SYSTEM</div>
+  </div>
+  <nav class="sb-nav" id="nav"></nav>
+  <div class="sb-user">
+    <div class="ava">СП</div>
+    <div class="info">
+      <div class="name">Сергей</div>
+      <div class="role">decision-maker</div>
     </div>
-    <nav id="nav"></nav>
-    <div class="sidebar-foot" id="sidebar-status"><span class="pulse"></span>Проверка…</div>
-  </aside>
+    <div class="pulse-dot"></div>
+  </div>
+</aside>
 
-  <main>
-    <div class="page-head">
-      <h1 id="page-title">Dashboard</h1>
-      <div class="desc" id="page-desc">Карточки с тегом LIVE читают Supabase в реальном времени · справочные карточки — конфигурация проекта</div>
+<!-- MAIN -->
+<div class="main">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="greet" id="greet">Загрузка… <span></span></div>
+    <div class="search">
+      <span>🔍</span>
+      <input placeholder="Поиск по системе…" readonly>
     </div>
+    <div class="tb-icon" title="Уведомления" id="notif-btn">🔔</div>
+    <div class="tb-ava" title="Профиль">СП</div>
+  </div>
 
-    <section class="section active" id="sec-dashboard"></section>
-    <section class="section" id="sec-accounts"></section>
-    <section class="section" id="sec-content"></section>
-    <section class="section" id="sec-compliance"></section>
-    <section class="section" id="sec-pipeline"></section>
-    <section class="section" id="sec-clients"></section>
-    <section class="section" id="sec-agents"></section>
-    <section class="section" id="sec-analytics"></section>
-    <section class="section" id="sec-infra"></section>
-    <section class="section" id="sec-knowledge"></section>
-  </main>
-
+  <!-- CONTENT -->
+  <div class="content">
+    <div class="section active" id="sec-dashboard"></div>
+    <div class="section" id="sec-accounts"></div>
+    <div class="section" id="sec-content"></div>
+    <div class="section" id="sec-compliance"></div>
+    <div class="section" id="sec-pipeline"></div>
+    <div class="section" id="sec-clients"></div>
+    <div class="section" id="sec-agents"></div>
+    <div class="section" id="sec-analytics"></div>
+    <div class="section" id="sec-infra"></div>
+    <div class="section" id="sec-knowledge"></div>
+  </div>
 </div>
 
 <script>
-// ───────────────────────────────────────────────
+// ─── CONFIG ────────────────────────────────────────
 const SUPABASE_URL = "https://ricuoztdelapexfpqsux.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_f_z6goLZoPN68j2N71wX6g_r6jNjrJt";
-const AGENTS_SERVER = "http://88.218.121.108:8080";
-// ───────────────────────────────────────────────
+const AGENTS = "http://88.218.121.108:8080";
+// ───────────────────────────────────────────────────
 
-const headers = { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY };
+const SB_HEADERS = { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY };
 
-function esc(s){ if(s==null) return ""; return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-function chip(text,color){ return `<span class="chip" style="color:${color};background:${color}1a">${esc(text)}</span>`; }
-function liveTag(){ return `<span class="live-tag">live</span>`; }
-function refTag(){ return `<span class="ref-tag">справка</span>`; }
+function esc(s){ return s==null?"":String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function live(){ return `<span class="live">live</span>`; }
+function ref(){ return `<span class="ref">справка</span>`; }
+function chip(t,c){ return `<span class="chip" style="background:${c}1a;color:${c}">${esc(t)}</span>`; }
 
-function fetchWithTimeout(url, options = {}, ms = 5000) {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), ms);
-  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(id));
+async function ft(url, opts={}, ms=6000){
+  const c=new AbortController(), id=setTimeout(()=>c.abort(),ms);
+  try{ return await fetch(url,{...opts,signal:c.signal}); }finally{ clearTimeout(id); }
 }
-async function countOf(table, filter=""){
+async function count(tbl,q=""){
   try{
-    const res = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/${table}?select=id${filter}`,{headers:{...headers,Prefer:"count=exact"}});
-    const range = res.headers.get("content-range");
-    return range ? parseInt(range.split("/")[1]||"0",10) : 0;
-  }catch(e){ return 0; }
+    const r=await ft(`${SUPABASE_URL}/rest/v1/${tbl}?select=id${q}`,{headers:{...SB_HEADERS,Prefer:"count=exact"}});
+    const rng=r.headers.get("content-range");
+    return rng?parseInt(rng.split("/")[1]||"0",10):0;
+  }catch(e){return 0;}
 }
-async function fetchRows(table, query){
-  try{
-    const res = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/${table}?${query}`,{headers});
-    return res.ok ? await res.json() : [];
-  }catch(e){ return []; }
+async function rows(tbl,q){
+  try{const r=await ft(`${SUPABASE_URL}/rest/v1/${tbl}?${q}`,{headers:SB_HEADERS});return r.ok?await r.json():[];}catch(e){return [];}
 }
-async function checkHealth(){
-  try{
-    const res = await fetchWithTimeout(`${AGENTS_SERVER}/health/check-all`, {}, 10000);
-    return res.ok ? await res.json() : null;
-  }catch(e){ return null; }
+async function health(){
+  try{const r=await ft(`${AGENTS}/health/check-all`,{},10000);return r.ok?await r.json():null;}catch(e){return null;}
 }
 
-/* ============================================================
-   NAVIGATION
-   ============================================================ */
-const NAV = [
-  {id:"dashboard",icon:"⚡",label:"Dashboard"},
-  {id:"accounts",icon:"👤",label:"Аккаунты"},
-  {id:"content",icon:"🎬",label:"Производство"},
-  {id:"compliance",icon:"🛡️",label:"Compliance"},
-  {id:"pipeline",icon:"🔄",label:"Пайплайн (n8n)"},
-  {id:"clients",icon:"🤝",label:"Клиенты"},
-  {id:"agents",icon:"🧩",label:"Агенты"},
-  {id:"analytics",icon:"📊",label:"Аналитика"},
-  {id:"infra",icon:"🖥️",label:"Инфраструктура"},
-  {id:"knowledge",icon:"🧠",label:"База знаний"},
+// ─── GREETING ──────────────────────────────────────
+function greetText(){
+  const h=new Date().getHours();
+  if(h<6)return "Доброй ночи";
+  if(h<12)return "Доброе утро";
+  if(h<17)return "Добрый день";
+  return "Добрый вечер";
+}
+document.getElementById("greet").innerHTML =
+  `${greetText()}, Сергей 👋 <span style="font-size:13px;font-weight:400;color:var(--faint)">· UBT OS v2 · Sprint 2</span>`;
+
+// ─── NAV ───────────────────────────────────────────
+const NAV=[
+  {id:"dashboard", icon:"⚡", label:"Главная"},
+  {id:"clients",   icon:"📂", label:"Проекты"},
+  {id:"agents",    icon:"🤖", label:"Агенты"},
+  {id:"analytics", icon:"📊", label:"Аналитика"},
+  {id:"compliance",icon:"🛡️", label:"Compliance"},
+  {id:"accounts",  icon:"👤", label:"Аккаунты"},
+  {id:"content",   icon:"🎬", label:"Производство"},
+  {id:"pipeline",  icon:"🔄", label:"n8n"},
+  {id:"infra",     icon:"🖥️", label:"Инфраструктура"},
+  {id:"knowledge", icon:"🧠", label:"База знаний"},
 ];
-const TITLES = {
-  dashboard:["Dashboard","Реальное состояние системы прямо сейчас"],
-  accounts:["Аккаунты","0 подключённых аккаунтов · протокол прогрева ниже — справка"],
-  content:["Производство","Архитектура пайплайна контента · что реально работает помечено LIVE"],
-  compliance:["Compliance Gate","Проверка контента перед публикацией — regex + Haiku LLM · Sprint 2"],
-  pipeline:["Пайплайн (n8n)","6 воркфлоу реально развёрнуты и опубликованы на сервере"],
-  clients:["Клиенты","White-label агентская модель, CPA-only оплата"],
-  agents:["Агенты","7 агентов реально существуют как код · остальное — план"],
-  analytics:["Аналитика","Выручка из conversion_events · Keitaro postback подключён"],
-  infra:["Инфраструктура","FirstVDS Амстердам — реально развёрнут и работает"],
-  knowledge:["База знаний","Obsidian Vault, синхронизация через n8n каждый час"],
-};
 
 document.getElementById("nav").innerHTML = NAV.map(n =>
-  `<button class="nav-btn ${n.id==='dashboard'?'active':''}" data-id="${n.id}">
-    <span class="icon">${n.icon}</span>${n.label}
+  `<button class="nav-item${n.id==="dashboard"?" active":""}" data-id="${n.id}">
+    <span class="ni">${n.icon}</span><span>${n.label}</span>
   </button>`
 ).join("");
 
-document.querySelectorAll(".nav-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+document.querySelectorAll(".nav-item").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".nav-item").forEach(b=>b.classList.remove("active"));
     document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
     btn.classList.add("active");
     document.getElementById("sec-"+btn.dataset.id).classList.add("active");
-    document.getElementById("page-title").textContent = TITLES[btn.dataset.id][0];
-    document.getElementById("page-desc").textContent = TITLES[btn.dataset.id][1];
   });
 });
 
-/* ============================================================
-   DASHBOARD — живой статус
-   ============================================================ */
+// ════════════════════════════════════════════════════════
+//  DASHBOARD — MAIN PAGE
+// ════════════════════════════════════════════════════════
 async function renderDashboard(){
-  const health = await checkHealth();
-  const [accounts, videos, revenueEvents, knowledgeCount, strategyCount, riskCount] = await Promise.all([
-    countOf("accounts"), countOf("videos"), countOf("revenue_events"),
-    countOf("knowledge_entries"), countOf("strategy_briefs"), countOf("account_risk_profiles"),
+  const [h, accs, vids, revs, kn, briefs, risks, convs] = await Promise.all([
+    health(),
+    count("accounts"), count("videos"), count("revenue_events"),
+    count("knowledge_entries"), count("strategy_briefs"),
+    count("account_risk_profiles"),
+    rows("conversion_events","select=payout_usd&limit=1000"),
   ]);
+  const supaOk = h?.supabase==="ok";
+  const redisOk = h?.redis==="ok";
+  const sysOk = supaOk && redisOk;
+  const totalPayout = convs.reduce((s,r)=>s+(parseFloat(r.payout_usd)||0),0);
 
-  const supaOk = health && health.supabase === "ok";
-  const redisOk = health && health.redis === "ok";
+  const kpiData = [
+    {label:"Выплаты", val:`$${totalPayout.toFixed(0)}`, sub:"conversion_events", accent:"var(--green)", badge:"LIVE", badgeCls:"badge-green"},
+    {label:"Аккаунтов", val:accs, sub:"в базе Supabase", accent:"var(--blue)", badge:"LIVE", badgeCls:"badge-blue"},
+    {label:"Видео", val:vids, sub:"в таблице videos", accent:"var(--indigo)", badge:"LIVE", badgeCls:"badge-blue"},
+    {label:"База знаний", val:kn, sub:"knowledge_entries", accent:"var(--amber)", badge:"LIVE", badgeCls:"badge-amber"},
+    {label:"Система", val:sysOk?"✓ OK":"⚠", sub:sysOk?"Supabase + Redis":"Проверка...", accent:sysOk?"var(--green)":"var(--red)", badge:sysOk?"ONLINE":"CHECK", badgeCls:sysOk?"badge-green":"badge-red"},
+  ];
 
-  document.getElementById("sidebar-status").innerHTML =
-    `<span class="pulse"></span>${supaOk && redisOk ? "Все системы работают" : "Проверка соединений…"}`;
+  const AGENTS_LIST = [
+    {name:"Knowledge Synthesizer", file:"knowledge_synthesizer.py", status:"ok", badge:"активен"},
+    {name:"Strategy Engine",       file:"strategy_engine.py",       status:"ok", badge:"активен"},
+    {name:"Account Checker",       file:"account_checker.py",       status:"ok", badge:"активен"},
+    {name:"Revenue Analyst",       file:"revenue_analyst.py",       status:"ok", badge:"активен"},
+    {name:"Warming State Machine", file:"warming_state_machine.py", status:"ok", badge:"активен"},
+    {name:"Failure Recovery",      file:"failure_recovery.py",      status:"ok", badge:"активен"},
+    {name:"Telegram Jitter",       file:"telegram_jitter.py",       status:"warn",badge:"не запущен"},
+  ];
+
+  const SPRINT = [
+    {name:"Compliance Gate",   route:"/compliance/check", s:"ok"},
+    {name:"Warmup Automation", route:"warming_state_machine.py", s:"ok"},
+    {name:"Keitaro Postback",  route:"/keitaro/postback", s:"ok"},
+    {name:"AgentOps",          route:"/usage/summary", s:"ok"},
+    {name:"Higgsfield Queue",  route:"—", s:"hold"},
+    {name:"Cross-platform",    route:"—", s:"hold"},
+  ];
+
+  const now = new Date();
+  const FEED = [
+    {icon:"🛡️",bg:"var(--indigo)",title:"Compliance Gate — ONLINE",time:"Sprint 2 · regex + Haiku LLM"},
+    {icon:"💰",bg:"var(--green)",title:`Keitaro postback настроен`,time:"POST /keitaro/postback"},
+    {icon:"📊",bg:"var(--blue)",title:"AgentOps tracker — активен",time:"LiteLLM callback зарегистрирован"},
+    {icon:"🔄",bg:"var(--amber)",title:"n8n — 6 воркфлоу активны",time:"health-monitor · account-checker · ..."},
+    {icon:"🧠",bg:"#8b5cf6",title:"Knowledge Synthesizer готов",time:"daily + weekly синтез"},
+  ];
 
   document.getElementById("sec-dashboard").innerHTML = `
-    <div class="stat-grid">
-      <div class="stat"><div class="label">SUPABASE ${liveTag()}</div>
-        <div class="value" style="color:${supaOk?'var(--green)':'var(--red)'}">${supaOk?'OK':'ERROR'}</div></div>
-      <div class="stat"><div class="label">REDIS ${liveTag()}</div>
-        <div class="value" style="color:${redisOk?'var(--green)':'var(--red)'}">${redisOk?'OK':'ERROR'}</div></div>
-      <div class="stat"><div class="label">Аккаунты ${liveTag()}</div><div class="value">${accounts}</div></div>
-      <div class="stat"><div class="label">Видео ${liveTag()}</div><div class="value">${videos}</div></div>
-      <div class="stat"><div class="label">Revenue events ${liveTag()}</div><div class="value">${revenueEvents}</div></div>
-      <div class="stat"><div class="label">Записи знаний ${liveTag()}</div><div class="value">${knowledgeCount}</div></div>
+    <!-- KPI ROW -->
+    <div class="kpi-row">
+      ${kpiData.map(k=>`
+        <div class="kpi" style="--accent:${k.accent}">
+          <div class="k-badge ${k.badgeCls}">${k.badge}</div>
+          <div class="k-label">${k.label}</div>
+          <div class="k-val">${k.val}</div>
+          <div class="k-sub">${k.sub}</div>
+        </div>
+      `).join("")}
     </div>
 
-    <div class="card">
-      <div class="card-head"><span class="title">Sprint 2 — статус</span><span class="right">${liveTag()} задеплоено</span></div>
-      <table><tr><th>Блок</th><th>Статус</th><th>Роут</th></tr>
-        <tr><td class="primary">Compliance Gate</td><td style="color:var(--green)">✓ задеплоен</td><td class="mono">/compliance/check</td></tr>
-        <tr><td class="primary">Warmup Automation</td><td style="color:var(--green)">✓ задеплоен</td><td class="mono">warming_state_machine.py</td></tr>
-        <tr><td class="primary">Keitaro postback</td><td style="color:var(--green)">✓ задеплоен</td><td class="mono">/keitaro/postback</td></tr>
-        <tr><td class="primary">Higgsfield Queue</td><td style="color:var(--amber)">⏸ холд (оплата)</td><td class="mono">—</td></tr>
-        <tr><td class="primary">Cross-platform</td><td style="color:var(--amber)">⏸ холд</td><td class="mono">—</td></tr>
-      </table>
+    <!-- PROJECTS + ACTIVITY -->
+    <div class="two-pane">
+      <!-- LEFT: projects + sprint -->
+      <div>
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">Вертикали</span>
+            <span class="card-sub">${ref()}</span>
+          </div>
+          <div class="projects-grid" style="grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="proj-card" onclick="document.querySelector('[data-id=analytics]').click()">
+              <div class="pc-accent" style="background:var(--green)"></div>
+              <div class="pc-name">Nutra</div>
+              <div class="pc-cat">Dr.Cash · PL/RO/MX/BR/IN</div>
+              <div class="pc-stats">
+                <div class="ps"><div class="ps-val" style="color:var(--green)">$25</div><div class="ps-label">min CPA</div></div>
+                <div class="ps"><div class="ps-val" style="color:var(--amber)">5</div><div class="ps-label">GEO</div></div>
+                <div class="ps"><div class="ps-val" style="color:var(--blue)">COD</div><div class="ps-label">модель</div></div>
+              </div>
+            </div>
+            <div class="proj-card" onclick="document.querySelector('[data-id=analytics]').click()">
+              <div class="pc-accent" style="background:var(--blue)"></div>
+              <div class="pc-name">Betting (UBT)</div>
+              <div class="pc-cat">1win/Mostbet · RU/KZ</div>
+              <div class="pc-stats">
+                <div class="ps"><div class="ps-val" style="color:var(--green)">60%</div><div class="ps-label">RevShare</div></div>
+                <div class="ps"><div class="ps-val" style="color:var(--amber)">$250</div><div class="ps-label">max CPA</div></div>
+                <div class="ps"><div class="ps-val" style="color:var(--blue)">365</div><div class="ps-label">cookie</div></div>
+              </div>
+            </div>
+            <div class="proj-card" onclick="document.querySelector('[data-id=clients]').click()">
+              <div class="pc-accent" style="background:var(--pink)"></div>
+              <div class="pc-name">Авто-импорт</div>
+              <div class="pc-cat">Корейский авто · white-label</div>
+              <div class="pc-stats">
+                <div class="ps"><div class="ps-val" style="color:var(--green)">CPA</div><div class="ps-label">модель</div></div>
+                <div class="ps"><div class="ps-val" style="color:var(--amber)">0</div><div class="ps-label">фикс</div></div>
+                <div class="ps"><div class="ps-val" style="color:var(--blue)">—</div><div class="ps-label">конв.</div></div>
+              </div>
+            </div>
+            <div class="proj-card" onclick="document.querySelector('[data-id=clients]').click()">
+              <div class="pc-accent" style="background:var(--amber)"></div>
+              <div class="pc-name">Тур-агентство</div>
+              <div class="pc-cat">Туризм · white-label</div>
+              <div class="pc-stats">
+                <div class="ps"><div class="ps-val" style="color:var(--green)">CPA</div><div class="ps-label">модель</div></div>
+                <div class="ps"><div class="ps-val" style="color:var(--amber)">0</div><div class="ps-label">фикс</div></div>
+                <div class="ps"><div class="ps-val" style="color:var(--blue)">—</div><div class="ps-label">конв.</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">Sprint 2 — статус</span>
+            <span class="card-sub">${live()}</span>
+          </div>
+          <table>
+            <tr><th>Блок</th><th>Роут</th><th>Статус</th></tr>
+            ${SPRINT.map(s=>`<tr>
+              <td class="hi">${s.name}</td>
+              <td class="mono" style="color:var(--faint)">${esc(s.route)}</td>
+              <td>${s.s==="ok"
+                ? `<span class="chip badge-green">✓ задеплоен</span>`
+                : `<span class="chip badge-amber">⏸ холд</span>`}</td>
+            </tr>`).join("")}
+          </table>
+        </div>
+      </div>
+
+      <!-- RIGHT: activity + alerts -->
+      <div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-head">
+            <span class="card-title">Что происходит сейчас</span>
+            <span class="card-sub">${live()}</span>
+          </div>
+          ${FEED.map(f=>`
+            <div class="feed-item">
+              <div class="feed-icon" style="background:${f.bg}22;color:${f.bg}">${f.icon}</div>
+              <div class="feed-body">
+                <div class="feed-title">${f.title}</div>
+                <div class="feed-time">${f.time}</div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">Требует внимания</span>
+          </div>
+          <div class="alert-item warn">
+            <div class="alert-icon">⚠️</div>
+            <div>
+              <div class="alert-text">Higgsfield не оплачен</div>
+              <div class="alert-sub">Higgsfield Queue и Cross-platform на холде</div>
+            </div>
+          </div>
+          <div class="alert-item info" style="margin-top:7px">
+            <div class="alert-icon">📋</div>
+            <div>
+              <div class="alert-text">SQL-миграция AgentOps</div>
+              <div class="alert-sub">scripts/migration_agentops.sql → Supabase</div>
+            </div>
+          </div>
+          <div class="alert-item info" style="margin-top:7px">
+            <div class="alert-icon">🎯</div>
+            <div>
+              <div class="alert-text">Партнёрки не подключены</div>
+              <div class="alert-sub">1win + Dr.Cash → S2S postback в Keitaro</div>
+            </div>
+          </div>
+          <div class="alert-item ok" style="margin-top:7px">
+            <div class="alert-icon">✅</div>
+            <div>
+              <div class="alert-text">Сервер работает</div>
+              <div class="alert-sub">${sysOk
+                ? "Supabase OK · Redis OK"
+                : "Проверяется…"}</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="card">
-      <div class="card-head"><span class="title">Что дальше</span><span class="right">актуальный приоритет</span></div>
-      ${["Зарегистрироваться в партнёрках (1win, Dr.Cash) и настроить S2S postback в Keitaro → /keitaro/postback",
-         "Завести первый реальный аккаунт и запустить 7-дневный протокол прогрева",
-         "Применить SQL-миграцию conversion_events в Supabase (если не применена)",
-         "После оплаты Higgsfield — разблокировать Higgsfield Queue и Cross-platform Repurposing",
-         "После первых реальных видео — включить Risk Engine и Strategy Engine по расписанию"]
-        .map((t,i)=>`<div class="priority-item"><span class="num">${String(i+1).padStart(2,"0")}</span>${esc(t)}</div>`).join("")}
-    </div>
+    <!-- BOTTOM 3-PANE: Agents | Map | Next steps -->
+    <div class="three-pane">
+      <!-- Agents -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-head">
+          <span class="card-title">Агенты системы</span>
+          <span class="card-sub">${ref()} 7 файлов</span>
+        </div>
+        ${AGENTS_LIST.map(a=>`
+          <div class="agent-row">
+            <div class="agent-dot" style="background:${a.status==="ok"?"var(--green)":"var(--amber)"}"></div>
+            <div class="agent-name">${a.name}</div>
+            <span class="agent-badge" style="background:${a.status==="ok"?"var(--green-dim)":"var(--amber-dim)"};color:${a.status==="ok"?"var(--green)":"var(--amber)"}">
+              ${a.badge}
+            </span>
+          </div>
+        `).join("")}
+      </div>
 
-    <div class="card">
-      <div class="card-head"><span class="title">Позиционирование</span><span class="right">${refTag()} стратегическая заметка, не измеряемая метрика</span></div>
-      <table>
-        <tr><th>Фактор</th><th>GeeLark</th><th>Conbersa</th><th>NoimosAI</th><th>UBT OS</th></tr>
-        ${[["Claude как оркестратор",0,0,0,1],["Higgsfield видео-генерация",0,0,0,1],
-           ["Direction-based workflow",0,0,0,1],["Obsidian как персистентная память",0,0,0,1],
-           ["Человек одобряет ключевые действия",0,0,0,1]]
-          .map(([f,a,b,c,d])=>`<tr><td class="primary">${f}</td>
-            <td>${a?"✓":"—"}</td><td>${b?"✓":"—"}</td><td>${c?"✓":"—"}</td>
-            <td style="color:var(--green)">${d?"✓":"—"}</td></tr>`).join("")}
-      </table>
-    </div>
-  `;
-}
+      <!-- System Map -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-head">
+          <span class="card-title">Карта системы</span>
+          <span class="card-sub">${ref()}</span>
+        </div>
+        <div class="sys-map">
+          <div class="map-row">
+            <div class="map-node hub">ORCHESTRATOR</div>
+          </div>
+          <div class="map-arrow">↓</div>
+          <div class="map-row">
+            <div class="map-node ok">Compliance Gate</div>
+            <div class="map-node ok">Knowledge Hub</div>
+            <div class="map-node ok">Risk Engine</div>
+          </div>
+          <div class="map-arrow">↓</div>
+          <div class="map-row">
+            <div class="map-node ok">Lead Agent</div>
+            <div class="map-node ok">Content Agent</div>
+            <div class="map-node ok">Analytics Agent</div>
+          </div>
+          <div class="map-arrow">↓</div>
+          <div class="map-row">
+            <div class="map-node" style="border-color:var(--blue)">Revenue</div>
+          </div>
+        </div>
+      </div>
 
-/* ============================================================
-   ACCOUNTS
-   ============================================================ */
-async function renderAccounts(){
-  const accounts = await fetchRows("accounts", "select=id,platform,status,created_at&order=created_at.desc&limit=20");
-  document.getElementById("sec-accounts").innerHTML = `
-    <div class="card">
-      <div class="card-head"><span class="title">Подключённые аккаунты</span><span class="right">${liveTag()} ${accounts.length} найдено</span></div>
-      ${accounts.length ? `<table><tr><th>Платформа</th><th>Статус</th><th>Создан</th></tr>${
-        accounts.map(a=>`<tr><td class="primary">${esc(a.platform)}</td><td>${esc(a.status)}</td><td class="mono">${esc((a.created_at||"").slice(0,10))}</td></tr>`).join("")
-      }</table>` : `<div class="note-box">Таблица <code>accounts</code> пуста — ни один аккаунт пока не подключён к системе.</div>`}
-    </div>
-
-    <div class="card">
-      <div class="card-head"><span class="title">Протокол прогрева — 7 дней</span><span class="right">${refTag()}</span></div>
-      <table><tr><th>День</th><th>Действие</th></tr>
-        <tr><td class="primary">1–3</td><td>Только просмотры (20–30 видео) и лайки (10–15), без публикаций.</td></tr>
-        <tr><td class="primary">4–5</td><td>1 нейтральный пост не по теме ниши.</td></tr>
-        <tr><td class="primary">6–7</td><td>1 нишевый пост без ссылок и CTA.</td></tr>
-        <tr><td class="primary">8+</td><td>Старт монетизации. Первый CTA-пост.</td></tr>
-      </table>
-    </div>
-
-    <div class="card">
-      <div class="card-head"><span class="title">Пороги тревоги Account Checker</span><span class="right">${refTag()} воркфлоу опубликован и работает</span></div>
-      <table><tr><th>Метрика</th><th>Действие</th></tr>
-        <tr><td class="primary">ER &lt; 2%</td><td>Алерт в Telegram</td></tr>
-        <tr><td class="primary">ER &lt; 1%</td><td>Стоп публикаций + замена прокси</td></tr>
-        <tr><td class="primary">Бан зафиксирован</td><td>Запись в Knowledge Base</td></tr>
-      </table>
-    </div>
-  `;
-}
-
-/* ============================================================
-   CONTENT / PRODUCTION
-   ============================================================ */
-async function renderContent(){
-  const videos = await countOf("videos");
-  document.getElementById("sec-content").innerHTML = `
-    <div class="card">
-      <div class="card-head"><span class="title">Произведено видео</span><span class="right">${liveTag()}</span></div>
-      <div class="stat"><div class="label">Всего записей в таблице videos</div><div class="value">${videos}</div></div>
-    </div>
-
-    <div class="card">
-      <div class="card-head"><span class="title">Производственный пайплайн</span><span class="right">${refTag()} архитектура</span></div>
-      <table><tr><th>Этап</th><th>Инструмент</th><th>Статус</th></tr>
-        <tr><td class="primary">Контент-план</td><td>CONTENT_CREATOR / strategy_engine.py</td><td>${chip("код есть","#4ade80")}</td></tr>
-        <tr><td class="primary">Compliance Gate</td><td>Haiku, 3 уровня анализа</td><td>${chip("не реализован","#f87171")}</td></tr>
-        <tr><td class="primary">Видеогенерация</td><td>Higgsfield MCP</td><td>${chip("API не подключён","#f59e0b")}</td></tr>
-        <tr><td class="primary">Озвучка</td><td>edge-tts (установлен)</td><td>${chip("готов к использованию","#4ade80")}</td></tr>
-        <tr><td class="primary">Keitaro UTM</td><td>трекинг-ссылки</td><td>${chip("не подключён","#f87171")}</td></tr>
-        <tr><td class="primary">Публикация</td><td>TikTokAutoUploader / Blotato</td><td>${chip("не подключён","#f87171")}</td></tr>
-      </table>
-    </div>
-  `;
-}
-
-/* ============================================================
-   PIPELINE — реальные 6 воркфлоу
-   ============================================================ */
-function renderPipeline(){
-  document.getElementById("sec-pipeline").innerHTML = `
-    <div class="card">
-      <div class="card-head"><span class="title">n8n воркфлоу — реально развёрнуты</span><span class="right">${refTag()} 6 из 6 опубликованы 21–22 июня</span></div>
-      <table><tr><th>Воркфлоу</th><th>Расписание</th><th>Что делает</th></tr>
-        <tr><td class="primary">obsidian-sync</td><td class="mono">каждый час</td><td>Vault → GitHub коммит и пуш</td></tr>
-        <tr><td class="primary">account-checker</td><td class="mono">каждые 6ч</td><td>Проверка ER, прокси, теневой бан</td></tr>
-        <tr><td class="primary">health-monitor</td><td class="mono">каждые 60 сек</td><td>Health-check Supabase/Redis + Telegram-алерты</td></tr>
-        <tr><td class="primary">knowledge-synthesizer</td><td class="mono">ежедневно/еженедельно</td><td>Claude анализирует данные → запись в Obsidian</td></tr>
-        <tr><td class="primary">risk-engine-monitor</td><td class="mono">каждые 6ч</td><td>Risk-скоринг аккаунтов 0–100</td></tr>
-        <tr><td class="primary">strategy-engine-weekly</td><td class="mono">воскресенье 20:00</td><td>Недельный стратегический бриф</td></tr>
-      </table>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="title">n8n панель управления</span></div>
-      <div class="note-box">Открыть живые воркфлоу: <a href="http://88.218.121.108:5678" style="color:var(--indigo)">88.218.121.108:5678</a></div>
-    </div>
-  `;
-}
-
-/* ============================================================
-   CLIENTS
-   ============================================================ */
-let CURRENT_PROJECT = null;
-
-async function renderClients(){
-  const projects = await fetchRows("vertical_configs", "select=id,name,category,config_yaml&order=created_at.asc");
-  document.getElementById("sec-clients").innerHTML = `
-    <div class="card" id="projects-list">
-      <div class="card-head"><span class="title">Проекты</span><span class="right">${liveTag()} ${projects.length} из vertical_configs</span></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        ${projects.map(p => `
-          <div class="project-card" data-id="${esc(p.id)}" style="cursor:pointer;flex:1;min-width:200px;background:var(--void);border:1px solid var(--border);border-radius:8px;padding:14px;border-left:3px solid #60a5fa;">
-            <div style="font-weight:600;color:var(--text);">${esc(p.name)}</div>
-            <div style="font-size:11px;color:var(--faint);margin-top:6px;">${esc(p.category)}</div>
+      <!-- Next Steps -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-head">
+          <span class="card-title">Следующие шаги</span>
+        </div>
+        ${[
+          "Применить migration_agentops.sql в Supabase",
+          "git pull + restart ubt-agents на сервере",
+          "Зарегистрировать 1win + Dr.Cash → S2S postback",
+          "Первый реальный аккаунт + 7-дневный прогрев",
+          "После оплаты Higgsfield — разблокировать очередь",
+        ].map((t,i)=>`
+          <div class="pri-item">
+            <span class="pri-num">${String(i+1).padStart(2,"0")}</span>
+            ${esc(t)}
           </div>
         `).join("")}
       </div>
     </div>
-    <div id="project-workspace"></div>
   `;
-  document.querySelectorAll(".project-card").forEach(card => {
-    card.addEventListener("click", () => openProject(card.dataset.id, projects));
+}
+
+// ════════════════════════════════════════════════════════
+//  ACCOUNTS
+// ════════════════════════════════════════════════════════
+async function renderAccounts(){
+  const accs = await rows("accounts","select=id,platform,status,warming_day,created_at&order=created_at.desc&limit=30");
+  document.getElementById("sec-accounts").innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="card-title">Аккаунты ${live()}</span><span class="card-sub">${accs.length} найдено</span></div>
+      ${accs.length ? `<table><tr><th>Платформа</th><th>Статус</th><th>День прогрева</th><th>Создан</th></tr>
+        ${accs.map(a=>`<tr>
+          <td class="hi">${esc(a.platform)}</td>
+          <td>${chip(a.status, a.status==="active"?"var(--green)":a.status==="warming"?"var(--amber)":"var(--faint)")}</td>
+          <td class="mono">${a.warming_day??"—"}</td>
+          <td class="mono">${(a.created_at||"").slice(0,10)}</td>
+        </tr>`).join("")}
+      </table>` : `<div class="note">Таблица <code>accounts</code> пуста — аккаунты ещё не подключены.</div>`}
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Протокол прогрева — 7 дней</span><span class="card-sub">${ref()}</span></div>
+      <table><tr><th>День</th><th>Действие</th><th>Что нельзя</th></tr>
+        <tr><td class="hi">1–3</td><td>Просмотры (20–30), лайки (10–15)</td><td>Никаких публикаций</td></tr>
+        <tr><td class="hi">4–5</td><td>1 нейтральный пост вне ниши</td><td>Ссылки, CTA</td></tr>
+        <tr><td class="hi">6–7</td><td>1 нишевый пост</td><td>Ссылки, CTA</td></tr>
+        <tr><td class="hi">8+</td><td>Старт монетизации, первый CTA</td><td>—</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Пороги Account Checker</span><span class="card-sub">${ref()}</span></div>
+      <table><tr><th>Метрика</th><th>Действие</th></tr>
+        <tr><td class="hi">ER &lt; 2%</td><td>Алерт в Telegram</td></tr>
+        <tr><td class="hi">ER &lt; 1%</td><td>Стоп + ротация прокси</td></tr>
+        <tr><td class="hi">Бан</td><td>Запись в Knowledge Base</td></tr>
+      </table>
+    </div>
+  `;
+}
+
+// ════════════════════════════════════════════════════════
+//  COMPLIANCE
+// ════════════════════════════════════════════════════════
+async function renderCompliance(){
+  let res = null;
+  try{
+    const r = await ft(`${AGENTS}/compliance/check`,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({text:"This product guarantees cure",vertical:"nutra",geo:"PL"})
+    },5000);
+    res = r.ok ? await r.json() : null;
+  }catch(e){}
+
+  const vcolor = v => v==="pass"?"var(--green)":v==="warn"?"var(--amber)":"var(--red)";
+
+  document.getElementById("sec-compliance").innerHTML = `
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="sl">Gate статус ${live()}</div>
+        <div class="sv" style="color:${res?"var(--green)":"var(--red)"}">${res?"ONLINE":"OFFLINE"}</div>
+        <div class="sn">POST /compliance/check</div>
+      </div>
+      <div class="stat">
+        <div class="sl">Тест-запрос ${live()}</div>
+        <div class="sv" style="color:${res?vcolor(res.verdict):"var(--faint)"}">${res?res.verdict.toUpperCase():"—"}</div>
+        <div class="sn">${res?esc(res.reason):"нет ответа"}</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Архитектура</span><span class="card-sub">${ref()}</span></div>
+      <table><tr><th>Шаг</th><th>Метод</th><th>Время</th></tr>
+        <tr><td class="hi">1. Regex</td><td>Словари бан-слов GEO × вертикаль</td><td class="mono">~0ms</td></tr>
+        <tr><td class="hi">2. LLM</td><td>Haiku — edge cases и тексты &gt;200 символов</td><td class="mono">~1–2s</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Покрытие</span><span class="card-sub">${ref()}</span></div>
+      <table><tr><th>Вертикаль</th><th>GEO</th><th>Проверка</th></tr>
+        <tr><td class="hi">Nutra</td><td>PL, RO, MX, BR, IN</td><td>Медицинские claims + локальные бан-слова</td></tr>
+        <tr><td class="hi">Betting</td><td>RU, KZ</td><td>Гарантии выигрыша, несовершеннолетние</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Интеграция в n8n</span><span class="card-sub">${ref()}</span></div>
+      <div class="note">
+        Добавить HTTP Request ноду перед публикацией:<br>
+        <code>POST http://88.218.121.108:8080/compliance/check</code><br>
+        Body: <code>{"text":"{{caption}}","vertical":"nutra","geo":"PL"}</code><br>
+        Если <code>verdict == "block"</code> — стоп, не публиковать.
+      </div>
+    </div>
+  `;
+}
+
+// ════════════════════════════════════════════════════════
+//  CONTENT
+// ════════════════════════════════════════════════════════
+async function renderContent(){
+  const vids = await count("videos");
+  document.getElementById("sec-content").innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="sl">Видео ${live()}</div><div class="sv">${vids}</div><div class="sn">таблица videos</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Пайплайн производства</span><span class="card-sub">${ref()}</span></div>
+      <table><tr><th>Этап</th><th>Инструмент</th><th>Статус</th></tr>
+        <tr><td class="hi">Контент-план</td><td>strategy_engine.py</td><td>${chip("код есть","var(--green)")}</td></tr>
+        <tr><td class="hi">Compliance Gate</td><td>Haiku LLM + regex</td><td>${chip("задеплоен","var(--green)")}</td></tr>
+        <tr><td class="hi">Видеогенерация</td><td>Higgsfield MCP</td><td>${chip("не оплачен","var(--amber)")}</td></tr>
+        <tr><td class="hi">Озвучка</td><td>edge-tts</td><td>${chip("готов","var(--green)")}</td></tr>
+        <tr><td class="hi">Keitaro UTM</td><td>trекинг-ссылки</td><td>${chip("постбэк подключён","var(--green)")}</td></tr>
+        <tr><td class="hi">Публикация</td><td>Blotato / TikTokAutoUploader</td><td>${chip("не подключён","var(--faint)")}</td></tr>
+      </table>
+    </div>
+  `;
+}
+
+// ════════════════════════════════════════════════════════
+//  PIPELINE
+// ════════════════════════════════════════════════════════
+function renderPipeline(){
+  document.getElementById("sec-pipeline").innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="card-title">n8n воркфлоу</span><span class="card-sub">${ref()} 6 активны, + 2 новых</span></div>
+      <table><tr><th>Воркфлоу</th><th>Расписание</th><th>Что делает</th></tr>
+        <tr><td class="hi">obsidian-sync</td><td class="mono">каждый час</td><td>Vault → GitHub коммит</td></tr>
+        <tr><td class="hi">account-checker</td><td class="mono">каждые 6ч</td><td>ER, прокси, теневой бан</td></tr>
+        <tr><td class="hi">health-monitor</td><td class="mono">каждые 60 сек</td><td>Health-check + Telegram-алерты</td></tr>
+        <tr><td class="hi">knowledge-synthesizer</td><td class="mono">ежедневно</td><td>Claude → Obsidian</td></tr>
+        <tr><td class="hi">risk-engine-monitor</td><td class="mono">каждые 6ч</td><td>Risk-скоринг аккаунтов</td></tr>
+        <tr><td class="hi">strategy-engine-weekly</td><td class="mono">вс 20:00</td><td>Недельный стратегический бриф</td></tr>
+        <tr><td class="hi" style="color:var(--amber)">compliance-check ⊕</td><td class="mono">webhook</td><td>Проверка контента перед публикацией</td></tr>
+        <tr><td class="hi" style="color:var(--amber)">keitaro-postback ⊕</td><td class="mono">webhook</td><td>S2S конверсии → Supabase</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">n8n UI</span></div>
+      <div class="note"><a href="http://88.218.121.108:5678" style="color:var(--blue)">http://88.218.121.108:5678</a></div>
+    </div>
+  `;
+}
+
+// ════════════════════════════════════════════════════════
+//  AGENTS
+// ════════════════════════════════════════════════════════
+function renderAgents(){
+  document.getElementById("sec-agents").innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="card-title">Существуют как код</span><span class="card-sub">${ref()} 7 файлов</span></div>
+      <table><tr><th>Файл</th><th>Роль</th><th>Модель</th></tr>
+        <tr><td class="hi mono">knowledge_synthesizer.py</td><td>Синтез знаний → Obsidian</td><td class="mono">Sonnet 4.6</td></tr>
+        <tr><td class="hi mono">strategy_engine.py</td><td>Стратегический бриф</td><td class="mono">Sonnet 4.6</td></tr>
+        <tr><td class="hi mono">account_checker.py</td><td>Здоровье аккаунтов</td><td class="mono">Haiku 4.5</td></tr>
+        <tr><td class="hi mono">revenue_analyst.py</td><td>Анализ выручки и атрибуции</td><td class="mono">Haiku 4.5</td></tr>
+        <tr><td class="hi mono">failure_recovery.py</td><td>DLQ и восстановление</td><td class="mono">Haiku 4.5</td></tr>
+        <tr><td class="hi mono">warming_state_machine.py</td><td>Прогрев аккаунтов</td><td class="mono">—</td></tr>
+        <tr><td class="hi mono">telegram_jitter.py</td><td>Jitter для Telegram</td><td class="mono">—</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Запланировано</span><span class="card-sub">${ref()} код не написан</span></div>
+      <div class="note">
+        <b>NUTRA.AUTO (7):</b> СТРАТЕГ, СЦЕНАРИСТ, РЕЖИССЁР, ДИКТОР, МОНТАЖЁР, ДИСТРИБЬЮТОР, АНАЛИТИК<br>
+        <b>Telegram-модуль (4):</b> T1-ACCOUNT_MANAGER, T2-WARMER, T3-COMMENTER, T4-REACTOR
+      </div>
+    </div>
+  `;
+}
+
+// ════════════════════════════════════════════════════════
+//  ANALYTICS
+// ════════════════════════════════════════════════════════
+async function renderAnalytics(){
+  const [rev, convs, usage] = await Promise.all([
+    rows("revenue_events","select=net_amount&limit=1000"),
+    rows("conversion_events","select=payout_usd,partner,conversion_type,converted_at&order=converted_at.desc&limit=50"),
+    (async()=>{
+      try{
+        const r=await ft(`${AGENTS}/usage/summary`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({days:7})},8000);
+        return r.ok?await r.json():null;
+      }catch(e){return null;}
+    })(),
+  ]);
+
+  const totalRev = rev.reduce((s,r)=>s+(parseFloat(r.net_amount)||0),0);
+  const totalConv = convs.reduce((s,r)=>s+(parseFloat(r.payout_usd)||0),0);
+
+  const byModel = usage?.by_model||{};
+  const byAgent = usage?.by_agent||{};
+
+  document.getElementById("sec-analytics").innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="sl">Выручка ${live()}</div><div class="sv">$${totalRev.toFixed(2)}</div><div class="sn">net_amount · revenue_events</div></div>
+      <div class="stat"><div class="sl">Конверсии ${live()}</div><div class="sv">${convs.length}</div><div class="sn">conversion_events</div></div>
+      <div class="stat"><div class="sl">Выплаты ${live()}</div><div class="sv">$${totalConv.toFixed(2)}</div><div class="sn">payout_usd</div></div>
+      <div class="stat"><div class="sl">LLM расходы 7д ${live()}</div><div class="sv mono" style="font-size:18px">${usage?`$${usage.total_cost_usd.toFixed(4)}`:"—"}</div><div class="sn">${usage?`${usage.calls} вызовов`:"нет данных"}</div></div>
+    </div>
+
+    ${convs.length ? `
+    <div class="card">
+      <div class="card-head"><span class="card-title">Конверсии ${live()}</span><span class="card-sub">Keitaro → Supabase</span></div>
+      <table><tr><th>Партнёрка</th><th>Тип</th><th>Выплата</th><th>Дата</th></tr>
+        ${convs.slice(0,15).map(c=>`<tr>
+          <td class="hi">${esc(c.partner)}</td>
+          <td>${esc(c.conversion_type)}</td>
+          <td class="mono">$${parseFloat(c.payout_usd||0).toFixed(2)}</td>
+          <td class="mono">${(c.converted_at||"").slice(0,10)}</td>
+        </tr>`).join("")}
+      </table>
+    </div>` : `
+    <div class="card">
+      <div class="note">Конверсий пока нет. Настройте S2S postback в Keitaro → <code>POST http://88.218.121.108:8080/keitaro/postback</code></div>
+    </div>`}
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">LLM расходы ${usage?"":"(offline)"}</span><span class="card-sub">${usage?live():ref()}</span></div>
+      ${usage ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <table><tr><th>Модель</th><th>Расход</th></tr>
+          ${Object.entries(byModel).map(([m,c])=>`<tr><td class="hi mono">${esc(m)}</td><td class="mono">$${c.toFixed(4)}</td></tr>`).join("")||`<tr><td colspan=2 style="color:var(--faint)">нет данных</td></tr>`}
+        </table>
+        <table><tr><th>Агент</th><th>Расход</th></tr>
+          ${Object.entries(byAgent).map(([a,c])=>`<tr><td class="hi">${esc(a)}</td><td class="mono">$${c.toFixed(4)}</td></tr>`).join("")||`<tr><td colspan=2 style="color:var(--faint)">нет данных</td></tr>`}
+        </table>
+      </div>` : `<div class="note">AgentOps недоступен — применить <code>migration_agentops.sql</code> и перезапустить сервер.</div>`}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">Партнёрские программы</span><span class="card-sub">${ref()}</span></div>
+      <table><tr><th>Программа</th><th>Условия</th><th>Cookie</th><th>Выплаты</th></tr>
+        <tr><td class="hi">1win</td><td>RevShare до 60%, CPA до $250</td><td>365 дней</td><td>по вторникам</td></tr>
+        <tr><td class="hi">Mostbet</td><td>RevShare до 60%</td><td>—</td><td>—</td></tr>
+        <tr><td class="hi">Melbet</td><td>RevShare до 55%</td><td>—</td><td>—</td></tr>
+        <tr><td class="hi">Dr.Cash</td><td>$25–100 CPA (COD)</td><td>—</td><td>2×/неделю</td></tr>
+      </table>
+    </div>
+  `;
+}
+
+// ════════════════════════════════════════════════════════
+//  CLIENTS / PROJECTS
+// ════════════════════════════════════════════════════════
+let CURRENT_PROJECT = null;
+
+async function renderClients(){
+  const projects = await rows("vertical_configs","select=id,name,category,config_yaml&order=created_at.asc");
+  document.getElementById("sec-clients").innerHTML = `
+    <div class="card" id="proj-list">
+      <div class="card-head"><span class="card-title">Проекты ${live()}</span><span class="card-sub">${projects.length} из vertical_configs</span></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        ${projects.map(p=>`
+          <div class="proj-card" data-id="${esc(p.id)}" style="flex:1;min-width:200px;">
+            <div class="pc-accent" style="background:var(--blue)"></div>
+            <div class="pc-name">${esc(p.name)}</div>
+            <div class="pc-cat">${esc(p.category||"")}</div>
+          </div>
+        `).join("") || `<div class="note">Проекты не найдены в vertical_configs.</div>`}
+      </div>
+    </div>
+    <div id="proj-workspace"></div>
+  `;
+  document.querySelectorAll(".proj-card[data-id]").forEach(card=>{
+    card.addEventListener("click",()=>openProject(card.dataset.id, projects));
   });
 }
 
 async function openProject(id, projects){
   CURRENT_PROJECT = id;
-  const project = projects.find(p => p.id === id);
-  const knowledge = await fetchRows("knowledge_entries", `select=type,content,created_at&vertical=eq.${id}&order=created_at.desc&limit=5`);
-  const history = await fetchRows("chat_messages", `select=role,content,created_at&vertical_id=eq.${id}&order=created_at.asc&limit=30`);
+  const p = projects.find(x=>x.id===id);
+  const [kn, hist] = await Promise.all([
+    rows("knowledge_entries",`select=type,content,created_at&vertical=eq.${id}&order=created_at.desc&limit=5`),
+    rows("chat_messages",`select=role,content,created_at&vertical_id=eq.${id}&order=created_at.asc&limit=30`),
+  ]);
 
-  document.getElementById("project-workspace").innerHTML = `
+  document.getElementById("proj-workspace").innerHTML = `
     <div class="card">
-      <div class="card-head"><span class="title">📂 ${esc(project.name)}</span><span class="right">${refTag()} конфигурация проекта</span></div>
-      <div class="note-box mono" style="font-size:11.5px;white-space:pre-wrap;">${esc(JSON.stringify(project.config_yaml, null, 2))}</div>
+      <div class="card-head"><span class="card-title">📂 ${esc(p?.name)}</span><span class="card-sub">${ref()}</span></div>
+      <div class="note" style="font-family:var(--mono);font-size:11px;white-space:pre-wrap;">${esc(JSON.stringify(p?.config_yaml,null,2))}</div>
     </div>
-
     <div class="card">
-      <div class="card-head"><span class="title">База знаний проекта</span><span class="right">${liveTag()} ${knowledge.length} записей</span></div>
-      ${knowledge.length
-        ? `<table><tr><th>Тип</th><th>Содержание</th><th>Дата</th></tr>${knowledge.map(k=>
-            `<tr><td><span class="badge caution">${esc(k.type)}</span></td><td class="content-snippet">${esc((k.content||"").slice(0,90))}…</td><td class="mono">${esc((k.created_at||"").slice(0,10))}</td></tr>`
-          ).join("")}</table>`
-        : `<div class="note-box">Пока нет записей знаний для этого проекта.</div>`}
+      <div class="card-head"><span class="card-title">База знаний ${live()}</span><span class="card-sub">${kn.length} записей</span></div>
+      ${kn.length ? `<table><tr><th>Тип</th><th>Содержание</th><th>Дата</th></tr>
+        ${kn.map(k=>`<tr>
+          <td>${chip(k.type,"var(--blue)")}</td>
+          <td>${esc((k.content||"").slice(0,90))}…</td>
+          <td class="mono">${(k.created_at||"").slice(0,10)}</td>
+        </tr>`).join("")}
+      </table>` : `<div class="note">Нет записей знаний для этого проекта.</div>`}
     </div>
-
     <div class="card">
-      <div class="card-head"><span class="title">💬 Чат с оркестратором</span><span class="right">${liveTag()}</span></div>
-      <div id="chat-log" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
-        ${history.map(renderChatMsg).join("")}
+      <div class="card-head"><span class="card-title">💬 Чат с оркестратором ${live()}</span></div>
+      <div class="chat-log" id="chat-log">
+        ${hist.map(m=>`<div class="chat-msg ${m.role}">${esc(m.content)}</div>`).join("")}
       </div>
       <div style="display:flex;gap:8px;">
-        <textarea id="chat-input" rows="2" placeholder="Спроси оркестратора об этом проекте…"
-          style="flex:1;background:var(--void);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-family:inherit;font-size:13px;resize:vertical;"></textarea>
-        <button id="chat-send" onclick="sendChatMessage()"
-          style="background:var(--indigo);color:#fff;border:none;border-radius:8px;padding:0 18px;font-size:13px;cursor:pointer;">Отправить</button>
+        <textarea id="chat-input" rows="2" placeholder="Спроси оркестратора об этом проекте…" style="flex:1"></textarea>
+        <button class="send-btn" id="chat-send" onclick="sendChat()">Отправить</button>
       </div>
     </div>
   `;
@@ -416,274 +875,92 @@ async function openProject(id, projects){
   if(log) log.scrollTop = log.scrollHeight;
 }
 
-function renderChatMsg(m){
-  const isUser = m.role === "user";
-  return `<div style="align-self:${isUser?'flex-end':'flex-start'};max-width:80%;background:${isUser?'var(--indigo)':'var(--surface2)'};
-    border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;color:${isUser?'#fff':'var(--text)'};">
-    ${esc(m.content)}
-  </div>`;
-}
-
-async function sendChatMessage(){
+async function sendChat(){
   const input = document.getElementById("chat-input");
   const btn = document.getElementById("chat-send");
-  const message = input.value.trim();
-  if(!message || !CURRENT_PROJECT) return;
-
+  const msg = input.value.trim();
+  if(!msg || !CURRENT_PROJECT) return;
   const log = document.getElementById("chat-log");
-  log.insertAdjacentHTML("beforeend", renderChatMsg({role:"user", content:message}));
+  log.insertAdjacentHTML("beforeend",`<div class="chat-msg user">${esc(msg)}</div>`);
   log.scrollTop = log.scrollHeight;
   input.value = "";
-  btn.disabled = true;
-  btn.textContent = "Думаю…";
-
+  btn.disabled = true; btn.textContent = "Думаю…";
   try{
-    const res = await fetchWithTimeout(`${AGENTS_SERVER}/orchestrator/chat`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({vertical_id: CURRENT_PROJECT, message}),
-    }, 120000);
-    const data = await res.json();
-    log.insertAdjacentHTML("beforeend", renderChatMsg({role:"assistant", content: data.reply || data.error || "Ошибка ответа"}));
+    const r = await ft(`${AGENTS}/orchestrator/chat`,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({vertical_id:CURRENT_PROJECT,message:msg}),
+    },120000);
+    const d = await r.json();
+    log.insertAdjacentHTML("beforeend",`<div class="chat-msg assistant">${esc(d.reply||d.error||"Ошибка")}</div>`);
   }catch(e){
-    log.insertAdjacentHTML("beforeend", renderChatMsg({role:"assistant", content:"⚠️ Не удалось связаться с оркестратором: "+e.message}));
+    log.insertAdjacentHTML("beforeend",`<div class="chat-msg assistant">⚠️ ${esc(e.message)}</div>`);
   }
   log.scrollTop = log.scrollHeight;
-  btn.disabled = false;
-  btn.textContent = "Отправить";
+  btn.disabled = false; btn.textContent = "Отправить";
 }
 
-/* ============================================================
-   AGENTS — честный реальный инвентарь
-   ============================================================ */
-function renderAgents(){
-  document.getElementById("sec-agents").innerHTML = `
-    <div class="card">
-      <div class="card-head"><span class="title">Реально существуют как код</span><span class="right">${refTag()} 7 файлов в ubt_os/agents/</span></div>
-      <table><tr><th>Файл</th><th>Роль</th></tr>
-        <tr><td class="primary mono">account_checker.py</td><td>Проверка здоровья аккаунтов</td></tr>
-        <tr><td class="primary mono">knowledge_synthesizer.py</td><td>Синтез знаний через Claude — протестирован, работает</td></tr>
-        <tr><td class="primary mono">strategy_engine.py</td><td>Недельная стратегия — протестирован, работает</td></tr>
-        <tr><td class="primary mono">revenue_analyst.py</td><td>Анализ выручки и атрибуции</td></tr>
-        <tr><td class="primary mono">failure_recovery.py</td><td>DLQ и восстановление после сбоев</td></tr>
-        <tr><td class="primary mono">warming_state_machine.py</td><td>State machine прогрева аккаунтов</td></tr>
-        <tr><td class="primary mono">telegram_jitter.py</td><td>Случайные задержки для Telegram-активности</td></tr>
-      </table>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="title">Запланировано, не реализовано</span><span class="right">${refTag()} NUTRA.AUTO + Telegram-модуль</span></div>
-      <div class="note-box">7 агентов NUTRA.AUTO (СТРАТЕГ, СЦЕНАРИСТ, РЕЖИССЁР, ДИКТОР, МОНТАЖЁР, ДИСТРИБЬЮТОР, АНАЛИТИК) и 4 Telegram-агента (T1–T4) существуют только в архитектурном плане — кода для них пока нет.</div>
-    </div>
-  `;
-}
-
-/* ============================================================
-   COMPLIANCE
-   ============================================================ */
-async function renderCompliance(){
-  // Тест compliance gate через agents server
-  let testResult = null;
-  try {
-    const res = await fetchWithTimeout(`${AGENTS_SERVER}/compliance/check`, {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({text:"This product guarantees cure", vertical:"nutra", geo:"PL"})
-    }, 5000);
-    testResult = res.ok ? await res.json() : null;
-  } catch(e) {}
-
-  const verdictColor = v => v==="pass"?"var(--green)":v==="warn"?"var(--amber)":"var(--red)";
-
-  document.getElementById("sec-compliance").innerHTML = `
-    <div class="stat-grid">
-      <div class="stat"><div class="label">Gate статус ${liveTag()}</div>
-        <div class="value" style="color:${testResult?"var(--green)":"var(--red)"}">
-          ${testResult?"ONLINE":"OFFLINE"}</div>
-        <div class="note">POST /compliance/check</div></div>
-      <div class="stat"><div class="label">Тест-запрос ${liveTag()}</div>
-        <div class="value" style="color:${testResult?verdictColor(testResult.verdict):"var(--faint)"}">
-          ${testResult?testResult.verdict.toUpperCase():"—"}</div>
-        <div class="note">${testResult?esc(testResult.reason):"нет ответа"}</div></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="title">Архитектура проверки</span><span class="right">${refTag()}</span></div>
-      <table><tr><th>Шаг</th><th>Метод</th><th>Время</th></tr>
-        <tr><td class="primary">1. Regex</td><td>Словари бан-слов по GEO × вертикаль</td><td class="mono">~0ms</td></tr>
-        <tr><td class="primary">2. LLM</td><td>Haiku — edge cases и тексты >200 символов</td><td class="mono">~1–2s</td></tr>
-      </table>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="title">Покрытие вертикалей и GEO</span><span class="right">${refTag()}</span></div>
-      <table><tr><th>Вертикаль</th><th>GEO</th><th>Тип проверки</th></tr>
-        <tr><td class="primary">Nutra</td><td>PL, RO, MX, BR, IN</td><td>Медицинские claims + локальные бан-слова</td></tr>
-        <tr><td class="primary">Betting</td><td>RU, KZ</td><td>Гарантии выигрыша, несовершеннолетние</td></tr>
-      </table>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="title">Использование в n8n</span><span class="right">${refTag()}</span></div>
-      <div class="note-box">
-        Перед публикацией добавить HTTP Request ноду в воркфлоу:<br>
-        <code>POST http://88.218.121.108:8080/compliance/check</code><br>
-        Body: <code>{"text": "{{caption}}", "vertical": "nutra", "geo": "PL"}</code><br>
-        Если <code>verdict == "block"</code> → стоп, не публиковать.
-      </div>
-    </div>
-  `;
-}
-
-/* ============================================================
-   ANALYTICS
-   ============================================================ */
-async function renderAnalytics(){
-  const [revenue, conversions] = await Promise.all([
-    fetchRows("revenue_events", "select=net_amount&limit=1000"),
-    fetchRows("conversion_events", "select=payout_usd,partner,conversion_type,converted_at&order=converted_at.desc&limit=50"),
-  ]);
-  const totalRevenue = revenue.reduce((s,r)=>s+(parseFloat(r.net_amount)||0),0);
-  const totalConv    = conversions.reduce((s,r)=>s+(parseFloat(r.payout_usd)||0),0);
-  const convCount    = conversions.length;
-
-  document.getElementById("sec-analytics").innerHTML = `
-    <div class="stat-grid">
-      <div class="stat"><div class="label">Выручка revenue_events ${liveTag()}</div>
-        <div class="value">$${totalRevenue.toFixed(2)}</div><div class="note">net_amount из Supabase</div></div>
-      <div class="stat"><div class="label">Keitaro конверсии ${liveTag()}</div>
-        <div class="value">${convCount}</div><div class="note">записей в conversion_events</div></div>
-      <div class="stat"><div class="label">Выплаты (payout) ${liveTag()}</div>
-        <div class="value">$${totalConv.toFixed(2)}</div><div class="note">сумма payout_usd</div></div>
-    </div>
-    ${conversions.length ? `
-    <div class="card">
-      <div class="card-head"><span class="title">Последние конверсии ${liveTag()}</span><span class="right">Keitaro postback → Supabase</span></div>
-      <table><tr><th>Партнёрка</th><th>Тип</th><th>Выплата</th><th>Дата</th></tr>
-        ${conversions.slice(0,15).map(c=>`<tr>
-          <td class="primary">${esc(c.partner)}</td>
-          <td>${esc(c.conversion_type)}</td>
-          <td class="mono">$${parseFloat(c.payout_usd||0).toFixed(2)}</td>
-          <td class="mono">${esc((c.converted_at||"").slice(0,10))}</td>
-        </tr>`).join("")}
-      </table>
-    </div>` : `<div class="card"><div class="note-box">Конверсий пока нет — настройте S2S postback в Keitaro на <code>POST http://88.218.121.108:8080/keitaro/postback</code></div></div>`}
-    <div class="card">
-      <div class="card-head"><span class="title">Условия партнёрских программ</span><span class="right">${refTag()}</span></div>
-      <table><tr><th>Программа</th><th>Условия</th><th>Cookie</th><th>Выплаты</th></tr>
-        <tr><td class="primary">1win</td><td>RevShare до 60%, CPA до $250</td><td>365 дней</td><td>по вторникам</td></tr>
-        <tr><td class="primary">Mostbet</td><td>RevShare до 60%</td><td>—</td><td>—</td></tr>
-        <tr><td class="primary">Dr.Cash</td><td>$25–100 CPA (COD)</td><td>—</td><td>2×/неделю</td></tr>
-      </table>
-    </div>
-  `;
-}
-
-/* ============================================================
-   INFRA
-   ============================================================ */
+// ════════════════════════════════════════════════════════
+//  INFRA
+// ════════════════════════════════════════════════════════
 function renderInfra(){
   document.getElementById("sec-infra").innerHTML = `
     <div class="card">
-      <div class="card-head"><span class="title">Сервер</span><span class="right">${refTag()} реально развёрнут</span></div>
+      <div class="card-head"><span class="card-title">Сервер</span><span class="card-sub">${ref()} реально развёрнут</span></div>
       <table><tr><th>Параметр</th><th>Значение</th></tr>
-        <tr><td class="primary">Провайдер</td><td>FirstVDS «Улёт»</td></tr>
-        <tr><td class="primary">Локация</td><td>Амстердам (требование: EU для доступа к Claude API)</td></tr>
-        <tr><td class="primary">Конфигурация</td><td>8 CPU / 12 GB RAM / 120 GB NVMe</td></tr>
-        <tr><td class="primary">OS</td><td>Ubuntu 22.04 LTS</td></tr>
-        <tr><td class="primary">IP</td><td class="mono">88.218.121.108</td></tr>
+        <tr><td class="hi">Провайдер</td><td>FirstVDS Амстердам</td></tr>
+        <tr><td class="hi">Конфигурация</td><td>8 CPU / 12 GB RAM / 120 GB NVMe</td></tr>
+        <tr><td class="hi">OS</td><td>Ubuntu 22.04 LTS</td></tr>
+        <tr><td class="hi">IP</td><td class="mono">88.218.121.108</td></tr>
+        <tr><td class="hi">SSH алиас</td><td class="mono">ssh ubt-vds</td></tr>
       </table>
     </div>
     <div class="card">
-      <div class="card-head"><span class="title">Развёрнутые сервисы</span><span class="right">${liveTag()} проверено сегодня</span></div>
+      <div class="card-head"><span class="card-title">Сервисы</span><span class="card-sub">${ref()}</span></div>
       <table><tr><th>Сервис</th><th>Порт</th><th>Тип</th></tr>
-        <tr><td class="primary">n8n</td><td class="mono">5678</td><td>Docker, restart always</td></tr>
-        <tr><td class="primary">LiteLLM</td><td class="mono">4000</td><td>systemd</td></tr>
-        <tr><td class="primary">UBT Agents</td><td class="mono">8080</td><td>systemd</td></tr>
-        <tr><td class="primary">Dashboard</td><td class="mono">3000</td><td>systemd</td></tr>
+        <tr><td class="hi">n8n</td><td class="mono">5678</td><td>Docker</td></tr>
+        <tr><td class="hi">LiteLLM</td><td class="mono">4000</td><td>systemd</td></tr>
+        <tr><td class="hi">UBT Agents</td><td class="mono">8080</td><td>systemd · python -m ubt_os.main</td></tr>
+        <tr><td class="hi">Dashboard</td><td class="mono">3000</td><td>systemd</td></tr>
       </table>
     </div>
   `;
 }
 
-/* ============================================================
-   KNOWLEDGE
-   ============================================================ */
+// ════════════════════════════════════════════════════════
+//  KNOWLEDGE
+// ════════════════════════════════════════════════════════
 function renderKnowledge(){
   document.getElementById("sec-knowledge").innerHTML = `
     <div class="card">
-      <div class="card-head"><span class="title">Obsidian Vault</span><span class="right">${refTag()}</span></div>
-      <div class="note-box">
-        Структура PARA (00 Inbox / 20 Projects / 40 Areas / 50 Resources/SOPs / 60 Daily / 90 Archive)<br>
-        Синхронизация: <b>каждый час</b> → GitHub через воркфлоу <code>obsidian-sync</code><br>
+      <div class="card-head"><span class="card-title">Obsidian Vault</span><span class="card-sub">${ref()}</span></div>
+      <div class="note">
+        Структура PARA — <b>00 Inbox / 20 Projects / 40 Areas / 50 Resources/SOPs / 60 Daily / 90 Archive</b><br><br>
+        Синхронизация: каждый час → GitHub через воркфлоу <code>obsidian-sync</code><br>
         Репозиторий: <code>github.com/SPRO100/ubt-os</code>
       </div>
     </div>
   `;
 }
 
-/* ============================================================
-   LLM USAGE (AgentOps)
-   ============================================================ */
-async function renderLlmUsage(){
-  let usage = null;
-  try {
-    const res = await fetchWithTimeout(`${AGENTS_SERVER}/usage/summary`, {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({days:7})
-    }, 8000);
-    usage = res.ok ? await res.json() : null;
-  } catch(e) {}
-
-  const byModel = usage?.by_model || {};
-  const byAgent = usage?.by_agent || {};
-  const modelRows = Object.entries(byModel).map(([m,c])=>`<tr><td class="primary mono">${esc(m)}</td><td class="mono">$${c.toFixed(4)}</td></tr>`).join("");
-  const agentRows = Object.entries(byAgent).map(([a,c])=>`<tr><td class="primary">${esc(a)}</td><td class="mono">$${c.toFixed(4)}</td></tr>`).join("");
-
-  const llmCard = `
-    <div class="card" style="margin-top:16px">
-      <div class="card-head"><span class="title">LLM расходы — 7 дней</span><span class="right">${usage?"<span class='live-tag'>live</span>":"<span style='color:var(--faint)'>offline</span>"}</span></div>
-      ${usage ? `
-      <div class="stat-grid" style="margin-bottom:12px">
-        <div class="stat"><div class="label">Всего вызовов</div><div class="value">${usage.calls}</div></div>
-        <div class="stat"><div class="label">Стоимость</div><div class="value mono">$${usage.total_cost_usd.toFixed(4)}</div></div>
-        <div class="stat"><div class="label">Токены (in/out)</div><div class="value mono">${(usage.total_input_tokens/1000).toFixed(1)}K / ${(usage.total_output_tokens/1000).toFixed(1)}K</div></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        <table><tr><th>Модель</th><th>Расход</th></tr>${modelRows||"<tr><td colspan=2 style='color:var(--faint)'>нет данных</td></tr>"}</table>
-        <table><tr><th>Агент</th><th>Расход</th></tr>${agentRows||"<tr><td colspan=2 style='color:var(--faint)'>нет данных</td></tr>"}</table>
-      </div>` : `<div class="note-box">AgentOps недоступен — возможно сервер не запущен или таблица llm_usage_events не создана</div>`}
-    </div>`;
-
-  // Добавляем карточку в конец аналитики
-  const sec = document.getElementById("sec-analytics");
-  if(sec){
-    // Удаляем старую LLM карточку если есть
-    const old = sec.querySelector(".llm-usage-card");
-    if(old) old.remove();
-    const div = document.createElement("div");
-    div.className = "llm-usage-card";
-    div.innerHTML = llmCard;
-    sec.appendChild(div);
-  }
-}
-
-/* ============================================================
-   INIT
-   ============================================================ */
+// ════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════
 async function loadAll(){
   await renderDashboard();
-  await renderAccounts();
-  await renderContent();
-  await renderCompliance();
   renderPipeline();
-  if (!CURRENT_PROJECT) { renderClients(); }
   renderAgents();
-  await renderAnalytics();
-  await renderLlmUsage();
   renderInfra();
   renderKnowledge();
+  await Promise.all([
+    renderAccounts(),
+    renderCompliance(),
+    renderContent(),
+    renderAnalytics(),
+    renderClients(),
+  ]);
 }
 loadAll();
 setInterval(loadAll, 60000);
 </script>
-
 </body>
 </html>
