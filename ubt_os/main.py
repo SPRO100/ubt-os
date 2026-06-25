@@ -77,6 +77,10 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/telegram/comment":      self._run_tg_comment,
             "/telegram/react":        self._run_tg_react,
             "/telegram/status":       self._run_tg_status,
+            "/telegram/login/send-code":    self._run_tg_send_code,
+            "/telegram/login/confirm-code": self._run_tg_confirm_code,
+            "/telegram/login/confirm-2fa":  self._run_tg_confirm_2fa,
+            "/telegram/account/add":        self._run_tg_add_account,
         }
 
         handler = routes.get(self.path)
@@ -307,6 +311,83 @@ class WebhookHandler(BaseHTTPRequestHandler):
     async def _run_tg_status(self, body: dict):
         from ubt_os.telegram.orchestrator import get_status
         return await get_status(body)
+
+    async def _run_tg_add_account(self, body: dict):
+        """Регистрирует новый аккаунт в tg_accounts."""
+        required = ["phone", "api_id", "api_hash"]
+        for f in required:
+            if not body.get(f):
+                return {"ok": False, "error": f"missing field: {f}"}
+        db = _get_db()
+        row = {
+            "phone":    body["phone"],
+            "api_id":   int(body["api_id"]),
+            "api_hash": body["api_hash"],
+            "vertical": body.get("vertical", "nutra"),
+            "geo":      body.get("geo", "PL"),
+            "proxy":    body.get("proxy"),
+            "status":   "idle",
+        }
+        result = db.table("tg_accounts").insert(row).execute()
+        account_id = result.data[0]["id"] if result.data else None
+        logger.info(f"TG account added: {body['phone']} id={account_id}")
+        return {"ok": True, "account_id": account_id, "phone": body["phone"]}
+
+    async def _run_tg_send_code(self, body: dict):
+        """Шаг 1 авторизации: отправить SMS-код на номер."""
+        import redis as redis_lib
+        from ubt_os.telegram.session_manager import TelegramSessionManager, TgAccount
+        from ubt_os.telegram.client import login_send_code
+        db    = _get_db()
+        redis = redis_lib.from_url(os.environ["REDIS_URL"])
+        sm    = TelegramSessionManager(db, redis)
+        account_id = body.get("account_id")
+        acc = sm.get_account(account_id) if account_id else None
+        if not acc:
+            return {"ok": False, "error": "account not found"}
+        result = await login_send_code(acc)
+        # Сохраняем phone_code_hash в Redis на 10 минут
+        redis.set(f"tg:pch:{account_id}", result["phone_code_hash"], ex=600)
+        return result
+
+    async def _run_tg_confirm_code(self, body: dict):
+        """Шаг 2 авторизации: подтвердить SMS-код."""
+        import redis as redis_lib
+        from ubt_os.telegram.session_manager import TelegramSessionManager
+        from ubt_os.telegram.client import login_confirm_code
+        db    = _get_db()
+        redis = redis_lib.from_url(os.environ["REDIS_URL"])
+        sm    = TelegramSessionManager(db, redis)
+        account_id = body.get("account_id")
+        code       = body.get("code", "")
+        acc = sm.get_account(account_id) if account_id else None
+        if not acc:
+            return {"ok": False, "error": "account not found"}
+        pch = redis.get(f"tg:pch:{account_id}")
+        if not pch:
+            return {"ok": False, "error": "phone_code_hash expired — send code again"}
+        result = await login_confirm_code(acc, code, pch.decode(), sm)
+        if result.get("ok"):
+            sm.update_account(account_id, status="warming", warming_day=0)
+        return result
+
+    async def _run_tg_confirm_2fa(self, body: dict):
+        """Шаг 3 авторизации: подтвердить 2FA пароль."""
+        import redis as redis_lib
+        from ubt_os.telegram.session_manager import TelegramSessionManager
+        from ubt_os.telegram.client import login_confirm_2fa
+        db    = _get_db()
+        redis = redis_lib.from_url(os.environ["REDIS_URL"])
+        sm    = TelegramSessionManager(db, redis)
+        account_id = body.get("account_id")
+        password   = body.get("password", "")
+        acc = sm.get_account(account_id) if account_id else None
+        if not acc:
+            return {"ok": False, "error": "account not found"}
+        result = await login_confirm_2fa(acc, password, sm)
+        if result.get("ok"):
+            sm.update_account(account_id, status="warming", warming_day=0)
+        return result
 
     async def _run_usage_summary(self, body: dict):
         """GET/POST /usage/summary — агрегат расходов LiteLLM за N дней."""

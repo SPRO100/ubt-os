@@ -38,6 +38,23 @@ def _get_db():
     return create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_KEY"])
 
 
+async def _with_client(acc, sm, coro_fn):
+    """Запускает coro_fn(client) с реальным Telethon клиентом если есть сессия, иначе None."""
+    session = sm.load_session(acc.id)
+    if not session:
+        return await coro_fn(None)
+    try:
+        from ubt_os.telegram.client import get_connected_client
+        client = await get_connected_client(acc, sm)
+        try:
+            return await coro_fn(client)
+        finally:
+            await client.disconnect()
+    except Exception as e:
+        logger.warning(f"[client] {acc.phone} connection error: {e} — falling back to simulate")
+        return await coro_fn(None)
+
+
 async def run_warmup(body: dict) -> dict:
     """T2 — прогрев всех warming/idle аккаунтов."""
     from ubt_os.telegram.session_manager import TelegramSessionManager
@@ -46,7 +63,6 @@ async def run_warmup(body: dict) -> dict:
     db    = _get_db()
     redis = _get_redis()
     sm    = TelegramSessionManager(db, redis)
-    warmer = TelegramWarmer(sm, tg_client=None)  # None = симуляция без реального клиента
 
     account_id = body.get("account_id")
     if account_id:
@@ -59,8 +75,11 @@ async def run_warmup(body: dict) -> dict:
 
     results = []
     for acc in accounts:
-        result = await warmer.run_daily_warmup(acc.id)
-        results.append({"account": acc.phone, **result})
+        async def do_warmup(client):
+            warmer = TelegramWarmer(sm, tg_client=client)
+            return await warmer.run_daily_warmup(acc.id)
+        result = await _with_client(acc, sm, do_warmup)
+        results.append({"account": acc.phone[-4:].rjust(len(acc.phone),"*"), **result})
 
     return {"ok": True, "processed": len(results), "results": results}
 
@@ -73,7 +92,6 @@ async def run_comment(body: dict) -> dict:
     db    = _get_db()
     redis = _get_redis()
     sm    = TelegramSessionManager(db, redis)
-    commenter = TelegramCommenter(sm, tg_client=None)
 
     accounts = sm.load_accounts(status="active") + sm.load_accounts(status="warming")
     accounts = [a for a in accounts if a.warming_day >= 6]
@@ -84,8 +102,11 @@ async def run_comment(body: dict) -> dict:
     results = []
     for acc in accounts:
         channels = TARGET_CHANNELS.get(acc.vertical, [])
-        result = await commenter.run(acc.id, channels)
-        results.append({"account": acc.phone, **result})
+        async def do_comment(client):
+            commenter = TelegramCommenter(sm, tg_client=client)
+            return await commenter.run(acc.id, channels)
+        result = await _with_client(acc, sm, do_comment)
+        results.append({"account": acc.phone[-4:].rjust(len(acc.phone),"*"), **result})
 
     return {"ok": True, "processed": len(results), "results": results}
 
@@ -98,7 +119,6 @@ async def run_react(body: dict) -> dict:
     db    = _get_db()
     redis = _get_redis()
     sm    = TelegramSessionManager(db, redis)
-    reactor = TelegramReactor(sm, tg_client=None)
 
     accounts = sm.load_accounts(status="active") + sm.load_accounts(status="warming")
 
@@ -108,8 +128,11 @@ async def run_react(body: dict) -> dict:
     results = []
     for acc in accounts:
         channels = TARGET_CHANNELS.get(acc.vertical, [])
-        result = await reactor.run(acc.id, channels)
-        results.append({"account": acc.phone, **result})
+        async def do_react(client):
+            reactor = TelegramReactor(sm, tg_client=client)
+            return await reactor.run(acc.id, channels)
+        result = await _with_client(acc, sm, do_react)
+        results.append({"account": acc.phone[-4:].rjust(len(acc.phone),"*"), **result})
 
     return {"ok": True, "processed": len(results), "results": results}
 

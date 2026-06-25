@@ -1,0 +1,59 @@
+{
+  "name": "telegram-warmup",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Cron 9:00",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 7 * * *" }]
+        }
+      }
+    },
+    {
+      "id": "warmup",
+      "name": "T2 Warmup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://88.218.121.108:8080/telegram/warmup",
+        "sendBody": true,
+        "bodyParameters": { "parameters": [] },
+        "options": { "timeout": 120000 }
+      }
+    },
+    {
+      "id": "react",
+      "name": "T4 React",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [720, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://88.218.121.108:8080/telegram/react",
+        "sendBody": true,
+        "bodyParameters": { "parameters": [] },
+        "options": { "timeout": 120000 }
+      }
+    },
+    {
+      "id": "log",
+      "name": "Log Result",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [980, 300],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Cron 9:00": { "main": [[{ "node": "T2 Warmup", "type": "main", "index": 0 }]] },
+    "T2 Warmup": { "main": [[{ "node": "T4 React",  "type": "main", "index": 0 }]] },
+    "T4 React":  { "main": [[{ "node": "Log Result","type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Europe/Moscow" }
+}

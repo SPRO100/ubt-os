@@ -1,0 +1,75 @@
+{
+  "name": "telegram-commenter",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Cron 12:00 and 19:00",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 10,17 * * *" }]
+        }
+      }
+    },
+    {
+      "id": "comment",
+      "name": "T3 Comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://88.218.121.108:8080/telegram/comment",
+        "sendBody": true,
+        "bodyParameters": { "parameters": [] },
+        "options": { "timeout": 300000 }
+      }
+    },
+    {
+      "id": "check",
+      "name": "Check ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [720, 300],
+      "parameters": {
+        "conditions": {
+          "boolean": [{ "value1": "={{ $json.ok }}", "operation": "equal", "value2": true }]
+        }
+      }
+    },
+    {
+      "id": "done",
+      "name": "Done",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [980, 200],
+      "parameters": {}
+    },
+    {
+      "id": "alert",
+      "name": "Telegram Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [980, 420],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TELEGRAM_ALERT_CHAT_ID }}",
+        "text": "⚠️ T3 Commenter error\n{{ JSON.stringify($json) }}",
+        "additionalFields": {}
+      }
+    }
+  ],
+  "connections": {
+    "Cron 12:00 and 19:00": { "main": [[{ "node": "T3 Comment", "type": "main", "index": 0 }]] },
+    "T3 Comment": { "main": [[{ "node": "Check ok?", "type": "main", "index": 0 }]] },
+    "Check ok?": {
+      "main": [
+        [{ "node": "Done",          "type": "main", "index": 0 }],
+        [{ "node": "Telegram Alert","type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Europe/Moscow" }
+}

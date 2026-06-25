@@ -235,6 +235,7 @@ button.send-btn:disabled{opacity:.5;cursor:not-allowed;}
     <div class="section" id="sec-clients"></div>
     <div class="section" id="sec-agents"></div>
     <div class="section" id="sec-analytics"></div>
+    <div class="section" id="sec-telegram"></div>
     <div class="section" id="sec-infra"></div>
     <div class="section" id="sec-knowledge"></div>
   </div>
@@ -293,6 +294,7 @@ const NAV=[
   {id:"accounts",  icon:"👤", label:"Аккаунты"},
   {id:"content",   icon:"🎬", label:"Производство"},
   {id:"pipeline",  icon:"🔄", label:"n8n"},
+  {id:"telegram",  icon:"✈️", label:"Telegram"},
   {id:"infra",     icon:"🖥️", label:"Инфраструктура"},
   {id:"knowledge", icon:"🧠", label:"База знаний"},
 ];
@@ -945,6 +947,110 @@ function renderKnowledge(){
 // ════════════════════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════
+   TELEGRAM MODULE
+   ════════════════════════════════════════════════════════ */
+async function renderTelegram(){
+  // Статус аккаунтов
+  let status = null;
+  try {
+    const r = await ft(`${AGENTS}/telegram/status`, {
+      method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"
+    }, 8000);
+    status = r.ok ? await r.json() : null;
+  } catch(e) {}
+
+  const accs = status?.accounts || [];
+  const phaseLabel = {
+    idle:"не начат", views_only:"1–3: просмотры",
+    neutral_content:"4–5: нейтральный контент",
+    niche_content:"6–7: нишевый контент",
+    monetization:"8+: монетизация"
+  };
+  const statusColor = {
+    idle:"var(--faint)", warming:"var(--amber)",
+    active:"var(--green)", banned:"var(--red)", flood_wait:"var(--amber)"
+  };
+
+  document.getElementById("sec-telegram").innerHTML = `
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="sl">Всего аккаунтов ${live()}</div>
+        <div class="sv">${status?.total ?? "—"}</div>
+        <div class="sn">в tg_accounts</div>
+      </div>
+      <div class="stat">
+        <div class="sl">Warming</div>
+        <div class="sv" style="color:var(--amber)">${status?.by_status?.warming ?? 0}</div>
+        <div class="sn">прогрев активен</div>
+      </div>
+      <div class="stat">
+        <div class="sl">Active</div>
+        <div class="sv" style="color:var(--green)">${status?.by_status?.active ?? 0}</div>
+        <div class="sn">монетизация</div>
+      </div>
+      <div class="stat">
+        <div class="sl">Banned</div>
+        <div class="sv" style="color:var(--red)">${status?.by_status?.banned ?? 0}</div>
+        <div class="sn">заблокированы</div>
+      </div>
+    </div>
+
+    ${accs.length ? `
+    <div class="card">
+      <div class="card-head"><span class="card-title">Аккаунты ${live()}</span><span class="card-sub">${accs.length} аккаунтов</span></div>
+      <table>
+        <tr><th>Телефон</th><th>Статус</th><th>День</th><th>Фаза</th><th>Вертикаль</th><th>GEO</th></tr>
+        ${accs.map(a=>`<tr>
+          <td class="hi mono">${esc(a.phone)}</td>
+          <td><span class="chip" style="background:${statusColor[a.status]||"var(--faint)"}1a;color:${statusColor[a.status]||"var(--faint)"}">
+            ${esc(a.status)}</span></td>
+          <td class="mono">${a.warming_day}</td>
+          <td style="color:var(--muted);font-size:11px">${phaseLabel[a.warming_phase]||"—"}</td>
+          <td>${esc(a.vertical)}</td>
+          <td>${esc(a.geo)}</td>
+        </tr>`).join("")}
+      </table>
+    </div>` : `
+    <div class="card">
+      <div class="note">
+        Аккаунтов пока нет. Добавь первый:<br><br>
+        <code>POST http://88.218.121.108:8080/telegram/account/add</code><br>
+        Body: <code>{"phone":"+7XXXXXXXXXX","api_id":12345,"api_hash":"abc...","vertical":"nutra","geo":"PL"}</code><br><br>
+        api_id и api_hash получить на <b>my.telegram.org</b>
+      </div>
+    </div>`}
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">Протокол авторизации</span><span class="card-sub">${ref()}</span></div>
+      <table><tr><th>Шаг</th><th>Роут</th><th>Параметры</th></tr>
+        <tr><td class="hi">1. Добавить аккаунт</td><td class="mono">/telegram/account/add</td><td>phone, api_id, api_hash, vertical, geo</td></tr>
+        <tr><td class="hi">2. Отправить код</td><td class="mono">/telegram/login/send-code</td><td>account_id</td></tr>
+        <tr><td class="hi">3. Подтвердить код</td><td class="mono">/telegram/login/confirm-code</td><td>account_id, code</td></tr>
+        <tr><td class="hi">3b. Если 2FA</td><td class="mono">/telegram/login/confirm-2fa</td><td>account_id, password</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">Протокол прогрева</span><span class="card-sub">${ref()}</span></div>
+      <table><tr><th>День</th><th>Фаза</th><th>Действия</th><th>Лимиты</th></tr>
+        <tr><td class="hi">1–3</td><td>views_only</td><td>Просмотры каналов, реакции</td><td>25 просм., 12 реакций/день</td></tr>
+        <tr><td class="hi">4–5</td><td>neutral_content</td><td>+ нейтральные посты</td><td>+1 пост, 2 комментария</td></tr>
+        <tr><td class="hi">6–7</td><td>niche_content</td><td>+ нишевые посты</td><td>+1 пост, 3 комментария</td></tr>
+        <tr><td class="hi">8+</td><td>monetization</td><td>CTA, ссылки, партнёрка</td><td>4 комментария, 2 поста</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">n8n расписание</span><span class="card-sub">${ref()}</span></div>
+      <table><tr><th>Воркфлоу</th><th>Время</th><th>Агенты</th></tr>
+        <tr><td class="hi">telegram-warmup</td><td class="mono">09:00 ежедневно</td><td>T2 прогрев + T4 реакции</td></tr>
+        <tr><td class="hi">telegram-commenter</td><td class="mono">12:00 и 19:00</td><td>T3 комментарии (день 6+)</td></tr>
+      </table>
+    </div>
+  `;
+}
+
 async function loadAll(){
   await renderDashboard();
   renderPipeline();
@@ -957,6 +1063,7 @@ async function loadAll(){
     renderContent(),
     renderAnalytics(),
     renderClients(),
+    renderTelegram(),
   ]);
 }
 loadAll();
