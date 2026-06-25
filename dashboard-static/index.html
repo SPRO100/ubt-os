@@ -687,17 +687,44 @@ async function renderAccounts(){
     const pc = PLATFORM_COLOR[a.platform]||"var(--faint)";
     const icon = PLATFORM_ICON[a.platform]||"👤";
     const needAuth = a._tg && a.status==="idle";
-    return `<div class="tg-row" style="grid-template-columns:24px 40px 1fr 90px 55px 70px 60px auto">
+    const day = a.warming_day??0;
+    const maxDay = 8;
+    const pct = Math.min(100, Math.round(day/maxDay*100));
+    // Warmup progress bar (показываем только пока warming или день < 8)
+    const warmupBar = (a.status==="warming" || (day>0 && day<maxDay))
+      ? `<div style="width:100%;height:3px;background:var(--surface3);border-radius:2px;margin-top:3px">
+           <div style="width:${pct}%;height:100%;background:${sc};border-radius:2px;transition:width .3s"></div>
+         </div>`
+      : "";
+    // Health badge: ER% из raw данных если есть, иначе — пусто
+    const er = a._raw?.er_percent ?? a.er_percent ?? null;
+    const erBadge = er!==null
+      ? `<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:${er>=2?"rgba(34,197,94,.15)":"rgba(248,113,113,.15)"};color:${er>=2?"var(--green)":"var(--red)"}">ER ${er}%</span>`
+      : "";
+    // Proxy dot
+    const proxyOk = a._raw?.proxy_ok ?? a.proxy_ok ?? null;
+    const proxyDot = proxyOk===true
+      ? `<span title="Proxy OK" style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block"></span>`
+      : proxyOk===false
+        ? `<span title="Proxy FAIL" style="width:6px;height:6px;border-radius:50%;background:var(--red);display:inline-block"></span>`
+        : "";
+    return `<div class="tg-row" style="grid-template-columns:24px 12px 1fr 90px 110px 60px 60px auto;align-items:start">
       <span style="color:${pc};font-size:14px">${icon}</span>
-      <span style="width:8px;height:8px;border-radius:50%;background:${sc};display:inline-block;margin-top:4px"></span>
-      <span class="acc-phone">${esc(a.username||a.phone||"—")}</span>
+      <span style="width:8px;height:8px;border-radius:50%;background:${sc};display:inline-block;margin-top:5px"></span>
+      <span>
+        <span class="acc-phone">${esc(a.username||a.phone||"—")}</span>
+        ${warmupBar}
+      </span>
       <span>${chip(a.status||"—",sc)}</span>
-      <span style="font-family:var(--mono);font-size:12px;color:var(--muted)">${a.warming_day??0}</span>
+      <span style="display:flex;align-items:center;gap:4px">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">Д${day}/${maxDay}</span>
+        ${erBadge}${proxyDot}
+      </span>
       <span style="font-size:11px;color:var(--faint)">${esc(a.vertical||"—")}</span>
       <span style="font-size:11px;color:var(--muted)">${esc(a.geo||"—")}</span>
       <span class="acc-actions">
         ${needAuth
-          ? `<button class="btn btn-ghost btn-sm" onclick="showSection('telegram');setTimeout(()=>tgOpenAuth('${esc(a.id)}','${esc(a.username||"")}'),100)">🔑 Авт.</button>`
+          ? `<button class="btn btn-ghost btn-sm" onclick="showSection('telegram');setTimeout(()=>tgOpenAuth('${esc(a.id)}','${esc(a.username||"")}'),100)">Авт.</button>`
           : ""}
       </span>
     </div>`;
@@ -723,8 +750,8 @@ async function renderAccounts(){
           <span class="tg-group-meta">${list.length} акк.</span>
         </div>
         <div class="tg-group-body" data-group="acc_${key}" style="display:${open?"block":"none"}">
-          <div class="tg-row" style="grid-template-columns:24px 40px 1fr 90px 55px 70px 60px auto;background:var(--surface3);font-size:10px;color:var(--faint);padding:5px 14px">
-            <span></span><span></span><span>Логин / Телефон</span><span>Статус</span><span>День</span><span>Вертикаль</span><span>GEO</span><span></span>
+          <div class="tg-row" style="grid-template-columns:24px 12px 1fr 90px 110px 60px 60px auto;background:var(--surface3);font-size:10px;color:var(--faint);padding:5px 14px">
+            <span></span><span></span><span>Логин / Телефон</span><span>Статус</span><span>Прогрев / Health</span><span>Верт.</span><span>GEO</span><span></span>
           </div>
           ${list.map(accRowHtml).join("")}
         </div>
@@ -794,6 +821,14 @@ async function renderAccounts(){
       <div id="acc-groups">${groupsHtml(groups)}</div>
     </div>
 
+    <div class="card" id="acc-queue-card">
+      <div class="card-head">
+        <span class="card-title">Очередь контента</span>
+        <button class="btn btn-ghost btn-sm" onclick="renderContentQueue()">↻</button>
+      </div>
+      <div id="acc-queue-body"><div class="note" style="padding:12px 0;color:var(--faint)">Загрузка...</div></div>
+    </div>
+
     <div class="card">
       <div class="card-head"><span class="card-title">Протокол прогрева</span><span class="card-sub">${ref()}</span></div>
       <table><tr><th>День</th><th>Действие</th><th>Что нельзя</th></tr>
@@ -814,6 +849,7 @@ async function renderAccounts(){
     </div>
     <div id="acc-modal"></div>
   `;
+  renderContentQueue();
 }
 
 function accOpenAddTg(){
@@ -873,6 +909,58 @@ async function accSubmitTg(){
       msg.innerHTML=`<div class="msg-err">Ошибка: ${esc(d.error||"unknown")}</div>`;
     }
   }catch(e){msg.innerHTML=`<div class="msg-err">Сервер недоступен</div>`;}
+}
+
+// ════════════════════════════════════════════════════════
+//  CONTENT QUEUE
+// ════════════════════════════════════════════════════════
+const QUEUE_STATUS_COLOR = {
+  scheduled:"var(--blue)", posted:"var(--green)", failed:"var(--red)", pending:"var(--amber)"
+};
+
+async function renderContentQueue(){
+  const el = document.getElementById("acc-queue-body");
+  if(!el) return;
+  el.innerHTML = `<div class="note" style="padding:10px 0;color:var(--faint)">Загрузка...</div>`;
+
+  // Пробуем загрузить из Supabase (таблица content_queue)
+  let items = [];
+  try {
+    items = await rows("content_queue",
+      "select=id,account_id,platform,title,scheduled_at,status,vertical,geo&order=scheduled_at.asc&limit=30");
+  } catch(e){}
+
+  if(!items || items.length === 0){
+    el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--faint);font-size:13px">
+      Очередь пуста — контент появится после запуска CONTENT_CREATOR агента
+    </div>`;
+    return;
+  }
+
+  const counts = {};
+  items.forEach(i=>{ const s=i.status||"pending"; counts[s]=(counts[s]||0)+1; });
+  const pills = Object.entries(counts).map(([s,n])=>{
+    const c = QUEUE_STATUS_COLOR[s]||"var(--faint)";
+    return `<span class="chip" style="background:${c}1a;color:${c}">${s} ${n}</span>`;
+  }).join(" ");
+
+  el.innerHTML = `
+    <div style="padding:8px 14px 0;display:flex;gap:6px;flex-wrap:wrap">${pills}</div>
+    <table style="margin-top:8px">
+      <tr><th>Платформа</th><th>Заголовок</th><th>Аккаунт</th><th>Запланировано</th><th>Статус</th><th>Верт.</th></tr>
+      ${items.map(i=>{
+        const c = QUEUE_STATUS_COLOR[i.status||"pending"]||"var(--faint)";
+        const dt = i.scheduled_at ? new Date(i.scheduled_at).toLocaleString("ru",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}) : "—";
+        return `<tr>
+          <td>${PLATFORM_ICON[i.platform]||""} ${esc(i.platform||"—")}</td>
+          <td class="hi" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(i.title||"—")}</td>
+          <td class="mono" style="font-size:11px">${esc(i.account_id||"—")}</td>
+          <td style="font-size:11px;color:var(--muted)">${dt}</td>
+          <td>${chip(i.status||"pending",c)}</td>
+          <td style="font-size:11px;color:var(--faint)">${esc(i.vertical||"—")}</td>
+        </tr>`;
+      }).join("")}
+    </table>`;
 }
 
 // ════════════════════════════════════════════════════════
@@ -1008,19 +1096,21 @@ function renderAgents(){
 //  ANALYTICS
 // ════════════════════════════════════════════════════════
 async function renderAnalytics(){
-  const [rev, convs, usage] = await Promise.all([
+  const [rev, convs, usage, accsForRev] = await Promise.all([
     rows("revenue_events","select=net_amount&limit=1000"),
     rows("conversion_events","select=payout_usd,partner,conversion_type,converted_at&order=converted_at.desc&limit=50"),
-    (async()=>{
-      try{
-        const r=await ft(`${AGENTS}/usage/summary`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({days:7})},8000);
-        return r.ok?await r.json():null;
-      }catch(e){return null;}
-    })(),
+    (async()=>{ try{ const r=await ft(`${AGENTS}/usage/summary`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({days:7})},8000); return r.ok?await r.json():null; }catch(e){return null;} })(),
+    rows("revenue_events","select=account_id,net_amount&limit=5000"),
+  ]);
   ]);
 
   const totalRev = rev.reduce((s,r)=>s+(parseFloat(r.net_amount)||0),0);
   const totalConv = convs.reduce((s,r)=>s+(parseFloat(r.payout_usd)||0),0);
+
+  // Revenue per account
+  const revByAcc = {};
+  (accsForRev||[]).forEach(r=>{ if(r.account_id){ revByAcc[r.account_id]=(revByAcc[r.account_id]||0)+(parseFloat(r.net_amount)||0); } });
+  const topAccs = Object.entries(revByAcc).sort((a,b)=>b[1]-a[1]).slice(0,10);
 
   const byModel = usage?.by_model||{};
   const byAgent = usage?.by_agent||{};
@@ -1032,6 +1122,25 @@ async function renderAnalytics(){
       <div class="stat"><div class="sl">Выплаты ${live()}</div><div class="sv">$${totalConv.toFixed(2)}</div><div class="sn">payout_usd</div></div>
       <div class="stat"><div class="sl">LLM расходы 7д ${live()}</div><div class="sv mono" style="font-size:18px">${usage?`$${usage.total_cost_usd.toFixed(4)}`:"—"}</div><div class="sn">${usage?`${usage.calls} вызовов`:"нет данных"}</div></div>
     </div>
+
+    ${topAccs.length ? `
+    <div class="card">
+      <div class="card-head"><span class="card-title">Revenue по аккаунтам</span><span class="card-sub">account_id → revenue_events</span></div>
+      <table><tr><th>Аккаунт</th><th>Выручка</th><th>Доля</th></tr>
+        ${topAccs.map(([acc,amt])=>`<tr>
+          <td class="hi mono" style="font-size:11px">${esc(acc)}</td>
+          <td class="mono">$${amt.toFixed(2)}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div style="width:80px;height:6px;background:var(--surface3);border-radius:3px">
+                <div style="width:${totalRev>0?Math.round(amt/totalRev*100):0}%;height:100%;background:var(--indigo);border-radius:3px"></div>
+              </div>
+              <span style="font-size:11px;color:var(--muted)">${totalRev>0?(amt/totalRev*100).toFixed(1):0}%</span>
+            </div>
+          </td>
+        </tr>`).join("")}
+      </table>
+    </div>` : ""}
 
     ${convs.length ? `
     <div class="card">
