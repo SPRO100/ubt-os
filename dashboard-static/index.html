@@ -626,22 +626,176 @@ async function renderDashboard(){
 // ════════════════════════════════════════════════════════
 //  ACCOUNTS
 // ════════════════════════════════════════════════════════
+// ─── Accounts state ──────────────────────────────────────
+let _accPlatform = "all";
+let _accGroupBy = "platform";
+let _accCollapsed = {};
+
+const PLATFORM_ICON = {
+  tiktok:"🎵", youtube:"▶", instagram:"📸", telegram:"✈️", unknown:"👤"
+};
+const PLATFORM_COLOR = {
+  tiktok:"var(--pink)", youtube:"var(--red)", instagram:"var(--amber)",
+  telegram:"var(--blue)", unknown:"var(--faint)"
+};
+
 async function renderAccounts(){
-  const accs = await rows("accounts","select=id,platform,status,warming_day,created_at&order=created_at.desc&limit=30");
+  // Соц-сети из таблицы accounts
+  const socAccs = await rows("accounts","select=id,platform,username,status,warming_day,vertical,geo,created_at&order=created_at.desc&limit=100");
+
+  // Telegram из агента
+  let tgAccs = [];
+  try {
+    const r = await ft(`${AGENTS}/telegram/status`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"},8000);
+    if(r.ok){ const d=await r.json(); tgAccs=d.accounts||[]; }
+  } catch(e){}
+
+  // Нормализуем tg в единый формат
+  const tgNorm = tgAccs.map(a=>({
+    id: a.id, platform:"telegram",
+    username: a.phone,
+    status: a.status,
+    warming_day: a.warming_day,
+    vertical: a.vertical,
+    geo: a.geo,
+    created_at: null,
+    _tg: true, _raw: a,
+  }));
+
+  const all = [...socAccs, ...tgNorm];
+
+  // Счётчики
+  const byPlatform = {};
+  all.forEach(a=>{ const p=a.platform||"unknown"; byPlatform[p]=(byPlatform[p]||0)+1; });
+  const totalActive = all.filter(a=>a.status==="active").length;
+  const totalWarming = all.filter(a=>a.status==="warming").length;
+  const totalBanned = all.filter(a=>a.status==="banned").length;
+
+  // Фильтр + группировка
+  const filtered = _accPlatform==="all" ? all : all.filter(a=>a.platform===_accPlatform);
+  const groups = {};
+  filtered.forEach(a=>{
+    const key = _accGroupBy==="platform" ? (a.platform||"unknown") :
+                _accGroupBy==="vertical" ? (a.vertical||"—") :
+                _accGroupBy==="status"   ? (a.status||"—") :
+                _accGroupBy==="geo"      ? (a.geo||"—") : "Все";
+    (groups[key]||(groups[key]=[])).push(a);
+  });
+
+  function accRowHtml(a){
+    const sc = a.status==="active"?"var(--green)":a.status==="warming"?"var(--amber)":a.status==="banned"?"var(--red)":"var(--faint)";
+    const pc = PLATFORM_COLOR[a.platform]||"var(--faint)";
+    const icon = PLATFORM_ICON[a.platform]||"👤";
+    const needAuth = a._tg && a.status==="idle";
+    return `<div class="tg-row" style="grid-template-columns:24px 40px 1fr 90px 55px 70px 60px auto">
+      <span style="color:${pc};font-size:14px">${icon}</span>
+      <span style="width:8px;height:8px;border-radius:50%;background:${sc};display:inline-block;margin-top:4px"></span>
+      <span class="acc-phone">${esc(a.username||a.phone||"—")}</span>
+      <span>${chip(a.status||"—",sc)}</span>
+      <span style="font-family:var(--mono);font-size:12px;color:var(--muted)">${a.warming_day??0}</span>
+      <span style="font-size:11px;color:var(--faint)">${esc(a.vertical||"—")}</span>
+      <span style="font-size:11px;color:var(--muted)">${esc(a.geo||"—")}</span>
+      <span class="acc-actions">
+        ${needAuth
+          ? `<button class="btn btn-ghost btn-sm" onclick="showSection('telegram');setTimeout(()=>tgOpenAuth('${esc(a.id)}','${esc(a.username||"")}'),100)">🔑 Авт.</button>`
+          : ""}
+      </span>
+    </div>`;
+  }
+
+  function groupsHtml(groups){
+    if(Object.keys(groups).length===0)
+      return `<div class="note" style="padding:16px 0">Аккаунтов нет. Добавь через кнопку выше.</div>`;
+    return Object.entries(groups).map(([key,list])=>{
+      const open = !_accCollapsed["acc_"+key];
+      const statusCounts = {};
+      list.forEach(a=>{statusCounts[a.status]=(statusCounts[a.status]||0)+1;});
+      const pills = Object.entries(statusCounts).map(([s,n])=>{
+        const sc = s==="active"?"var(--green)":s==="warming"?"var(--amber)":s==="banned"?"var(--red)":"var(--faint)";
+        return `<span class="chip" style="background:${sc}1a;color:${sc};margin-left:4px">${s} ${n}</span>`;
+      }).join("");
+      const icon = PLATFORM_ICON[key]||"";
+      return `<div class="tg-group">
+        <div class="tg-group-head" onclick="_accCollapsed['acc_${key}']=!_accCollapsed['acc_${key}'];document.getElementById('sec-accounts').querySelector('[data-group=\\'acc_${key}\\']').style.display=_accCollapsed['acc_${key}']?'none':'block';this.querySelector('.tg-group-arrow').classList.toggle('open')">
+          <span class="tg-group-arrow ${open?"open":""}">▶</span>
+          <span class="tg-group-label">${icon} ${esc(key)}</span>
+          ${pills}
+          <span class="tg-group-meta">${list.length} акк.</span>
+        </div>
+        <div class="tg-group-body" data-group="acc_${key}" style="display:${open?"block":"none"}">
+          <div class="tg-row" style="grid-template-columns:24px 40px 1fr 90px 55px 70px 60px auto;background:var(--surface3);font-size:10px;color:var(--faint);padding:5px 14px">
+            <span></span><span></span><span>Логин / Телефон</span><span>Статус</span><span>День</span><span>Вертикаль</span><span>GEO</span><span></span>
+          </div>
+          ${list.map(accRowHtml).join("")}
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  const platformTabs = ["all",...new Set(all.map(a=>a.platform||"unknown"))];
+
   document.getElementById("sec-accounts").innerHTML = `
-    <div class="card">
-      <div class="card-head"><span class="card-title">Аккаунты ${live()}</span><span class="card-sub">${accs.length} найдено</span></div>
-      ${accs.length ? `<table><tr><th>Платформа</th><th>Статус</th><th>День прогрева</th><th>Создан</th></tr>
-        ${accs.map(a=>`<tr>
-          <td class="hi">${esc(a.platform)}</td>
-          <td>${chip(a.status, a.status==="active"?"var(--green)":a.status==="warming"?"var(--amber)":"var(--faint)")}</td>
-          <td class="mono">${a.warming_day??"—"}</td>
-          <td class="mono">${(a.created_at||"").slice(0,10)}</td>
-        </tr>`).join("")}
-      </table>` : `<div class="note">Таблица <code>accounts</code> пуста — аккаунты ещё не подключены.</div>`}
+    <div class="stat-grid" style="margin-bottom:16px">
+      <div class="stat">
+        <div class="sl">Всего аккаунтов</div>
+        <div class="sv">${all.length}</div>
+        <div class="sn">все платформы</div>
+      </div>
+      <div class="stat">
+        <div class="sl">Active</div>
+        <div class="sv" style="color:var(--green)">${totalActive}</div>
+        <div class="sn">монетизация</div>
+      </div>
+      <div class="stat">
+        <div class="sl">Warming</div>
+        <div class="sv" style="color:var(--amber)">${totalWarming}</div>
+        <div class="sn">прогрев</div>
+      </div>
+      <div class="stat">
+        <div class="sl">Banned</div>
+        <div class="sv" style="color:var(--red)">${totalBanned}</div>
+        <div class="sn">заблокированы</div>
+      </div>
+      ${Object.entries(byPlatform).map(([p,n])=>`
+      <div class="stat">
+        <div class="sl">${PLATFORM_ICON[p]||""} ${p}</div>
+        <div class="sv" style="color:${PLATFORM_COLOR[p]||"var(--text)"}">${n}</div>
+        <div class="sn">аккаунтов</div>
+      </div>`).join("")}
     </div>
+
     <div class="card">
-      <div class="card-head"><span class="card-title">Протокол прогрева — 7 дней</span><span class="card-sub">${ref()}</span></div>
+      <div class="card-head">
+        <span class="card-title">Все аккаунты</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-primary btn-sm" onclick="accOpenAddTg()">+ Telegram</button>
+          <button class="btn btn-ghost btn-sm" onclick="renderAccounts()">↻ Обновить</button>
+        </div>
+      </div>
+
+      <div class="tg-toolbar">
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          ${platformTabs.map(p=>`
+            <button class="btn btn-sm ${_accPlatform===p?"btn-primary":"btn-ghost"}" onclick="_accPlatform='${p}';renderAccounts()">
+              ${PLATFORM_ICON[p]||""} ${p==="all"?"Все":p}
+            </button>`).join("")}
+        </div>
+        <span class="sep"></span>
+        <span style="font-size:11px;color:var(--faint)">Группировка:</span>
+        <select onchange="_accGroupBy=this.value;renderAccounts()">
+          <option value="platform" ${_accGroupBy==="platform"?"selected":""}>По платформе</option>
+          <option value="vertical" ${_accGroupBy==="vertical"?"selected":""}>По вертикали</option>
+          <option value="status"   ${_accGroupBy==="status"  ?"selected":""}>По статусу</option>
+          <option value="geo"      ${_accGroupBy==="geo"     ?"selected":""}>По GEO</option>
+          <option value="none"     ${_accGroupBy==="none"    ?"selected":""}>Без группировки</option>
+        </select>
+      </div>
+
+      <div id="acc-groups">${groupsHtml(groups)}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">Протокол прогрева</span><span class="card-sub">${ref()}</span></div>
       <table><tr><th>День</th><th>Действие</th><th>Что нельзя</th></tr>
         <tr><td class="hi">1–3</td><td>Просмотры (20–30), лайки (10–15)</td><td>Никаких публикаций</td></tr>
         <tr><td class="hi">4–5</td><td>1 нейтральный пост вне ниши</td><td>Ссылки, CTA</td></tr>
@@ -649,6 +803,7 @@ async function renderAccounts(){
         <tr><td class="hi">8+</td><td>Старт монетизации, первый CTA</td><td>—</td></tr>
       </table>
     </div>
+
     <div class="card">
       <div class="card-head"><span class="card-title">Пороги Account Checker</span><span class="card-sub">${ref()}</span></div>
       <table><tr><th>Метрика</th><th>Действие</th></tr>
@@ -657,7 +812,67 @@ async function renderAccounts(){
         <tr><td class="hi">Бан</td><td>Запись в Knowledge Base</td></tr>
       </table>
     </div>
+    <div id="acc-modal"></div>
   `;
+}
+
+function accOpenAddTg(){
+  document.getElementById("acc-modal").innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)document.getElementById('acc-modal').innerHTML=''">
+    <div class="modal">
+      <h3>➕ Добавить Telegram аккаунт</h3>
+      <div class="form-row">
+        <label>Номер телефона</label>
+        <input id="acc-tg-phone" type="text" placeholder="+79001234567">
+      </div>
+      <div class="form-row-2">
+        <div class="form-row" style="margin:0"><label>api_id</label><input id="acc-tg-apiid" type="text" placeholder="12345678"></div>
+        <div class="form-row" style="margin:0"><label>api_hash</label><input id="acc-tg-apihash" type="text" placeholder="abc123..."></div>
+      </div>
+      <div class="form-row-2">
+        <div class="form-row" style="margin:0"><label>Вертикаль</label>
+          <select id="acc-tg-vertical"><option value="nutra">nutra</option><option value="betting">betting</option></select>
+        </div>
+        <div class="form-row" style="margin:0"><label>GEO</label>
+          <select id="acc-tg-geo"><option value="PL">PL</option><option value="RO">RO</option><option value="RU">RU</option><option value="KZ">KZ</option><option value="MX">MX</option><option value="BR">BR</option><option value="IN">IN</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Proxy (опционально)</label>
+        <input id="acc-tg-proxy" type="text" placeholder="socks5://user:pass@host:port">
+      </div>
+      <div id="acc-tg-msg"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="document.getElementById('acc-modal').innerHTML=''">Отмена</button>
+        <button class="btn btn-primary" onclick="accSubmitTg()">Добавить</button>
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:var(--faint)">api_id и api_hash — на <b style="color:var(--muted)">my.telegram.org</b></div>
+    </div>
+  </div>`;
+}
+
+async function accSubmitTg(){
+  const phone = document.getElementById("acc-tg-phone").value.trim();
+  const api_id = document.getElementById("acc-tg-apiid").value.trim();
+  const api_hash = document.getElementById("acc-tg-apihash").value.trim();
+  const vertical = document.getElementById("acc-tg-vertical").value;
+  const geo = document.getElementById("acc-tg-geo").value;
+  const proxy = document.getElementById("acc-tg-proxy").value.trim();
+  const msg = document.getElementById("acc-tg-msg");
+  if(!phone||!api_id||!api_hash){msg.innerHTML=`<div class="msg-err">Заполни phone, api_id, api_hash</div>`;return;}
+  msg.innerHTML=`<div style="font-size:12px;color:var(--muted)">Добавляю…</div>`;
+  const body={phone,api_id:parseInt(api_id),api_hash,vertical,geo};
+  if(proxy) body.proxy=proxy;
+  try{
+    const r=await fetch(`${AGENTS}/telegram/account/add`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(d.ok){
+      msg.innerHTML=`<div class="msg-ok">✓ Добавлен! ID: ${esc(d.account_id)}</div>
+        <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="document.getElementById('acc-modal').innerHTML='';showSection('telegram');setTimeout(()=>tgOpenAuth('${esc(d.account_id)}','${esc(phone)}'),200)">→ Авторизовать</button></div>`;
+      renderAccounts();
+    } else {
+      msg.innerHTML=`<div class="msg-err">Ошибка: ${esc(d.error||"unknown")}</div>`;
+    }
+  }catch(e){msg.innerHTML=`<div class="msg-err">Сервер недоступен</div>`;}
 }
 
 // ════════════════════════════════════════════════════════
@@ -1006,315 +1221,16 @@ function renderKnowledge(){
    TELEGRAM MODULE
    ════════════════════════════════════════════════════════ */
 
-// ─── state ───────────────────────────────────────────────
-let _tgAccs = [];
-let _tgGroupBy = "vertical";
-let _tgSortBy = "warming_day";
-let _tgFilter = "all";
-let _tgCollapsed = {};
+// ─── глобальный modal контейнер ──────────────────────────
+function _modalEl(){ return document.getElementById("global-modal"); }
+function tgModal(html){ const m=_modalEl(); m.innerHTML=html; m.style.display="flex"; }
+function tgCloseModal(){ const m=_modalEl(); m.innerHTML=""; m.style.display="none"; }
 
-const TG_STATUS_COLOR = {
-  idle:"var(--faint)", warming:"var(--amber)",
-  active:"var(--green)", banned:"var(--red)", flood_wait:"var(--amber)"
-};
-const TG_PHASE_LABEL = {
-  idle:"не начат", views_only:"дни 1–3",
-  neutral_content:"дни 4–5", niche_content:"дни 6–7", monetization:"день 8+"
-};
-
-// ─── fetch ────────────────────────────────────────────────
-async function tgFetchAccounts(){
-  try {
-    const r = await ft(`${AGENTS}/telegram/status`, {
-      method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"
-    }, 10000);
-    if(!r.ok) return [];
-    const d = await r.json();
-    return d.accounts || [];
-  } catch(e){ return []; }
-}
-
-// ─── group + sort ─────────────────────────────────────────
-function tgGroupAccounts(accs, groupBy, sortBy, filter){
-  let list = accs.filter(a => filter==="all" || a.status===filter);
-  list = [...list].sort((a,b)=>{
-    if(sortBy==="warming_day") return (b.warming_day||0)-(a.warming_day||0);
-    if(sortBy==="phone") return (a.phone||"").localeCompare(b.phone||"");
-    if(sortBy==="status") return (a.status||"").localeCompare(b.status||"");
-    return 0;
-  });
-  const groups = {};
-  list.forEach(a=>{
-    const key = groupBy==="none" ? "Все аккаунты" :
-                groupBy==="vertical" ? (a.vertical||"—") :
-                groupBy==="geo" ? (a.geo||"—") :
-                groupBy==="status" ? (a.status||"—") : "—";
-    (groups[key]||(groups[key]=[])).push(a);
-  });
-  return groups;
-}
-
-// ─── render account row ───────────────────────────────────
-function tgRowHtml(a){
-  const sc = TG_STATUS_COLOR[a.status]||"var(--faint)";
-  const ph = TG_PHASE_LABEL[a.warming_phase]||"—";
-  const needAuth = a.status==="idle";
-  return `<div class="tg-row" data-id="${esc(a.id)}">
-    <span style="width:8px;height:8px;border-radius:50%;background:${sc};display:inline-block;flex-shrink:0"></span>
-    <span class="acc-phone">${esc(a.phone)}</span>
-    <span>${chip(a.status, sc)}</span>
-    <span style="font-family:var(--mono);font-size:12px;color:var(--muted)">${a.warming_day}</span>
-    <span style="font-size:11px;color:var(--faint)">${ph}</span>
-    <span style="font-size:11px;color:var(--muted)">${esc(a.geo||"—")}</span>
-    <span class="acc-actions">
-      ${needAuth
-        ? `<button class="btn btn-ghost btn-sm" onclick="tgOpenAuth('${esc(a.id)}','${esc(a.phone)}')">🔑 Авторизовать</button>`
-        : `<button class="btn btn-ghost btn-sm" onclick="tgRunWarmup('${esc(a.id)}')">▶ Прогрев</button>`}
-    </span>
-  </div>`;
-}
-
-// ─── render groups ────────────────────────────────────────
-function tgGroupsHtml(groups){
-  if(Object.keys(groups).length===0)
-    return `<div class="card"><div class="note">Аккаунтов нет. Нажми <b>+ Добавить аккаунт</b>.</div></div>`;
-
-  return Object.entries(groups).map(([key, list])=>{
-    const open = !_tgCollapsed[key];
-    const counts = {};
-    list.forEach(a=>{ counts[a.status]=(counts[a.status]||0)+1; });
-    const pills = Object.entries(counts).map(([s,n])=>
-      `<span class="chip" style="background:${TG_STATUS_COLOR[s]||"var(--faint)"}1a;color:${TG_STATUS_COLOR[s]||"var(--faint)"};margin-left:5px">${s} ${n}</span>`
-    ).join("");
-    return `<div class="tg-group">
-      <div class="tg-group-head" onclick="tgToggleGroup('${esc(key)}')">
-        <span class="tg-group-arrow ${open?"open":""}">▶</span>
-        <span class="tg-group-label">${esc(key)}</span>
-        ${pills}
-        <span class="tg-group-meta">${list.length} акк.</span>
-      </div>
-      ${open ? `<div class="tg-group-body">
-        <div class="tg-row" style="background:var(--surface3);font-size:10px;color:var(--faint);padding:5px 14px;">
-          <span></span><span>Телефон</span><span>Статус</span><span>День</span><span>Фаза</span><span>GEO</span><span>Действия</span>
-        </div>
-        ${list.map(tgRowHtml).join("")}
-      </div>` : ""}
-    </div>`;
-  }).join("");
-}
-
-// ─── full render ──────────────────────────────────────────
-async function renderTelegram(){
-  _tgAccs = await tgFetchAccounts();
-
-  const byStatus = {};
-  _tgAccs.forEach(a=>{ byStatus[a.status]=(byStatus[a.status]||0)+1; });
-
-  const groups = tgGroupAccounts(_tgAccs, _tgGroupBy, _tgSortBy, _tgFilter);
-
-  document.getElementById("sec-telegram").innerHTML = `
-    <div class="stat-grid" style="margin-bottom:16px">
-      <div class="stat">
-        <div class="sl">Всего ${live()}</div>
-        <div class="sv">${_tgAccs.length}</div>
-        <div class="sn">tg_accounts</div>
-      </div>
-      <div class="stat">
-        <div class="sl">Warming</div>
-        <div class="sv" style="color:var(--amber)">${byStatus.warming||0}</div>
-        <div class="sn">прогрев</div>
-      </div>
-      <div class="stat">
-        <div class="sl">Active</div>
-        <div class="sv" style="color:var(--green)">${byStatus.active||0}</div>
-        <div class="sn">монетизация</div>
-      </div>
-      <div class="stat">
-        <div class="sl">Idle</div>
-        <div class="sv" style="color:var(--faint)">${byStatus.idle||0}</div>
-        <div class="sn">не авторизован</div>
-      </div>
-      <div class="stat">
-        <div class="sl">Banned</div>
-        <div class="sv" style="color:var(--red)">${byStatus.banned||0}</div>
-        <div class="sn">заблокирован</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-head">
-        <span class="card-title">Аккаунты</span>
-        <button class="btn btn-primary btn-sm" onclick="tgOpenAdd()">+ Добавить аккаунт</button>
-      </div>
-
-      <div class="tg-toolbar">
-        <span style="font-size:11px;color:var(--faint)">Группировка:</span>
-        <select onchange="_tgGroupBy=this.value;tgRedraw()">
-          <option value="vertical" ${_tgGroupBy==="vertical"?"selected":""}>По вертикали</option>
-          <option value="geo" ${_tgGroupBy==="geo"?"selected":""}>По GEO</option>
-          <option value="status" ${_tgGroupBy==="status"?"selected":""}>По статусу</option>
-          <option value="none" ${_tgGroupBy==="none"?"selected":""}>Без группировки</option>
-        </select>
-        <span style="font-size:11px;color:var(--faint)">Сортировка:</span>
-        <select onchange="_tgSortBy=this.value;tgRedraw()">
-          <option value="warming_day" ${_tgSortBy==="warming_day"?"selected":""}>По дню прогрева</option>
-          <option value="phone" ${_tgSortBy==="phone"?"selected":""}>По телефону</option>
-          <option value="status" ${_tgSortBy==="status"?"selected":""}>По статусу</option>
-        </select>
-        <span style="font-size:11px;color:var(--faint)">Фильтр:</span>
-        <select onchange="_tgFilter=this.value;tgRedraw()">
-          <option value="all" ${_tgFilter==="all"?"selected":""}>Все</option>
-          <option value="idle" ${_tgFilter==="idle"?"selected":""}>Idle</option>
-          <option value="warming" ${_tgFilter==="warming"?"selected":""}>Warming</option>
-          <option value="active" ${_tgFilter==="active"?"selected":""}>Active</option>
-          <option value="banned" ${_tgFilter==="banned"?"selected":""}>Banned</option>
-        </select>
-        <span class="sep"></span>
-        <button class="btn btn-ghost btn-sm" onclick="tgExpandAll()">Развернуть все</button>
-        <button class="btn btn-ghost btn-sm" onclick="tgCollapseAll()">Свернуть все</button>
-      </div>
-
-      <div id="tg-groups">${tgGroupsHtml(groups)}</div>
-    </div>
-
-    <div class="card">
-      <div class="card-head"><span class="card-title">Протокол прогрева</span><span class="card-sub">${ref()}</span></div>
-      <table><tr><th>День</th><th>Фаза</th><th>Действия</th><th>Лимиты</th></tr>
-        <tr><td class="hi">1–3</td><td>views_only</td><td>Просмотры каналов, реакции</td><td>25 просм./день, 12 реакций</td></tr>
-        <tr><td class="hi">4–5</td><td>neutral_content</td><td>+ нейтральные посты</td><td>1 пост, 2 комментария</td></tr>
-        <tr><td class="hi">6–7</td><td>niche_content</td><td>+ нишевые посты</td><td>1 пост, 3 комментария</td></tr>
-        <tr><td class="hi">8+</td><td>monetization</td><td>CTA, ссылки, партнёрка</td><td>4 комментария, 2 поста</td></tr>
-      </table>
-    </div>
-
-    <div class="card">
-      <div class="card-head"><span class="card-title">n8n расписание</span><span class="card-sub">${ref()}</span></div>
-      <table><tr><th>Воркфлоу</th><th>Время (МСК)</th><th>Агенты</th></tr>
-        <tr><td class="hi">telegram-warmup</td><td class="mono">09:00 ежедневно</td><td>T2 прогрев + T4 реакции</td></tr>
-        <tr><td class="hi">telegram-commenter</td><td class="mono">12:00 и 19:00</td><td>T3 комментарии (день 6+)</td></tr>
-      </table>
-    </div>
-
-    <div id="tg-modal"></div>
-  `;
-}
-
-// ─── редрав групп без полного ре-рендера ─────────────────
-function tgRedraw(){
-  const groups = tgGroupAccounts(_tgAccs, _tgGroupBy, _tgSortBy, _tgFilter);
-  const el = document.getElementById("tg-groups");
-  if(el) el.innerHTML = tgGroupsHtml(groups);
-}
-
-// ─── collapse/expand ──────────────────────────────────────
-function tgToggleGroup(key){
-  _tgCollapsed[key] = !_tgCollapsed[key];
-  tgRedraw();
-}
-function tgCollapseAll(){
-  const groups = tgGroupAccounts(_tgAccs, _tgGroupBy, _tgSortBy, _tgFilter);
-  Object.keys(groups).forEach(k=>{ _tgCollapsed[k]=true; });
-  tgRedraw();
-}
-function tgExpandAll(){
-  _tgCollapsed = {};
-  tgRedraw();
-}
-
-// ─── modal helper ─────────────────────────────────────────
-function tgModal(html){ document.getElementById("tg-modal").innerHTML = html; }
-function tgCloseModal(){ document.getElementById("tg-modal").innerHTML = ""; }
-
-// ─── ADD ACCOUNT modal ────────────────────────────────────
-function tgOpenAdd(){
-  tgModal(`<div class="modal-overlay" onclick="if(event.target===this)tgCloseModal()">
-    <div class="modal">
-      <h3>➕ Добавить аккаунт</h3>
-      <div class="form-row">
-        <label>Номер телефона</label>
-        <input id="tg-add-phone" type="text" placeholder="+79001234567">
-      </div>
-      <div class="form-row-2">
-        <div class="form-row" style="margin:0">
-          <label>api_id</label>
-          <input id="tg-add-apiid" type="text" placeholder="12345678">
-        </div>
-        <div class="form-row" style="margin:0">
-          <label>api_hash</label>
-          <input id="tg-add-apihash" type="text" placeholder="abc123def...">
-        </div>
-      </div>
-      <div class="form-row-2">
-        <div class="form-row" style="margin:0">
-          <label>Вертикаль</label>
-          <select id="tg-add-vertical">
-            <option value="nutra">nutra</option>
-            <option value="betting">betting</option>
-          </select>
-        </div>
-        <div class="form-row" style="margin:0">
-          <label>GEO</label>
-          <select id="tg-add-geo">
-            <option value="PL">PL</option><option value="RO">RO</option>
-            <option value="RU">RU</option><option value="KZ">KZ</option>
-            <option value="MX">MX</option><option value="BR">BR</option>
-            <option value="IN">IN</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-row">
-        <label>Proxy (опционально)</label>
-        <input id="tg-add-proxy" type="text" placeholder="socks5://user:pass@host:port">
-      </div>
-      <div id="tg-add-msg"></div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="tgCloseModal()">Отмена</button>
-        <button class="btn btn-primary" onclick="tgSubmitAdd()">Добавить</button>
-      </div>
-      <div style="margin-top:14px;font-size:11px;color:var(--faint)">
-        api_id и api_hash — на <b style="color:var(--muted)">my.telegram.org</b> → API development tools
-      </div>
-    </div>
-  </div>`);
-}
-
-async function tgSubmitAdd(){
-  const phone = document.getElementById("tg-add-phone").value.trim();
-  const api_id = document.getElementById("tg-add-apiid").value.trim();
-  const api_hash = document.getElementById("tg-add-apihash").value.trim();
-  const vertical = document.getElementById("tg-add-vertical").value;
-  const geo = document.getElementById("tg-add-geo").value;
-  const proxyRaw = document.getElementById("tg-add-proxy").value.trim();
-  const msg = document.getElementById("tg-add-msg");
-
-  if(!phone||!api_id||!api_hash){ msg.innerHTML=`<div class="msg-err">Заполни phone, api_id, api_hash</div>`; return; }
-
-  const body = { phone, api_id:parseInt(api_id), api_hash, vertical, geo };
-  if(proxyRaw) body.proxy = proxyRaw;
-
-  msg.innerHTML = `<div style="font-size:12px;color:var(--muted)">Добавляю…</div>`;
-  try {
-    const r = await fetch(`${AGENTS}/telegram/account/add`, {
-      method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
-    });
-    const d = await r.json();
-    if(d.ok){
-      msg.innerHTML = `<div class="msg-ok">✓ Добавлен! account_id: ${esc(d.account_id)}</div>
-        <div style="margin-top:10px"><button class="btn btn-primary" onclick="tgCloseModal();tgOpenAuth('${esc(d.account_id)}','${esc(phone)}')">
-          → Авторизовать сразу</button></div>`;
-      _tgAccs = await tgFetchAccounts();
-      tgRedraw();
-    } else {
-      msg.innerHTML = `<div class="msg-err">Ошибка: ${esc(d.error||"unknown")}</div>`;
-    }
-  } catch(e){ msg.innerHTML = `<div class="msg-err">Сервер недоступен: ${esc(e.message)}</div>`; }
-}
-
-// ─── AUTH modal (3 шага) ──────────────────────────────────
+// ─── AUTH modal (3 шага) — используется из Аккаунтов ─────
 function tgOpenAuth(accountId, phone){
   tgModal(`<div class="modal-overlay" onclick="if(event.target===this)tgCloseModal()">
     <div class="modal">
-      <h3>🔑 Авторизация: ${esc(phone)}</h3>
+      <h3>Авторизация: ${esc(phone)}</h3>
       <div class="step-indicator">
         <div class="step-dot active" id="sdot-1"></div>
         <div class="step-dot" id="sdot-2"></div>
@@ -1327,9 +1243,7 @@ function tgOpenAuth(accountId, phone){
         <div id="auth-msg"></div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="tgCloseModal()">Отмена</button>
-          <button class="btn btn-primary" id="auth-btn-send" onclick="tgSendCode('${esc(accountId)}','${esc(phone)}')">
-            Отправить код
-          </button>
+          <button class="btn btn-primary" id="auth-btn-send" onclick="tgSendCode('${esc(accountId)}','${esc(phone)}')">Отправить код</button>
         </div>
       </div>
     </div>
@@ -1337,133 +1251,153 @@ function tgOpenAuth(accountId, phone){
 }
 
 async function tgSendCode(accountId, phone){
-  const msg = document.getElementById("auth-msg");
-  const btn = document.getElementById("auth-btn-send");
-  btn.disabled = true;
-  msg.innerHTML = `<div style="font-size:12px;color:var(--muted)">Отправляю запрос…</div>`;
-  try {
-    const r = await fetch(`${AGENTS}/telegram/login/send-code`, {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ account_id: accountId })
-    });
-    const d = await r.json();
+  const msg=document.getElementById("auth-msg"), btn=document.getElementById("auth-btn-send");
+  btn.disabled=true; msg.innerHTML=`<div style="font-size:12px;color:var(--muted)">Отправляю…</div>`;
+  try{
+    const r=await fetch(`${AGENTS}/telegram/login/send-code`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({account_id:accountId})});
+    const d=await r.json();
     if(d.ok){
       document.getElementById("sdot-1").className="step-dot done";
       document.getElementById("sdot-2").className="step-dot active";
-      document.getElementById("auth-step-content").innerHTML = `
-        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
-          Код отправлен на <b style="color:var(--text)">${esc(phone)}</b>. Введи его ниже.
-        </p>
-        <div class="form-row">
-          <label>Код из Telegram</label>
-          <input id="auth-code" type="text" placeholder="12345" autofocus style="letter-spacing:.2em;font-size:18px;text-align:center">
-        </div>
+      document.getElementById("auth-step-content").innerHTML=`
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Код отправлен на <b style="color:var(--text)">${esc(phone)}</b>.</p>
+        <div class="form-row"><label>Код из Telegram</label>
+          <input id="auth-code" type="text" placeholder="12345" autofocus style="letter-spacing:.2em;font-size:18px;text-align:center"></div>
         <div id="auth-msg2"></div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="tgCloseModal()">Отмена</button>
           <button class="btn btn-primary" onclick="tgConfirmCode('${esc(accountId)}','${esc(phone)}')">Подтвердить</button>
         </div>`;
-    } else {
-      msg.innerHTML = `<div class="msg-err">Ошибка: ${esc(d.error||"unknown")}</div>`;
-      btn.disabled = false;
-    }
-  } catch(e){
-    msg.innerHTML = `<div class="msg-err">Сервер недоступен</div>`;
-    btn.disabled = false;
-  }
+    } else { msg.innerHTML=`<div class="msg-err">Ошибка: ${esc(d.error||"unknown")}</div>`; btn.disabled=false; }
+  } catch(e){ msg.innerHTML=`<div class="msg-err">Сервер недоступен</div>`; btn.disabled=false; }
 }
 
 async function tgConfirmCode(accountId, phone){
-  const code = document.getElementById("auth-code").value.trim();
-  const msg = document.getElementById("auth-msg2");
-  if(!code){ msg.innerHTML=`<div class="msg-err">Введи код</div>`; return; }
-  msg.innerHTML = `<div style="font-size:12px;color:var(--muted)">Проверяю…</div>`;
-  try {
-    const r = await fetch(`${AGENTS}/telegram/login/confirm-code`, {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ account_id: accountId, code })
-    });
-    const d = await r.json();
-    if(d.ok && d.authorized){
+  const code=document.getElementById("auth-code").value.trim();
+  const msg=document.getElementById("auth-msg2");
+  if(!code){msg.innerHTML=`<div class="msg-err">Введи код</div>`;return;}
+  msg.innerHTML=`<div style="font-size:12px;color:var(--muted)">Проверяю…</div>`;
+  try{
+    const r=await fetch(`${AGENTS}/telegram/login/confirm-code`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({account_id:accountId,code})});
+    const d=await r.json();
+    if(d.ok&&d.authorized){
       document.getElementById("sdot-2").className="step-dot done";
       document.getElementById("sdot-3").className="step-dot done";
-      document.getElementById("auth-step-content").innerHTML = `
+      document.getElementById("auth-step-content").innerHTML=`
         <div style="text-align:center;padding:20px 0">
-          <div style="font-size:32px;margin-bottom:12px">✅</div>
+          <div style="font-size:36px;margin-bottom:12px">✅</div>
           <div style="font-size:14px;font-weight:600;color:var(--green)">Авторизован!</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:6px">${esc(phone)} подключён к системе</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px">${esc(phone)} подключён</div>
         </div>
         <div class="modal-actions" style="justify-content:center">
-          <button class="btn btn-primary" onclick="tgCloseModal();renderTelegram()">Готово</button>
+          <button class="btn btn-primary" onclick="tgCloseModal();renderAccounts()">Готово</button>
         </div>`;
-      _tgAccs = await tgFetchAccounts();
-      tgRedraw();
     } else if(d.need_2fa){
       document.getElementById("sdot-2").className="step-dot done";
       document.getElementById("sdot-3").className="step-dot active";
-      document.getElementById("auth-step-content").innerHTML = `
-        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
-          Аккаунт защищён <b style="color:var(--text)">двухфакторной аутентификацией</b>. Введи пароль.
-        </p>
-        <div class="form-row">
-          <label>Пароль 2FA</label>
-          <input id="auth-2fa" type="password" placeholder="••••••••">
-        </div>
+      document.getElementById("auth-step-content").innerHTML=`
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Аккаунт защищён <b style="color:var(--text)">2FA</b>. Введи пароль.</p>
+        <div class="form-row"><label>Пароль 2FA</label><input id="auth-2fa" type="password" placeholder="••••••••"></div>
         <div id="auth-msg3"></div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="tgCloseModal()">Отмена</button>
           <button class="btn btn-primary" onclick="tgConfirm2FA('${esc(accountId)}','${esc(phone)}')">Войти</button>
         </div>`;
-    } else {
-      msg.innerHTML = `<div class="msg-err">Ошибка: ${esc(d.error||"Неверный код")}</div>`;
-    }
-  } catch(e){
-    msg.innerHTML = `<div class="msg-err">Сервер недоступен</div>`;
-  }
+    } else { msg.innerHTML=`<div class="msg-err">Ошибка: ${esc(d.error||"Неверный код")}</div>`; }
+  } catch(e){ msg.innerHTML=`<div class="msg-err">Сервер недоступен</div>`; }
 }
 
 async function tgConfirm2FA(accountId, phone){
-  const password = document.getElementById("auth-2fa").value;
-  const msg = document.getElementById("auth-msg3");
-  if(!password){ msg.innerHTML=`<div class="msg-err">Введи пароль</div>`; return; }
-  msg.innerHTML = `<div style="font-size:12px;color:var(--muted)">Проверяю…</div>`;
-  try {
-    const r = await fetch(`${AGENTS}/telegram/login/confirm-2fa`, {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ account_id: accountId, password })
-    });
-    const d = await r.json();
-    if(d.ok && d.authorized){
+  const password=document.getElementById("auth-2fa").value;
+  const msg=document.getElementById("auth-msg3");
+  if(!password){msg.innerHTML=`<div class="msg-err">Введи пароль</div>`;return;}
+  msg.innerHTML=`<div style="font-size:12px;color:var(--muted)">Проверяю…</div>`;
+  try{
+    const r=await fetch(`${AGENTS}/telegram/login/confirm-2fa`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({account_id:accountId,password})});
+    const d=await r.json();
+    if(d.ok&&d.authorized){
       document.getElementById("sdot-3").className="step-dot done";
-      document.getElementById("auth-step-content").innerHTML = `
+      document.getElementById("auth-step-content").innerHTML=`
         <div style="text-align:center;padding:20px 0">
-          <div style="font-size:32px;margin-bottom:12px">✅</div>
+          <div style="font-size:36px;margin-bottom:12px">✅</div>
           <div style="font-size:14px;font-weight:600;color:var(--green)">Авторизован!</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:6px">${esc(phone)} подключён</div>
         </div>
         <div class="modal-actions" style="justify-content:center">
-          <button class="btn btn-primary" onclick="tgCloseModal();renderTelegram()">Готово</button>
+          <button class="btn btn-primary" onclick="tgCloseModal();renderAccounts()">Готово</button>
         </div>`;
-      _tgAccs = await tgFetchAccounts();
-      tgRedraw();
-    } else {
-      msg.innerHTML = `<div class="msg-err">Ошибка: ${esc(d.error||"Неверный пароль")}</div>`;
-    }
-  } catch(e){
-    msg.innerHTML = `<div class="msg-err">Сервер недоступен</div>`;
-  }
+    } else { msg.innerHTML=`<div class="msg-err">Ошибка: ${esc(d.error||"Неверный пароль")}</div>`; }
+  } catch(e){ msg.innerHTML=`<div class="msg-err">Сервер недоступен</div>`; }
 }
 
-// ─── запуск прогрева вручную ─────────────────────────────
 async function tgRunWarmup(accountId){
-  try {
-    const r = await fetch(`${AGENTS}/telegram/warmup`, {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ account_id: accountId })
-    });
-    const d = await r.json();
-    alert(d.ok ? "✓ Прогрев запущен" : ("Ошибка: "+(d.error||"unknown")));
+  try{
+    const r=await fetch(`${AGENTS}/telegram/warmup`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({account_id:accountId})});
+    const d=await r.json();
+    alert(d.ok?"✓ Прогрев запущен":("Ошибка: "+(d.error||"unknown")));
   } catch(e){ alert("Сервер недоступен"); }
+}
+
+// ─── TELEGRAM — только операционная панель ───────────────
+async function renderTelegram(){
+  let status=null;
+  try{
+    const r=await ft(`${AGENTS}/telegram/status`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"},10000);
+    if(r.ok) status=await r.json();
+  } catch(e){}
+
+  const accs=status?.accounts||[];
+  const byStatus={};
+  accs.forEach(a=>{ byStatus[a.status]=(byStatus[a.status]||0)+1; });
+
+  const phaseLabel={idle:"не начат",views_only:"дни 1–3",neutral_content:"дни 4–5",niche_content:"дни 6–7",monetization:"день 8+"};
+  const sc=s=>s==="active"?"var(--green)":s==="warming"?"var(--amber)":s==="banned"?"var(--red)":"var(--faint)";
+
+  document.getElementById("sec-telegram").innerHTML=`
+    <div class="stat-grid" style="margin-bottom:16px">
+      <div class="stat"><div class="sl">Аккаунтов ${live()}</div><div class="sv">${accs.length}</div><div class="sn">tg_accounts</div></div>
+      <div class="stat"><div class="sl">Warming</div><div class="sv" style="color:var(--amber)">${byStatus.warming||0}</div><div class="sn">прогрев</div></div>
+      <div class="stat"><div class="sl">Active</div><div class="sv" style="color:var(--green)">${byStatus.active||0}</div><div class="sn">монетизация</div></div>
+      <div class="stat"><div class="sl">Idle</div><div class="sv" style="color:var(--faint)">${byStatus.idle||0}</div><div class="sn">без сессии</div></div>
+      <div class="stat"><div class="sl">Banned</div><div class="sv" style="color:var(--red)">${byStatus.banned||0}</div><div class="sn">заблокирован</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Статус аккаунтов ${live()}</span>
+        <button class="btn btn-ghost btn-sm" onclick="showSection('accounts')">→ Управление аккаунтами</button>
+      </div>
+      ${accs.length ? `
+      <table><tr><th>Телефон</th><th>Статус</th><th>День</th><th>Фаза</th><th>Вертикаль</th><th>GEO</th><th></th></tr>
+      ${accs.map(a=>`<tr>
+        <td class="hi mono">${esc(a.phone)}</td>
+        <td>${chip(a.status,sc(a.status))}</td>
+        <td class="mono">${a.warming_day}</td>
+        <td style="font-size:11px;color:var(--faint)">${phaseLabel[a.warming_phase]||"—"}</td>
+        <td>${esc(a.vertical||"—")}</td>
+        <td>${esc(a.geo||"—")}</td>
+        <td>${a.status!=="idle"?`<button class="btn btn-ghost btn-sm" onclick="tgRunWarmup('${esc(a.id)}')">▶</button>`:`<button class="btn btn-ghost btn-sm" onclick="tgOpenAuth('${esc(a.id)}','${esc(a.phone)}')">🔑</button>`}</td>
+      </tr>`).join("")}
+      </table>` : `<div class="note">Нет аккаунтов. <a href="#" onclick="showSection('accounts')" style="color:var(--blue)">Добавить в разделе Аккаунты →</a></div>`}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">n8n расписание</span><span class="card-sub">${ref()}</span></div>
+      <table><tr><th>Воркфлоу</th><th>Время (МСК)</th><th>Агенты</th><th>Статус</th></tr>
+        <tr><td class="hi">telegram-warmup</td><td class="mono">09:00 ежедневно</td><td>T2 прогрев + T4 реакции</td><td>${chip("scheduled","var(--green)")}</td></tr>
+        <tr><td class="hi">telegram-commenter</td><td class="mono">12:00 и 19:00</td><td>T3 комментарии (день 6+)</td><td>${chip("scheduled","var(--green)")}</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">Протокол прогрева</span><span class="card-sub">${ref()}</span></div>
+      <table><tr><th>День</th><th>Фаза</th><th>Действия</th><th>Лимиты</th></tr>
+        <tr><td class="hi">1–3</td><td>views_only</td><td>Просмотры каналов, реакции</td><td>25 просм./день, 12 реакций</td></tr>
+        <tr><td class="hi">4–5</td><td>neutral_content</td><td>+ нейтральные посты</td><td>1 пост, 2 комментария</td></tr>
+        <tr><td class="hi">6–7</td><td>niche_content</td><td>+ нишевые посты</td><td>1 пост, 3 комментария</td></tr>
+        <tr><td class="hi">8+</td><td>monetization</td><td>CTA, ссылки, партнёрка</td><td>4 комментария, 2 поста</td></tr>
+      </table>
+    </div>
+  `;
 }
 
 async function loadAll(){
@@ -1484,5 +1418,6 @@ async function loadAll(){
 loadAll();
 setInterval(loadAll, 60000);
 </script>
+<div id="global-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(2,6,23,.85);backdrop-filter:blur(4px);align-items:center;justify-content:center;"></div>
 </body>
 </html>
