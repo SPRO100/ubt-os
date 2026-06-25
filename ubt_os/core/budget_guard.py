@@ -76,9 +76,14 @@ class BudgetGuard:
         # 2. Проверка бюджета
         try:
             usage = await self.get_usage_today()
-        except Exception as e:
-            logger.warning(f"[BudgetGuard] Не удалось проверить бюджет: {e}. Разрешаем.")
+        except (httpx.NetworkError, httpx.TimeoutException) as e:
+            # Временная сетевая ошибка → разрешаем (LiteLLM сам защитит)
+            logger.warning(f"[BudgetGuard] Сетевая ошибка при проверке бюджета: {e}. Разрешаем.")
             return True
+        except Exception as e:
+            # Неожиданная ошибка (авторизация, API изменился) → блокируем во избежание перерасхода
+            logger.error(f"[BudgetGuard] Критическая ошибка проверки бюджета: {e}. Блокируем.", exc_info=True)
+            return False
 
         # Алерт при 80%
         if usage["percent_used"] >= ALERT_THRESHOLD * 100:
