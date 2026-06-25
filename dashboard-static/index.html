@@ -1447,6 +1447,8 @@ async function tgRunWarmup(accountId){
 }
 
 // ─── TELEGRAM — только операционная панель ───────────────
+let _tgTab = "accounts";
+
 async function renderTelegram(){
   let status=null;
   try{
@@ -1461,6 +1463,14 @@ async function renderTelegram(){
   const phaseLabel={idle:"не начат",views_only:"дни 1–3",neutral_content:"дни 4–5",niche_content:"дни 6–7",monetization:"день 8+"};
   const sc=s=>s==="active"?"var(--green)":s==="warming"?"var(--amber)":s==="banned"?"var(--red)":"var(--faint)";
 
+  const tabs = [
+    {id:"accounts", label:"Аккаунты"},
+    {id:"comment_log", label:"Лог комментов"},
+    {id:"targets", label:"Таргет-каналы"},
+    {id:"parser", label:"Парсер"},
+    {id:"schedule", label:"Расписание"},
+  ];
+
   document.getElementById("sec-telegram").innerHTML=`
     <div class="stat-grid" style="margin-bottom:16px">
       <div class="stat"><div class="sl">Аккаунтов ${live()}</div><div class="sv">${accs.length}</div><div class="sn">tg_accounts</div></div>
@@ -1471,30 +1481,12 @@ async function renderTelegram(){
     </div>
 
     <div class="card">
-      <div class="card-head">
-        <span class="card-title">Статус аккаунтов ${live()}</span>
-        <button class="btn btn-ghost btn-sm" onclick="showSection('accounts')">→ Управление аккаунтами</button>
+      <div class="tg-toolbar" style="border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:12px">
+        ${tabs.map(t=>`<button class="btn btn-sm ${_tgTab===t.id?"btn-primary":"btn-ghost"}" onclick="_tgTab='${t.id}';renderTgTabContent()">${t.label}</button>`).join("")}
+        <span style="flex:1"></span>
+        <button class="btn btn-ghost btn-sm" onclick="showSection('accounts')">→ Все аккаунты</button>
       </div>
-      ${accs.length ? `
-      <table><tr><th>Телефон</th><th>Статус</th><th>День</th><th>Фаза</th><th>Вертикаль</th><th>GEO</th><th></th></tr>
-      ${accs.map(a=>`<tr>
-        <td class="hi mono">${esc(a.phone)}</td>
-        <td>${chip(a.status,sc(a.status))}</td>
-        <td class="mono">${a.warming_day}</td>
-        <td style="font-size:11px;color:var(--faint)">${phaseLabel[a.warming_phase]||"—"}</td>
-        <td>${esc(a.vertical||"—")}</td>
-        <td>${esc(a.geo||"—")}</td>
-        <td>${a.status!=="idle"?`<button class="btn btn-ghost btn-sm" onclick="tgRunWarmup('${esc(a.id)}')">▶</button>`:`<button class="btn btn-ghost btn-sm" onclick="tgOpenAuth('${esc(a.id)}','${esc(a.phone)}')">🔑</button>`}</td>
-      </tr>`).join("")}
-      </table>` : `<div class="note">Нет аккаунтов. <a href="#" onclick="showSection('accounts')" style="color:var(--blue)">Добавить в разделе Аккаунты →</a></div>`}
-    </div>
-
-    <div class="card">
-      <div class="card-head"><span class="card-title">n8n расписание</span><span class="card-sub">${ref()}</span></div>
-      <table><tr><th>Воркфлоу</th><th>Время (МСК)</th><th>Агенты</th><th>Статус</th></tr>
-        <tr><td class="hi">telegram-warmup</td><td class="mono">09:00 ежедневно</td><td>T2 прогрев + T4 реакции</td><td>${chip("scheduled","var(--green)")}</td></tr>
-        <tr><td class="hi">telegram-commenter</td><td class="mono">12:00 и 19:00</td><td>T3 комментарии (день 6+)</td><td>${chip("scheduled","var(--green)")}</td></tr>
-      </table>
+      <div id="tg-tab-body"></div>
     </div>
 
     <div class="card">
@@ -1507,6 +1499,138 @@ async function renderTelegram(){
       </table>
     </div>
   `;
+
+  // Сохраняем accs для вкладки
+  window._tgAccs = accs;
+  window._tgPhaseLabel = phaseLabel;
+  window._tgSc = sc;
+  renderTgTabContent();
+}
+
+async function renderTgTabContent(){
+  const el = document.getElementById("tg-tab-body");
+  if(!el) return;
+
+  if(_tgTab === "accounts"){
+    const accs = window._tgAccs || [];
+    const phaseLabel = window._tgPhaseLabel || {};
+    const sc = window._tgSc || (s=>"var(--faint)");
+    el.innerHTML = accs.length ? `
+      <table><tr><th>Телефон</th><th>Статус</th><th>День</th><th>Фаза</th><th>Вертикаль</th><th>GEO</th><th></th></tr>
+      ${accs.map(a=>`<tr>
+        <td class="hi mono">${esc(a.phone)}</td>
+        <td>${chip(a.status,sc(a.status))}</td>
+        <td class="mono">${a.warming_day}</td>
+        <td style="font-size:11px;color:var(--faint)">${phaseLabel[a.warming_phase]||"—"}</td>
+        <td>${esc(a.vertical||"—")}</td>
+        <td>${esc(a.geo||"—")}</td>
+        <td>${a.status!=="idle"
+          ?`<button class="btn btn-ghost btn-sm" onclick="tgRunWarmup('${esc(a.id)}')">▶ Прогрев</button>`
+          :`<button class="btn btn-ghost btn-sm" onclick="tgOpenAuth('${esc(a.id)}','${esc(a.phone)}')">Авт.</button>`}</td>
+      </tr>`).join("")}
+      </table>` : `<div class="note">Нет аккаунтов. <a href="#" onclick="showSection('accounts')" style="color:var(--blue)">Добавить →</a></div>`;
+    return;
+  }
+
+  if(_tgTab === "comment_log"){
+    el.innerHTML = `<div class="note" style="padding:8px 0">Загрузка...</div>`;
+    let log = [];
+    try{
+      const r = await ft(`${AGENTS}/telegram/comment/log`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({limit:50})},6000);
+      if(r.ok){ const d=await r.json(); log=d.log||[]; }
+    }catch(e){}
+    el.innerHTML = log.length ? `
+      <table><tr><th>Аккаунт</th><th>Канал</th><th>Текст комментария</th><th>Вертикаль</th><th>Время</th></tr>
+      ${log.map(e=>`<tr>
+        <td class="mono" style="font-size:11px">${esc(e.phone||e.account_id||"—")}</td>
+        <td class="hi" style="font-size:11px">${esc(e.channel||"—")}</td>
+        <td style="max-width:300px;font-size:12px">${esc((e.text||"").slice(0,120))}</td>
+        <td style="font-size:11px;color:var(--faint)">${esc(e.vertical||"—")}</td>
+        <td class="mono" style="font-size:10px;color:var(--muted)">${(e.posted_at||"").slice(5,16).replace("T"," ")}</td>
+      </tr>`).join("")}
+      </table>` : `<div class="note">Лог пуст — комментарии появятся после запуска T3-COMMENTER</div>`;
+    return;
+  }
+
+  if(_tgTab === "targets"){
+    el.innerHTML = `<div class="note" style="padding:8px 0">Загрузка...</div>`;
+    let targets = [];
+    try{
+      const r = await ft(`${AGENTS}/telegram/channels/targets`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"},6000);
+      if(r.ok){ const d=await r.json(); targets=d.targets||[]; }
+    }catch(e){}
+    el.innerHTML = targets.length ? `
+      <table><tr><th>Канал</th><th>Название</th><th>Подписчики</th><th>Ключ.слово</th><th>Вертикаль</th><th>Парсинг</th></tr>
+      ${targets.map(t=>`<tr>
+        <td class="hi mono" style="font-size:11px">@${esc(t.username||"—")}</td>
+        <td style="font-size:12px">${esc(t.title||"—")}</td>
+        <td class="mono">${(t.subscribers||0).toLocaleString()}</td>
+        <td style="font-size:11px;color:var(--faint)">${esc(t.keyword||"—")}</td>
+        <td>${chip(t.vertical||"—","var(--blue)")}</td>
+        <td class="mono" style="font-size:10px;color:var(--muted)">${(t.parsed_at||"").slice(0,10)}</td>
+      </tr>`).join("")}
+      </table>` : `<div class="note">Нет таргет-каналов. Запарси через вкладку «Парсер»</div>`;
+    return;
+  }
+
+  if(_tgTab === "parser"){
+    el.innerHTML = `
+      <div style="padding:4px 0 16px;max-width:480px">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Поиск Telegram-каналов с открытыми комментариями по ключевому слову. Найденные каналы сохраняются как таргеты для T3-COMMENTER.</p>
+        <div class="form-row"><label>Ключевое слово</label><input id="tg-parse-kw" type="text" placeholder="похудение, спорт, ставки..."></div>
+        <div class="form-row-2">
+          <div class="form-row" style="margin:0"><label>Вертикаль</label>
+            <select id="tg-parse-vert"><option value="nutra">nutra</option><option value="betting">betting</option></select>
+          </div>
+          <div class="form-row" style="margin:0"><label>Лимит</label>
+            <input id="tg-parse-limit" type="number" value="20" min="5" max="50">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="tgRunParser()">Запустить парсер</button>
+      </div>
+      <div id="tg-parse-result"></div>`;
+    return;
+  }
+
+  if(_tgTab === "schedule"){
+    el.innerHTML = `
+      <table><tr><th>Воркфлоу</th><th>Время (МСК)</th><th>Агенты</th><th>Статус</th></tr>
+        <tr><td class="hi">telegram-warmup</td><td class="mono">09:00 ежедневно</td><td>T2 прогрев + T4 реакции</td><td>${chip("scheduled","var(--green)")}</td></tr>
+        <tr><td class="hi">telegram-commenter</td><td class="mono">12:00 и 19:00</td><td>T3 комментарии (день 6+) · двухэтапный постинг</td><td>${chip("scheduled","var(--green)")}</td></tr>
+      </table>
+      <div class="note" style="margin-top:12px">Двухэтапный постинг: эмодзи → 40–55 сек → полный текст (имитирует живого пользователя, обходит детекцию платформы)</div>`;
+    return;
+  }
+}
+
+async function tgRunParser(){
+  const kw    = document.getElementById("tg-parse-kw")?.value.trim();
+  const vert  = document.getElementById("tg-parse-vert")?.value || "nutra";
+  const limit = parseInt(document.getElementById("tg-parse-limit")?.value || "20");
+  const res   = document.getElementById("tg-parse-result");
+  if(!kw || !res) return;
+  res.innerHTML = `<div class="note">Парсинг...</div>`;
+  try{
+    const r = await fetch(`${AGENTS}/telegram/channels/parse`,{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({keyword:kw, vertical:vert, limit})
+    });
+    const d = await r.json();
+    if(d.ok && d.channels?.length){
+      res.innerHTML = `<div style="color:var(--green);margin-bottom:8px;font-size:13px">Найдено: ${d.found} каналов → сохранено в таргеты</div>
+        <table><tr><th>Канал</th><th>Название</th><th>Подписчики</th></tr>
+        ${d.channels.map(c=>`<tr>
+          <td class="hi mono" style="font-size:11px">@${esc(c.username||"—")}</td>
+          <td style="font-size:12px">${esc(c.title||"—")}</td>
+          <td class="mono">${(c.subscribers||0).toLocaleString()}</td>
+        </tr>`).join("")}
+        </table>`;
+    } else {
+      res.innerHTML = `<div class="note" style="color:var(--amber)">${d.error||"Ничего не найдено"}</div>`;
+    }
+  } catch(e){
+    res.innerHTML = `<div class="note" style="color:var(--red)">Ошибка: ${e.message}</div>`;
+  }
 }
 
 async function loadAll(){

@@ -81,6 +81,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/telegram/login/confirm-code": self._run_tg_confirm_code,
             "/telegram/login/confirm-2fa":  self._run_tg_confirm_2fa,
             "/telegram/account/add":        self._run_tg_add_account,
+            "/telegram/comment/log":        self._run_tg_comment_log,
+            "/telegram/channels/parse":     self._run_tg_parse_channels,
+            "/telegram/channels/targets":   self._run_tg_channel_targets,
         }
 
         handler = routes.get(self.path)
@@ -388,6 +391,44 @@ class WebhookHandler(BaseHTTPRequestHandler):
         if result.get("ok"):
             sm.update_account(account_id, status="warming", warming_day=0)
         return result
+
+    async def _run_tg_comment_log(self, body: dict):
+        """GET /telegram/comment/log — последние N комментариев из Supabase."""
+        import urllib.request as _ur, json as _j
+        supa_url = os.environ.get("SUPABASE_URL", "")
+        supa_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+        limit = int(body.get("limit", 50))
+        vertical = body.get("vertical")
+        qs = f"select=id,account_id,phone,channel,text,vertical,posted_at&order=posted_at.desc&limit={limit}"
+        if vertical:
+            qs += f"&vertical=eq.{vertical}"
+        try:
+            req = _ur.Request(f"{supa_url}/rest/v1/comment_log?{qs}")
+            req.add_header("apikey", supa_key)
+            req.add_header("Authorization", f"Bearer {supa_key}")
+            with _ur.urlopen(req, timeout=5) as r:
+                return {"ok": True, "log": _j.loads(r.read())}
+        except Exception as e:
+            return {"ok": False, "error": str(e), "log": []}
+
+    async def _run_tg_parse_channels(self, body: dict):
+        """POST /telegram/channels/parse — парсим каналы по ключевому слову."""
+        from ubt_os.telegram.channel_parser import TelegramChannelParser
+        keyword  = body.get("keyword", "")
+        vertical = body.get("vertical", "nutra")
+        limit    = int(body.get("limit", 20))
+        if not keyword:
+            return {"ok": False, "error": "keyword required"}
+        parser = TelegramChannelParser()
+        return await parser.parse_by_keyword(keyword, vertical, limit)
+
+    async def _run_tg_channel_targets(self, body: dict):
+        """POST /telegram/channels/targets — список сохранённых target-каналов."""
+        from ubt_os.telegram.channel_parser import TelegramChannelParser
+        vertical = body.get("vertical")
+        parser = TelegramChannelParser()
+        targets = await parser.get_targets(vertical)
+        return {"ok": True, "targets": targets}
 
     async def _run_usage_summary(self, body: dict):
         """GET/POST /usage/summary — агрегат расходов LiteLLM за N дней."""

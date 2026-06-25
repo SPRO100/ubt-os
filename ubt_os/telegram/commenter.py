@@ -5,7 +5,7 @@ T3 — COMMENTER: нативные комментарии к постам.
   - max 3–5 комментариев/день/аккаунт
   - только аккаунты в фазе niche_content или monetization (день 6+)
   - Claude Haiku генерирует текст комментария
-  - стиль: нативный, без ссылок, без упоминания продукта напрямую
+  - двухэтапный постинг: эмодзи → 45 сек → edit на полный текст (имитирует живого человека)
   - jitter 5–20 мин между комментариями
 """
 from __future__ import annotations
@@ -17,9 +17,14 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger("ubt_os.telegram.commenter")
 
-MAX_COMMENTS_PER_DAY = 4  # консервативно, не 5
+MAX_COMMENTS_PER_DAY = 4
 
-# Промпты для генерации комментариев по вертикали
+# Эмодзи-реакции для первого этапа постинга (выглядит как живая реакция)
+FIRST_STAGE_EMOJIS = {
+    "nutra":   ["👍", "💪", "🔥", "❤️", "✅"],
+    "betting": ["🔥", "💯", "⚽", "🏆", "👏"],
+}
+
 COMMENT_PROMPTS = {
     "nutra": """\
 Ты — реальный пользователь Telegram, оставляешь нативный комментарий к посту о здоровье/похудении/питании.
@@ -51,9 +56,11 @@ COMMENT_PROMPTS = {
 class TelegramCommenter:
     """T3 — генерация и публикация нативных комментариев."""
 
-    def __init__(self, session_manager, tg_client=None):
-        self.sm     = session_manager
-        self.client = tg_client
+    def __init__(self, session_manager, tg_client=None, supabase_url: str = "", supabase_key: str = ""):
+        self.sm          = session_manager
+        self.client      = tg_client
+        self._supa_url   = supabase_url or os.getenv("SUPABASE_URL", "")
+        self._supa_key   = supabase_key or os.getenv("SUPABASE_SERVICE_KEY", "")
 
     async def run(self, account_id: str, target_channels: list[str]) -> dict:
         """Публикует комментарии от имени аккаунта в указанных каналах."""
@@ -61,7 +68,6 @@ class TelegramCommenter:
         if not account:
             return {"ok": False, "error": "account not found"}
 
-        # Только аккаунты с прогревом день 6+
         if account.warming_day < 6:
             return {"ok": False, "error": f"too early — day {account.warming_day}, need 6+"}
 
@@ -74,6 +80,7 @@ class TelegramCommenter:
 
         posted = 0
         errors = []
+        log_entries = []
 
         for channel in target_channels:
             if daily + posted >= MAX_COMMENTS_PER_DAY:
@@ -83,76 +90,110 @@ class TelegramCommenter:
                 if result:
                     posted += 1
                     self.sm.increment_daily(account_id, "comments")
-                    logger.info(f"[T3] {account.phone} commented in {channel}")
-                    # Jitter 5–20 мин между комментариями
+                    log_entries.append({
+                        "account_id": account_id,
+                        "phone": account.phone,
+                        "channel": channel,
+                        "text": result.get("text", ""),
+                        "msg_id": result.get("msg_id"),
+                        "vertical": account.vertical,
+                        "posted_at": datetime.now(timezone.utc).isoformat(),
+                    })
+                    logger.info(f"[T3] {account.phone} → {channel}: {result.get('text','')[:60]}")
                     await asyncio.sleep(random.uniform(300, 1200))
             except Exception as e:
                 logger.warning(f"[T3] {account.phone} error in {channel}: {e}")
                 errors.append(str(e))
 
-        self.sm.update_account(account_id,
-            last_action_at=datetime.now(timezone.utc).isoformat()
-        )
+        self.sm.update_account(account_id, last_action_at=datetime.now(timezone.utc).isoformat())
 
-        return {"ok": True, "posted": posted, "errors": errors, "daily_total": daily + posted}
+        # Сохраняем лог в Supabase
+        if log_entries:
+            await self._save_comment_log(log_entries)
 
-    async def _comment_on_latest(self, account, channel: str) -> bool:
-        """Берёт последний пост из канала, генерирует и публикует комментарий."""
+        return {"ok": True, "posted": posted, "errors": errors, "daily_total": daily + posted, "log": log_entries}
+
+    async def _comment_on_latest(self, account, channel: str) -> dict | None:
+        """Двухэтапный постинг: эмодзи → 45 сек → edit на полный текст."""
         if not self.client:
             text = await self._generate_comment(account.vertical, "Sample post text", "ru")
-            logger.info(f"[T3] simulated comment: {text}")
-            return True
+            logger.info(f"[T3] simulated 2-stage comment: {text}")
+            return {"text": text, "msg_id": None}
 
         try:
             msgs = await self.client.get_messages(channel, limit=3)
             if not msgs:
-                return False
+                return None
 
-            # Берём случайный пост из последних 3
             msg = random.choice(msgs)
             post_text = msg.text or msg.caption or ""
             if not post_text:
-                return False
+                return None
 
             lang = _detect_lang(post_text)
-            comment_text = await self._generate_comment(account.vertical, post_text[:300], lang)
+            full_text = await self._generate_comment(account.vertical, post_text[:300], lang)
+            if not full_text:
+                return None
 
-            if not comment_text:
-                return False
-
-            await self.client.send_message(
+            # Этап 1: постим эмодзи-реакцию
+            emojis = FIRST_STAGE_EMOJIS.get(account.vertical, ["👍", "🔥"])
+            emoji = random.choice(emojis)
+            sent = await self.client.send_message(
                 entity=channel,
-                message=comment_text,
+                message=emoji,
                 comment_to=msg.id,
             )
-            return True
+            logger.info(f"[T3] stage1 emoji '{emoji}' → {channel}")
+
+            # Пауза 40–55 секунд (имитация набора текста)
+            await asyncio.sleep(random.uniform(40, 55))
+
+            # Этап 2: редактируем на полный текст
+            await self.client.edit_message(entity=channel, message=sent.id, text=full_text)
+            logger.info(f"[T3] stage2 edit → full text: {full_text[:60]}")
+
+            return {"text": full_text, "msg_id": sent.id}
 
         except Exception as e:
             logger.warning(f"[T3] _comment_on_latest error: {e}")
             raise
 
     async def _generate_comment(self, vertical: str, post_text: str, lang: str) -> str:
-        """Генерирует нативный комментарий через Claude Haiku."""
         try:
             from anthropic import AsyncAnthropic
             prompt_tpl = COMMENT_PROMPTS.get(vertical, COMMENT_PROMPTS["nutra"])
             prompt = prompt_tpl.format(post_text=post_text, lang=lang)
-
             client = AsyncAnthropic()
             resp = await client.messages.create(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=150,
                 messages=[{"role": "user", "content": prompt}],
             )
-            text = resp.content[0].text.strip().strip('"').strip("'")
-            return text
+            return resp.content[0].text.strip().strip('"').strip("'")
         except Exception as e:
             logger.warning(f"[T3] generate_comment error: {e}")
             return ""
 
+    async def _save_comment_log(self, entries: list[dict]):
+        """Сохраняем лог комментариев в Supabase (таблица comment_log)."""
+        if not self._supa_url or not self._supa_key:
+            return
+        try:
+            import urllib.request
+            import json as _json
+            url = f"{self._supa_url}/rest/v1/comment_log"
+            data = _json.dumps(entries).encode()
+            req = urllib.request.Request(url, data=data, method="POST")
+            req.add_header("apikey", self._supa_key)
+            req.add_header("Authorization", f"Bearer {self._supa_key}")
+            req.add_header("Content-Type", "application/json")
+            req.add_header("Prefer", "return=minimal")
+            urllib.request.urlopen(req, timeout=5)
+        except Exception as e:
+            logger.warning(f"[T3] save_comment_log error: {e}")
+
 
 def _detect_lang(text: str) -> str:
-    """Простое определение языка по символам."""
     cyrillic = sum(1 for c in text if 'Ѐ' <= c <= 'ӿ')
     if cyrillic > len(text) * 0.3:
         return "ru"
