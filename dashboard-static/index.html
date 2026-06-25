@@ -909,8 +909,8 @@ async function openProject(id, projects){
         ${hist.map(m=>`<div class="chat-msg ${m.role}">${esc(m.content)}</div>`).join("")}
       </div>
       <div style="display:flex;gap:8px;">
-        <textarea id="chat-input" rows="2" placeholder="Спроси оркестратора об этом проекте…" style="flex:1"></textarea>
-        <button class="send-btn" id="chat-send" onclick="sendChat()">Отправить</button>
+        <textarea id="chat-input" rows="2" placeholder="Спроси оркестратора об этом проекте…" style="flex:1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+        <button type="button" class="send-btn" id="chat-send" onclick="sendChat()">Отправить</button>
       </div>
     </div>
   `;
@@ -921,21 +921,29 @@ async function openProject(id, projects){
 async function sendChat(){
   const input = document.getElementById("chat-input");
   const btn = document.getElementById("chat-send");
-  const msg = input.value.trim();
-  if(!msg || !CURRENT_PROJECT) return;
   const log = document.getElementById("chat-log");
+  if(!input || !btn || !log) return;
+  const msg = input.value.trim();
+  if(!msg) return;
+  if(!CURRENT_PROJECT){
+    log.insertAdjacentHTML("beforeend",`<div class="chat-msg assistant">⚠️ Сначала выбери проект (кликни на карточку).</div>`);
+    log.scrollTop = log.scrollHeight;
+    return;
+  }
   log.insertAdjacentHTML("beforeend",`<div class="chat-msg user">${esc(msg)}</div>`);
   log.scrollTop = log.scrollHeight;
   input.value = "";
   btn.disabled = true; btn.textContent = "Думаю…";
   try{
-    const r = await ft(`${AGENTS}/orchestrator/chat`,{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({vertical_id:CURRENT_PROJECT,message:msg}),
-    },120000);
+    const r = await fetch(`${AGENTS}/orchestrator/chat`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({vertical_id:CURRENT_PROJECT, message:msg}),
+    });
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
     const d = await r.json();
-    log.insertAdjacentHTML("beforeend",`<div class="chat-msg assistant">${esc(d.reply||d.error||"Ошибка")}</div>`);
-  }catch(e){
+    log.insertAdjacentHTML("beforeend",`<div class="chat-msg assistant">${esc(d.reply||d.error||"Нет ответа")}</div>`);
+  } catch(e){
     log.insertAdjacentHTML("beforeend",`<div class="chat-msg assistant">⚠️ ${esc(e.message)}</div>`);
   }
   log.scrollTop = log.scrollHeight;
