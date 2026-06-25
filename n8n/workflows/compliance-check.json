@@ -1,0 +1,97 @@
+{
+  "name": "compliance-check",
+  "active": false,
+  "versionId": "a1b2c3d4-0001-0001-0001-000000000001",
+  "nodes": [
+    {
+      "id": "node-cmp-1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "webhookId": "cmp-webhook-0001",
+      "parameters": {
+        "path": "compliance-check",
+        "responseMode": "lastNode",
+        "httpMethod": "POST"
+      }
+    },
+    {
+      "id": "node-cmp-2",
+      "name": "Compliance Gate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://88.218.121.108:8080/compliance/check",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "text",     "value": "={{ $json.text }}" },
+            { "name": "vertical", "value": "={{ $json.vertical ?? 'nutra' }}" },
+            { "name": "geo",      "value": "={{ $json.geo ?? 'PL' }}" }
+          ]
+        },
+        "options": { "timeout": 10000 }
+      }
+    },
+    {
+      "id": "node-cmp-3",
+      "name": "Verdict block?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [720, 300],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.verdict }}",
+              "operation": "notEqual",
+              "value2": "block"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-cmp-4",
+      "name": "Pass",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [980, 180],
+      "parameters": {}
+    },
+    {
+      "id": "node-cmp-5",
+      "name": "Telegram Block Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [980, 420],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TELEGRAM_ALERT_CHAT_ID }}",
+        "text": "🚫 Compliance BLOCK\nVertical: {{ $('Compliance Gate').item.json.vertical }}\nGeo: {{ $('Compliance Gate').item.json.geo }}\nReason: {{ $('Compliance Gate').item.json.reason }}",
+        "additionalFields": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Compliance Gate", "type": "main", "index": 0 }]]
+    },
+    "Compliance Gate": {
+      "main": [[{ "node": "Verdict block?", "type": "main", "index": 0 }]]
+    },
+    "Verdict block?": {
+      "main": [
+        [{ "node": "Pass",                 "type": "main", "index": 0 }],
+        [{ "node": "Telegram Block Alert", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Moscow"
+  }
+}

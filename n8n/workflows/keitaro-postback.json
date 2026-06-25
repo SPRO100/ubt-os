@@ -1,0 +1,106 @@
+{
+  "name": "keitaro-postback",
+  "active": false,
+  "versionId": "a1b2c3d4-0002-0002-0002-000000000002",
+  "nodes": [
+    {
+      "id": "node-ktr-1",
+      "name": "Postback Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "webhookId": "ktr-webhook-0002",
+      "parameters": {
+        "path": "keitaro-postback",
+        "responseMode": "lastNode",
+        "httpMethod": "POST"
+      }
+    },
+    {
+      "id": "node-ktr-2",
+      "name": "Send to UBT OS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://88.218.121.108:8080/keitaro/postback",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "keitaro_click_id",  "value": "={{ $json.click_id }}" },
+            { "name": "offer_id",          "value": "={{ $json.offer_id }}" },
+            { "name": "revenue_usd",       "value": "={{ $json.revenue ?? 0 }}" },
+            { "name": "payout_usd",        "value": "={{ $json.payout ?? 0 }}" },
+            { "name": "conversion_type",   "value": "={{ $json.conversion_type ?? 'lead' }}" },
+            { "name": "partner",           "value": "={{ $json.partner ?? '' }}" },
+            { "name": "geo",               "value": "={{ $json.geo ?? '' }}" }
+          ]
+        },
+        "options": { "timeout": 15000 }
+      }
+    },
+    {
+      "id": "node-ktr-3",
+      "name": "Saved ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [720, 300],
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.ok }}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-ktr-4",
+      "name": "Telegram Conversion",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [980, 180],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TELEGRAM_ALERT_CHAT_ID }}",
+        "text": "💰 Конверсия\nOffer: {{ $('Send to UBT OS').item.json.offer_id }}\nPayout: ${{ $json.payout }}\nWithin window: {{ $json.within_window }}",
+        "additionalFields": {}
+      }
+    },
+    {
+      "id": "node-ktr-5",
+      "name": "Telegram Postback Error",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [980, 420],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TELEGRAM_ALERT_CHAT_ID }}",
+        "text": "⚠️ Keitaro postback error\nclick_id: {{ $('Postback Webhook').item.json.click_id }}\nResponse: {{ JSON.stringify($json) }}",
+        "additionalFields": {}
+      }
+    }
+  ],
+  "connections": {
+    "Postback Webhook": {
+      "main": [[{ "node": "Send to UBT OS", "type": "main", "index": 0 }]]
+    },
+    "Send to UBT OS": {
+      "main": [[{ "node": "Saved ok?", "type": "main", "index": 0 }]]
+    },
+    "Saved ok?": {
+      "main": [
+        [{ "node": "Telegram Conversion",    "type": "main", "index": 0 }],
+        [{ "node": "Telegram Postback Error", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Moscow"
+  }
+}
