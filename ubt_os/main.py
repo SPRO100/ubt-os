@@ -72,6 +72,11 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/compliance/check":      self._run_compliance_check,
             "/keitaro/postback":      self._run_keitaro_postback,
             "/usage/summary":         self._run_usage_summary,
+            # Phase 7 — Telegram
+            "/telegram/warmup":       self._run_tg_warmup,
+            "/telegram/comment":      self._run_tg_comment,
+            "/telegram/react":        self._run_tg_react,
+            "/telegram/status":       self._run_tg_status,
         }
 
         handler = routes.get(self.path)
@@ -284,6 +289,24 @@ class WebhookHandler(BaseHTTPRequestHandler):
             if not acquired:
                 return
             await DeadLetterQueueManager.daily_report()
+
+    # ── Phase 7 — Telegram ────────────────────────────────────
+
+    async def _run_tg_warmup(self, body: dict):
+        from ubt_os.telegram.orchestrator import run_warmup
+        return await run_warmup(body)
+
+    async def _run_tg_comment(self, body: dict):
+        from ubt_os.telegram.orchestrator import run_comment
+        return await run_comment(body)
+
+    async def _run_tg_react(self, body: dict):
+        from ubt_os.telegram.orchestrator import run_react
+        return await run_react(body)
+
+    async def _run_tg_status(self, body: dict):
+        from ubt_os.telegram.orchestrator import get_status
+        return await get_status(body)
 
     async def _run_usage_summary(self, body: dict):
         """GET/POST /usage/summary — агрегат расходов LiteLLM за N дней."""
