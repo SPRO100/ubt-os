@@ -10,16 +10,28 @@ FIXES в этом файле (Sprint 1):
 """
 from __future__ import annotations
 import asyncio
+import hashlib
+import hmac
 import logging
 import os
+import signal
+import sys
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
-)
+from ubt_os.core.logging_config import setup_logging, set_request_id
+
+setup_logging()
 logger = logging.getLogger("ubt_os.main")
+
+# Простые in-memory счётчики для Prometheus-совместимого /metrics
+_METRICS: dict[str, int] = {
+    "webhook_requests_total": 0,
+    "webhook_requests_ok": 0,
+    "webhook_requests_error": 0,
+    "webhook_requests_unauthorized": 0,
+}
 
 
 def _get_db():
@@ -35,12 +47,35 @@ def _get_db():
 class WebhookHandler(BaseHTTPRequestHandler):
     """Принимает POST-запросы от n8n и запускает нужный пайплайн."""
 
-    def do_POST(self):
-        length  = int(self.headers.get("Content-Length", 0))
-        body    = json.loads(self.rfile.read(length)) if length else {}
-        action  = body.get("action", "unknown")
+    def _verify_signature(self, raw_body: bytes) -> bool:
+        """HMAC-SHA256 проверка подписи вебхука. Пропускает если секрет не задан."""
+        secret = os.getenv("WEBHOOK_SECRET")
+        if not secret:
+            return True
+        sig_header = self.headers.get("X-Webhook-Signature", "")
+        expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(sig_header, expected)
 
-        logger.info(f"Webhook: {self.path} action={action}")
+    def do_POST(self):
+        length   = int(self.headers.get("Content-Length", 0))
+        raw_body = self.rfile.read(length) if length else b""
+
+        _METRICS["webhook_requests_total"] += 1
+
+        if not self._verify_signature(raw_body):
+            _METRICS["webhook_requests_unauthorized"] += 1
+            self._respond(403, {"error": "invalid signature"})
+            logger.warning("Webhook: отклонён — неверная подпись", extra={"path": self.path})
+            return
+
+        # Correlation ID: берём из заголовка n8n или генерируем
+        request_id = self.headers.get("X-Request-Id") or str(uuid.uuid4())[:8]
+        set_request_id(request_id)
+
+        body   = json.loads(raw_body) if raw_body else {}
+        action = body.get("action", "unknown")
+
+        logger.info("Webhook received", extra={"path": self.path, "action": action, "request_id": request_id})
 
         routes = {
             "/run/nutra":          self._run_nutra,
@@ -60,14 +95,19 @@ class WebhookHandler(BaseHTTPRequestHandler):
         handler = routes.get(self.path)
         if handler:
             result = asyncio.run(handler(body))
+            _METRICS["webhook_requests_ok"] += 1
             self._respond(200, result if isinstance(result, dict) else {"status": "accepted"})
         else:
+            _METRICS["webhook_requests_error"] += 1
             self._respond(404, {"error": "unknown route"})
 
     def do_GET(self):
         # FIX #1 — health-check маршрут, который дёргает n8n / Railway
         if self.path == "/health/check-all":
             asyncio.run(self._run_health_check())
+            return
+        if self.path == "/metrics":
+            self._serve_metrics()
             return
         self._respond(404, {"error": "unknown route"})
 
@@ -134,7 +174,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
         from pathlib import Path
         vault = Path(os.getenv("OBSIDIAN_VAULT_PATH", "/opt/ubt-os/obsidian-vault")).resolve()
         target = (vault / rel_path).resolve()
-        if not str(target).startswith(str(vault)):
+        if not target.is_relative_to(vault):
             raise ValueError(f"Path escapes vault: {rel_path}")
         return target
 
@@ -274,6 +314,17 @@ class WebhookHandler(BaseHTTPRequestHandler):
             return result
         return {"status": "skipped", "reason": "lock_busy"}
 
+    def _serve_metrics(self):
+        """GET /metrics — Prometheus-совместимый текстовый формат."""
+        lines = ["# HELP ubt_os_webhook UBT OS webhook counters", "# TYPE ubt_os_webhook counter"]
+        for name, value in _METRICS.items():
+            lines.append(f"{name} {value}")
+        body = "\n".join(lines).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; version=0.0.4")
+        self.end_headers()
+        self.wfile.write(body)
+
     async def _run_health_check(self):
         """GET /health/check-all — проверка доступности Supabase и Redis."""
         status = {"supabase": "unknown", "redis": "unknown"}
@@ -299,6 +350,15 @@ def main():
     port = int(os.getenv("AGENTS_PORT", "8080"))
     logger.info(f"UBT OS запущен на порту {port}")
     server = ThreadingHTTPServer(("0.0.0.0", port), WebhookHandler)
+
+    def _shutdown(signum, frame):
+        logger.info("UBT OS: получен сигнал завершения, останавливаем сервер...")
+        server.shutdown()
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, _shutdown)
+    signal.signal(signal.SIGINT, _shutdown)
+
     server.serve_forever()
 
 

@@ -1,7 +1,7 @@
 # UBT OS — Makefile
 # Использование: make <команда>
 
-.PHONY: help setup db-init up down logs build deploy-railway
+.PHONY: help setup db-init up down logs build deploy-railway test lint
 
 help:
 	@echo "UBT OS — команды деплоя"
@@ -76,6 +76,14 @@ restart:
 	docker-compose restart agents higgsfield_worker
 
 # ── ТЕСТЫ ───────────────────────────────────────────────────
+test:
+	@echo "🧪 Запуск unit-тестов..."
+	pytest tests/ -v --tb=short
+
+lint:
+	@echo "🔍 Линтинг кода..."
+	ruff check ubt_os/
+
 test-lock:
 	@echo "🔒 Тест Redis Lock..."
 	@export $$(cat .env | xargs) && \

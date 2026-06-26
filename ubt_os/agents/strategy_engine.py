@@ -12,17 +12,8 @@ from typing import Any
 
 from supabase import create_client, Client
 from anthropic import AsyncAnthropic
-import re
-import json
 
-def _extract_json(text: str):
-    """PATCH: Claude иногда оборачивает JSON в markdown ```json ... ``` —
-    убираем обёртку перед json.loads."""
-    t = text.strip()
-    m = re.match(r"^```(?:json)?\s*\n(.*)\n```\s*$", t, re.DOTALL)
-    if m:
-        t = m.group(1).strip()
-    return json.loads(t)
+from ubt_os.utils.llm_utils import extract_json as _extract_json
 
 logger = logging.getLogger("ubt_os.strategy_engine")
 

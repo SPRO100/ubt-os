@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dev dependencies
+        run: pip install -r deploy/requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check ubt_os/
+
+      - name: Type check (mypy)
+        run: mypy ubt_os/ --ignore-missing-imports
+
+      - name: Unit tests
+        run: pytest tests/ -v --tb=short
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install bandit
+        run: pip install bandit
+
+      - name: Security scan
+        run: bandit -r ubt_os/ -ll -x ubt_os/utils/obsidian_cron.py
