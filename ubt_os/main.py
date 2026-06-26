@@ -16,14 +16,22 @@ import logging
 import os
 import signal
 import sys
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
-)
+from ubt_os.core.logging_config import setup_logging, set_request_id
+
+setup_logging()
 logger = logging.getLogger("ubt_os.main")
+
+# Простые in-memory счётчики для Prometheus-совместимого /metrics
+_METRICS: dict[str, int] = {
+    "webhook_requests_total": 0,
+    "webhook_requests_ok": 0,
+    "webhook_requests_error": 0,
+    "webhook_requests_unauthorized": 0,
+}
 
 
 def _get_db():
@@ -52,15 +60,22 @@ class WebhookHandler(BaseHTTPRequestHandler):
         length   = int(self.headers.get("Content-Length", 0))
         raw_body = self.rfile.read(length) if length else b""
 
+        _METRICS["webhook_requests_total"] += 1
+
         if not self._verify_signature(raw_body):
+            _METRICS["webhook_requests_unauthorized"] += 1
             self._respond(403, {"error": "invalid signature"})
-            logger.warning(f"Webhook: отклонён неверная подпись на {self.path}")
+            logger.warning("Webhook: отклонён — неверная подпись", extra={"path": self.path})
             return
+
+        # Correlation ID: берём из заголовка n8n или генерируем
+        request_id = self.headers.get("X-Request-Id") or str(uuid.uuid4())[:8]
+        set_request_id(request_id)
 
         body   = json.loads(raw_body) if raw_body else {}
         action = body.get("action", "unknown")
 
-        logger.info(f"Webhook: {self.path} action={action}")
+        logger.info("Webhook received", extra={"path": self.path, "action": action, "request_id": request_id})
 
         routes = {
             "/run/nutra":          self._run_nutra,
@@ -80,14 +95,19 @@ class WebhookHandler(BaseHTTPRequestHandler):
         handler = routes.get(self.path)
         if handler:
             result = asyncio.run(handler(body))
+            _METRICS["webhook_requests_ok"] += 1
             self._respond(200, result if isinstance(result, dict) else {"status": "accepted"})
         else:
+            _METRICS["webhook_requests_error"] += 1
             self._respond(404, {"error": "unknown route"})
 
     def do_GET(self):
         # FIX #1 — health-check маршрут, который дёргает n8n / Railway
         if self.path == "/health/check-all":
             asyncio.run(self._run_health_check())
+            return
+        if self.path == "/metrics":
+            self._serve_metrics()
             return
         self._respond(404, {"error": "unknown route"})
 
@@ -293,6 +313,17 @@ class WebhookHandler(BaseHTTPRequestHandler):
             logger.info(f"knowledge/synthesize ({mode}) завершён")
             return result
         return {"status": "skipped", "reason": "lock_busy"}
+
+    def _serve_metrics(self):
+        """GET /metrics — Prometheus-совместимый текстовый формат."""
+        lines = ["# HELP ubt_os_webhook UBT OS webhook counters", "# TYPE ubt_os_webhook counter"]
+        for name, value in _METRICS.items():
+            lines.append(f"{name} {value}")
+        body = "\n".join(lines).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; version=0.0.4")
+        self.end_headers()
+        self.wfile.write(body)
 
     async def _run_health_check(self):
         """GET /health/check-all — проверка доступности Supabase и Redis."""

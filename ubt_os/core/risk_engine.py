@@ -288,24 +288,32 @@ class RiskActionExecutor:
                 await self._alert(result, "🟡 ПОВЫШЕННЫЙ РИСК")
 
     async def _pause_account(self, account_id: str):
-        self.db.table("accounts").update({
+        resp = self.db.table("accounts").update({
             "publishing_enabled": False,
             "pause_reason": "risk_score_critical",
             "paused_at": datetime.utcnow().isoformat(),
         }).eq("account_id", account_id).execute()
-        logger.warning(f"[Risk] СТОП: {account_id} — публикации заблокированы")
+        if not resp.data:
+            logger.error(f"[Risk] _pause_account: UPDATE не затронул строк для {account_id}")
+        else:
+            logger.warning(f"[Risk] СТОП: {account_id} — публикации заблокированы")
 
     async def _slow_publishing(self, account_id: str):
-        self.db.table("accounts").update({
+        resp = self.db.table("accounts").update({
             "max_posts_per_day": 1,
             "throttle_reason": "risk_score_high",
         }).eq("account_id", account_id).execute()
-        logger.warning(f"[Risk] Замедление: {account_id} → max 1 пост/день")
+        if not resp.data:
+            logger.error(f"[Risk] _slow_publishing: UPDATE не затронул строк для {account_id}")
+        else:
+            logger.warning(f"[Risk] Замедление: {account_id} → max 1 пост/день")
 
     async def _reduce_activity(self, account_id: str):
-        self.db.table("accounts").update({
+        resp = self.db.table("accounts").update({
             "activity_multiplier": 0.5,
         }).eq("account_id", account_id).execute()
+        if not resp.data:
+            logger.error(f"[Risk] _reduce_activity: UPDATE не затронул строк для {account_id}")
 
     async def _alert(self, result: dict, prefix: str):
         token   = os.environ.get("TELEGRAM_ALERT_BOT_TOKEN")
