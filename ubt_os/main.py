@@ -280,7 +280,48 @@ class WebhookHandler(BaseHTTPRequestHandler):
         db.table("chat_messages").insert({"vertical_id": vertical_id, "role": "user", "content": message}).execute()
         db.table("chat_messages").insert({"vertical_id": vertical_id, "role": "assistant", "content": reply}).execute()
 
+        # Авто-саммари каждые 10 сообщений
+        count_res = db.table("chat_messages").select("id", count="exact").eq("vertical_id", vertical_id).execute()
+        total = count_res.count or 0
+        if total > 0 and total % 10 == 0:
+            await self._auto_summarize_chat(vertical_id, project["name"], db)
+
         return {"reply": reply, "vertical_id": vertical_id}
+
+    async def _auto_summarize_chat(self, vertical_id: str, project_name: str, db):
+        """Каждые 10 сообщений сжимает чат в инсайт и кладёт в базу знаний проекта."""
+        from anthropic import AsyncAnthropic
+        recent = (
+            db.table("chat_messages")
+            .select("role,content")
+            .eq("vertical_id", vertical_id)
+            .order("created_at", desc=False)
+            .limit(20)
+            .execute()
+        ).data
+        if len(recent) < 5:
+            return
+        history_text = "\n".join(
+            f"{h['role'].upper()}: {h['content'][:400]}" for h in recent
+        )
+        client = AsyncAnthropic()
+        resp = await client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=600,
+            messages=[{"role": "user", "content":
+                f"Переписка с оркестратором проекта «{project_name}»:\n\n{history_text}\n\n"
+                "Выдели 3-7 ключевых инсайтов, решений и договорённостей пунктами. "
+                "Только суть, без лишних слов. Это сохранится в базу знаний."}],
+        )
+        summary = resp.content[0].text
+        db.table("knowledge_entries").insert({
+            "type": "insight",
+            "subtype": "chat_summary",
+            "vertical": vertical_id,
+            "content": f"[Авто-саммари чата]\n{summary}",
+            "metadata": {"source": "auto_chat_summarizer", "msg_count": len(recent)},
+        }).execute()
+        logger.info(f"auto_summarize_chat: сохранён инсайт для {vertical_id} ({len(recent)} сообщений)")
 
     async def _run_report(self, body: dict):
         from ubt_os.core import pipeline_lock
