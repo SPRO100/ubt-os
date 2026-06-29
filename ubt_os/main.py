@@ -93,6 +93,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/accounts/add":          self._accounts_add,
             "/accounts/import":       self._accounts_import,
             "/accounts/checker/run":  self._accounts_checker_run,
+            # Управление проектами
+            "/projects/add":          self._projects_add,
         }
 
         handler = routes.get(self.path)
@@ -454,6 +456,34 @@ class WebhookHandler(BaseHTTPRequestHandler):
             summary[v] = summary.get(v, 0) + 1
         logger.info(f"accounts/checker/run: проверено {len(results)}, summary={summary}")
         return {"status": "ok", "total": len(results), "summary": summary, "results": results}
+
+
+    async def _projects_add(self, body: dict):
+        """POST /projects/add — создать новый проект (vertical_configs)."""
+        pid  = (body.get("id") or "").strip().lower()
+        name = (body.get("name") or "").strip()
+        if not pid or not name:
+            return {"error": "id и name обязательны"}
+        import re
+        pid = re.sub(r"[^a-z0-9_]", "_", pid)
+        category = body.get("category", "ecommerce")
+        geo      = body.get("geo") or []
+        primary  = body.get("primary_platform", "instagram")
+        model    = body.get("monetization_model", "lead_gen")
+        config   = {
+            "vertical":     {"id": pid, "name": name, "category": category},
+            "audience":     {"geo": geo if isinstance(geo, list) else [geo], "language": ["ru"]},
+            "content":      {"tone": "", "cta_style": ""},
+            "platforms":    {"allowed": ["instagram", "telegram", "tiktok", "youtube"], "primary": primary},
+            "monetization": {"model": model, "client_type": "white"},
+        }
+        db = _get_db()
+        result = db.table("vertical_configs").insert({
+            "id": pid, "name": name, "category": category, "config_yaml": config
+        }).execute()
+        inserted = result.data[0] if result.data else {}
+        logger.info(f"projects/add: создан проект {pid} / {name}")
+        return {"status": "ok", "project": inserted}
 
 
 def main():
