@@ -83,13 +83,16 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/run/account-check":  self._run_checker,
             "/run/obsidian-sync":  self._run_obsidian,
             "/run/daily-report":   self._run_report,
-            # FIX #1 — маршруты, которые n8n уже вызывал, но сервер не знал о них:
             "/strategy/collect":      self._run_strategy_collect,
             "/risk/run":              self._run_risk,
             "/knowledge/synthesize":  self._run_knowledge_synthesize,
             "/obsidian/write":        self._run_obsidian_write,
             "/obsidian/append":       self._run_obsidian_append,
             "/orchestrator/chat":     self._run_orchestrator_chat,
+            # Управление аккаунтами
+            "/accounts/add":          self._accounts_add,
+            "/accounts/import":       self._accounts_import,
+            "/accounts/checker/run":  self._accounts_checker_run,
         }
 
         handler = routes.get(self.path)
@@ -102,14 +105,33 @@ class WebhookHandler(BaseHTTPRequestHandler):
             self._respond(404, {"error": "unknown route"})
 
     def do_GET(self):
-        # FIX #1 — health-check маршрут, который дёргает n8n / Railway
         if self.path == "/health/check-all":
             asyncio.run(self._run_health_check())
             return
         if self.path == "/metrics":
             self._serve_metrics()
             return
+        if self.path.startswith("/accounts/list"):
+            asyncio.run(self._accounts_list())
+            return
         self._respond(404, {"error": "unknown route"})
+
+    async def _accounts_list(self):
+        """GET /accounts/list?platform=tiktok&vertical_id=betting_ru&status=active"""
+        from urllib.parse import urlparse, parse_qs
+        qs = parse_qs(urlparse(self.path).query)
+        db = _get_db()
+        q = db.table("accounts").select(
+            "id,platform,username,status,warming_phase,warming_day,geo,niche,partner_program,vertical_id,created_at"
+        )
+        if qs.get("platform"):
+            q = q.eq("platform", qs["platform"][0])
+        if qs.get("vertical_id"):
+            q = q.eq("vertical_id", qs["vertical_id"][0])
+        if qs.get("status"):
+            q = q.eq("status", qs["status"][0])
+        rows = q.order("created_at", desc=True).limit(200).execute().data
+        self._respond(200, {"accounts": rows, "total": len(rows)})
 
     def _respond(self, code: int, data: dict):
         self.send_response(code)
@@ -344,6 +366,94 @@ class WebhookHandler(BaseHTTPRequestHandler):
             status["redis"] = f"error: {e}"
 
         self._respond(200, status)
+
+
+    # ── Управление аккаунтами ────────────────────────────
+
+    async def _accounts_add(self, body: dict):
+        """POST /accounts/add — добавить один аккаунт."""
+        ALLOWED_PLATFORMS = {"tiktok", "youtube", "instagram", "telegram"}
+        platform = (body.get("platform") or "").lower()
+        if platform not in ALLOWED_PLATFORMS:
+            return {"error": f"platform должен быть одним из: {', '.join(sorted(ALLOWED_PLATFORMS))}"}
+        username = (body.get("username") or "").strip()
+        if not username:
+            return {"error": "username обязателен"}
+        row = {
+            "platform":           platform,
+            "username":           username,
+            "niche":              body.get("niche"),
+            "geo":                body.get("geo"),
+            "partner_program":    body.get("partner_program"),
+            "gologin_profile_id": body.get("gologin_profile_id"),
+            "vertical_id":        body.get("vertical_id"),
+            "status":             "new",
+        }
+        # убираем None-поля чтобы не перебить дефолты БД
+        row = {k: v for k, v in row.items() if v is not None}
+        db = _get_db()
+        result = db.table("accounts").insert(row).execute()
+        inserted = result.data[0] if result.data else {}
+        logger.info(f"accounts/add: добавлен {platform}/@{username} id={inserted.get('id','?')}")
+        return {"status": "ok", "account": inserted}
+
+    async def _accounts_import(self, body: dict):
+        """POST /accounts/import — массовый импорт списка аккаунтов.
+
+        Body: { "accounts": [ {platform, username, geo?, niche?, ...}, ... ] }
+        Принимает до 200 аккаунтов за раз.
+        """
+        ALLOWED_PLATFORMS = {"tiktok", "youtube", "instagram", "telegram"}
+        raw = body.get("accounts")
+        if not isinstance(raw, list) or not raw:
+            return {"error": "accounts должен быть непустым массивом"}
+        if len(raw) > 200:
+            return {"error": "максимум 200 аккаунтов за один запрос"}
+
+        rows, skipped = [], []
+        for i, item in enumerate(raw):
+            platform = (item.get("platform") or "").lower()
+            username = (item.get("username") or "").strip()
+            if platform not in ALLOWED_PLATFORMS or not username:
+                skipped.append({"index": i, "reason": "пустой username или неверная платформа", "item": item})
+                continue
+            rows.append({
+                "platform":           platform,
+                "username":           username,
+                "niche":              item.get("niche"),
+                "geo":                item.get("geo"),
+                "partner_program":    item.get("partner_program"),
+                "gologin_profile_id": item.get("gologin_profile_id"),
+                "status":             "new",
+            })
+            rows[-1] = {k: v for k, v in rows[-1].items() if v is not None}
+
+        if not rows:
+            return {"error": "все записи не прошли валидацию", "skipped": skipped}
+
+        db = _get_db()
+        result = db.table("accounts").insert(rows).execute()
+        inserted_count = len(result.data) if result.data else 0
+        logger.info(f"accounts/import: вставлено {inserted_count}, пропущено {len(skipped)}")
+        return {
+            "status":   "ok",
+            "inserted": inserted_count,
+            "skipped":  len(skipped),
+            "skipped_details": skipped,
+        }
+
+    async def _accounts_checker_run(self, body: dict):
+        """POST /accounts/checker/run — запустить чекер и вернуть результаты синхронно."""
+        from ubt_os.agents import AccountChecker
+        db = _get_db()
+        checker = AccountChecker(db_client=db)
+        results = await checker.check_all()
+        summary = {"ok": 0, "warn": 0, "stop": 0}
+        for r in results:
+            v = r.get("verdict", "ok")
+            summary[v] = summary.get(v, 0) + 1
+        logger.info(f"accounts/checker/run: проверено {len(results)}, summary={summary}")
+        return {"status": "ok", "total": len(results), "summary": summary, "results": results}
 
 
 def main():

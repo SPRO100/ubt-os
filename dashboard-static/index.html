@@ -260,34 +260,435 @@ async function renderDashboard(){
    ACCOUNTS
    ============================================================ */
 async function renderAccounts(){
-  const accounts = await fetchRows("accounts", "select=id,platform,status,created_at&order=created_at.desc&limit=20");
+  const accounts = await fetchRows("accounts",
+    "select=id,platform,username,status,warming_phase,warming_day,geo,niche,partner_program,created_at&order=created_at.desc&limit=100");
+
+  const tabStyle = (active) =>
+    `style="background:${active?'var(--indigo)':'var(--surface2)'};color:${active?'#fff':'var(--muted)'};
+     border:1px solid ${active?'var(--indigo)':'var(--border)'};border-radius:7px;padding:6px 14px;
+     font-size:12px;cursor:pointer;font-family:inherit;"`;
+
+  const platformColors = {tiktok:"#f472b6",youtube:"#f87171",instagram:"#fb923c",telegram:"#60a5fa"};
+  const statusColors   = {new:"#94a3b8",warming:"#f59e0b",active:"#4ade80",shadow_banned:"#f87171",hard_banned:"#dc2626",replaced:"#6b7280",paused:"#a78bfa"};
+
   document.getElementById("sec-accounts").innerHTML = `
-    <div class="card">
-      <div class="card-head"><span class="title">Подключённые аккаунты</span><span class="right">${liveTag()} ${accounts.length} найдено</span></div>
-      ${accounts.length ? `<table><tr><th>Платформа</th><th>Статус</th><th>Создан</th></tr>${
-        accounts.map(a=>`<tr><td class="primary">${esc(a.platform)}</td><td>${esc(a.status)}</td><td class="mono">${esc((a.created_at||"").slice(0,10))}</td></tr>`).join("")
-      }</table>` : `<div class="note-box">Таблица <code>accounts</code> пуста — ни один аккаунт пока не подключён к системе.</div>`}
+    <!-- ТАБЫ -->
+    <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
+      <button ${tabStyle(true)}  onclick="accTab('list')"    id="tab-list">📋 Список</button>
+      <button ${tabStyle(false)} onclick="accTab('add')"     id="tab-add">➕ Добавить</button>
+      <button ${tabStyle(false)} onclick="accTab('import')"  id="tab-import">📦 Массовый импорт</button>
+      <button ${tabStyle(false)} onclick="accTab('checker')" id="tab-checker">🔍 Чекер</button>
     </div>
 
-    <div class="card">
-      <div class="card-head"><span class="title">Протокол прогрева — 7 дней</span><span class="right">${refTag()}</span></div>
-      <table><tr><th>День</th><th>Действие</th></tr>
-        <tr><td class="primary">1–3</td><td>Только просмотры (20–30 видео) и лайки (10–15), без публикаций.</td></tr>
-        <tr><td class="primary">4–5</td><td>1 нейтральный пост не по теме ниши.</td></tr>
-        <tr><td class="primary">6–7</td><td>1 нишевый пост без ссылок и CTA.</td></tr>
-        <tr><td class="primary">8+</td><td>Старт монетизации. Первый CTA-пост.</td></tr>
-      </table>
+    <!-- ─── СПИСОК ─── -->
+    <div id="acc-list">
+      <div class="card">
+        <div class="card-head">
+          <span class="title">Аккаунты ${liveTag()}</span>
+          <span class="right">${accounts.length} записей</span>
+        </div>
+        ${accounts.length ? `
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;" id="platform-filters">
+            <button onclick="filterPlatform('')"        style="font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:4px 10px;color:var(--muted);cursor:pointer;" data-p="">Все</button>
+            <button onclick="filterPlatform('tiktok')"    style="font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:4px 10px;color:#f472b6;cursor:pointer;" data-p="tiktok">TikTok</button>
+            <button onclick="filterPlatform('youtube')"   style="font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:4px 10px;color:#f87171;cursor:pointer;" data-p="youtube">YouTube</button>
+            <button onclick="filterPlatform('instagram')" style="font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:4px 10px;color:#fb923c;cursor:pointer;" data-p="instagram">Instagram</button>
+            <button onclick="filterPlatform('telegram')"  style="font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:4px 10px;color:#60a5fa;cursor:pointer;" data-p="telegram">Telegram</button>
+          </div>
+          <div id="acc-table-wrap">
+            <table id="acc-table">
+              <tr><th>Платформа</th><th>Username</th><th>Статус</th><th>Фаза</th><th>День</th><th>Гео</th><th>Партнёрка</th><th>Добавлен</th></tr>
+              ${accounts.map(a=>`<tr data-platform="${esc(a.platform)}">
+                <td><span style="color:${platformColors[a.platform]||'var(--muted)'};font-weight:600;">${esc(a.platform)}</span></td>
+                <td class="primary mono">@${esc(a.username||'—')}</td>
+                <td><span class="chip" style="color:${statusColors[a.status]||'var(--muted)'};background:${statusColors[a.status]||'var(--muted)'}1a">${esc(a.status)}</span></td>
+                <td class="mono" style="font-size:11px;">${esc(a.warming_phase||'idle')}</td>
+                <td class="mono">${esc(a.warming_day||0)}</td>
+                <td>${esc(a.geo||'—')}</td>
+                <td style="font-size:11px;">${esc(a.partner_program||'—')}</td>
+                <td class="mono" style="font-size:11px;">${esc((a.created_at||'').slice(0,10))}</td>
+              </tr>`).join('')}
+            </table>
+          </div>
+        ` : `<div class="note-box">Таблица <code>accounts</code> пуста. Добавьте первый аккаунт через вкладку «Добавить».</div>`}
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span class="title">Протокол прогрева</span><span class="right">справка</span></div>
+        <table><tr><th>Дни</th><th>Фаза</th><th>Действия</th><th>Постов/день</th></tr>
+          <tr><td class="primary">1–3</td><td><span class="mono">views_only</span></td><td>Просмотры + лайки, не постим</td><td>0</td></tr>
+          <tr><td class="primary">4–5</td><td><span class="mono">neutral_content</span></td><td>Нейтральные видео без CTA</td><td>2</td></tr>
+          <tr><td class="primary">6–7</td><td><span class="mono">niche_content</span></td><td>Нишевые видео без ссылок</td><td>2</td></tr>
+          <tr><td class="primary">8+</td><td><span class="mono">monetization</span></td><td>CTA + партнёрские ссылки</td><td>5</td></tr>
+        </table>
+      </div>
     </div>
 
-    <div class="card">
-      <div class="card-head"><span class="title">Пороги тревоги Account Checker</span><span class="right">${refTag()} воркфлоу опубликован и работает</span></div>
-      <table><tr><th>Метрика</th><th>Действие</th></tr>
-        <tr><td class="primary">ER &lt; 2%</td><td>Алерт в Telegram</td></tr>
-        <tr><td class="primary">ER &lt; 1%</td><td>Стоп публикаций + замена прокси</td></tr>
-        <tr><td class="primary">Бан зафиксирован</td><td>Запись в Knowledge Base</td></tr>
-      </table>
+    <!-- ─── ДОБАВИТЬ ─── -->
+    <div id="acc-add" style="display:none;">
+      <div class="card">
+        <div class="card-head"><span class="title">Добавить аккаунт</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" id="add-form">
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:5px;">ПЛАТФОРМА *</label>
+            <select id="af-platform" style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 10px;font-size:13px;font-family:inherit;">
+              <option value="tiktok">TikTok</option>
+              <option value="youtube">YouTube</option>
+              <option value="instagram">Instagram</option>
+              <option value="telegram">Telegram</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:5px;">USERNAME *</label>
+            <input id="af-username" type="text" placeholder="@username или номер телефона"
+              style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 10px;font-size:13px;font-family:inherit;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:5px;">ГЕО</label>
+            <input id="af-geo" type="text" placeholder="PL, RO, RU, KZ..."
+              style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 10px;font-size:13px;font-family:inherit;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:5px;">НИША</label>
+            <input id="af-niche" type="text" placeholder="nutra, betting, cars..."
+              style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 10px;font-size:13px;font-family:inherit;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:5px;">ПАРТНЁРСКАЯ ПРОГРАММА</label>
+            <select id="af-partner" style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 10px;font-size:13px;font-family:inherit;">
+              <option value="">— не указана —</option>
+              <option value="1win">1win</option>
+              <option value="mostbet">Mostbet</option>
+              <option value="dr.cash">Dr.Cash</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:5px;">GOLOGIN PROFILE ID</label>
+            <input id="af-gologin" type="text" placeholder="ID профиля GoLogin (если есть)"
+              style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 10px;font-size:13px;font-family:inherit;box-sizing:border-box;">
+          </div>
+          <div style="grid-column:1/-1;">
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:5px;">ПРОЕКТ (ВЕРТИКАЛЬ)</label>
+            <select id="af-vertical" style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 10px;font-size:13px;font-family:inherit;">
+              <option value="">— не привязан к проекту —</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:10px;align-items:center;">
+          <button onclick="submitAddAccount()"
+            style="background:var(--indigo);color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:13px;cursor:pointer;font-family:inherit;">
+            Добавить аккаунт
+          </button>
+          <span id="add-result" style="font-size:12px;color:var(--muted);"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── МАССОВЫЙ ИМПОРТ ─── -->
+    <div id="acc-import" style="display:none;">
+      <div class="card">
+        <div class="card-head"><span class="title">Массовый импорт аккаунтов</span><span class="right">до 200 за раз</span></div>
+
+        <div style="margin-bottom:18px;">
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <button onclick="importTab('json')" id="itab-json"
+              style="font-size:12px;background:var(--indigo);color:#fff;border:1px solid var(--indigo);border-radius:6px;padding:5px 12px;cursor:pointer;">JSON</button>
+            <button onclick="importTab('tdata')" id="itab-tdata"
+              style="font-size:12px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:5px 12px;cursor:pointer;">tdata (Telegram)</button>
+          </div>
+
+          <div id="import-json-panel">
+            <div class="note-box" style="margin-bottom:10px;">
+              Вставьте JSON-массив аккаунтов. Поля: <code>platform</code> (обязательно), <code>username</code> (обязательно), <code>geo</code>, <code>niche</code>, <code>partner_program</code>, <code>gologin_profile_id</code>.
+            </div>
+            <div class="note-box mono" style="font-size:11px;margin-bottom:10px;color:var(--faint);">[
+  {"platform":"tiktok","username":"user1","geo":"PL","niche":"nutra"},
+  {"platform":"telegram","username":"+48123456789","geo":"PL","partner_program":"dr.cash"},
+  {"platform":"youtube","username":"channel_name","geo":"RO"}
+]</div>
+            <textarea id="import-json-input" rows="8" placeholder="Вставь JSON-массив аккаунтов сюда…"
+              style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-family:'IBM Plex Mono',monospace;font-size:12px;resize:vertical;box-sizing:border-box;"></textarea>
+            <div style="margin-top:10px;display:flex;gap:10px;align-items:center;">
+              <button onclick="submitImport()"
+                style="background:var(--indigo);color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:13px;cursor:pointer;font-family:inherit;">
+                Импортировать
+              </button>
+              <span id="import-result" style="font-size:12px;color:var(--muted);"></span>
+            </div>
+          </div>
+
+          <div id="import-tdata-panel" style="display:none;">
+            <div class="card" style="border-left:3px solid var(--amber);background:rgba(245,158,11,.05);">
+              <div style="font-size:13px;color:var(--amber);font-weight:600;margin-bottom:8px;">📁 tdata — файлы сессий Telegram Desktop</div>
+              <div class="note-box" style="margin-bottom:12px;">
+                <b>Что такое tdata:</b> папка <code>tdata/</code> из Telegram Desktop — содержит зашифрованную сессию аккаунта. Покупаются у поставщиков аккаунтов (Accs Market, Telegram-shop, etc.).<br><br>
+                <b>Как загрузить:</b><br>
+                1. Конвертируй tdata → <code>.session</code> через <a href="https://github.com/LonamiWebs/Telethon" style="color:var(--indigo)">TData2Session</a> или аналог<br>
+                2. Загрузи .session файл в Supabase Storage (bucket: <code>tg-sessions</code>)<br>
+                3. Добавь аккаунт ниже с username = номер телефона
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                <div>
+                  <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:5px;">НОМЕР ТЕЛЕФОНА *</label>
+                  <input id="tdata-phone" type="text" placeholder="+48123456789"
+                    style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 10px;font-size:13px;font-family:inherit;box-sizing:border-box;">
+                </div>
+                <div>
+                  <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:5px;">ГЕО</label>
+                  <input id="tdata-geo" type="text" placeholder="PL, RO, RU..."
+                    style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 10px;font-size:13px;font-family:inherit;box-sizing:border-box;">
+                </div>
+              </div>
+              <div style="margin-bottom:12px;">
+                <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:5px;">ПУТЬ К SESSION-ФАЙЛУ В SUPABASE STORAGE</label>
+                <input id="tdata-session-path" type="text" placeholder="tg-sessions/+48123456789.session"
+                  style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 10px;font-size:13px;font-family:inherit;box-sizing:border-box;">
+              </div>
+              <button onclick="submitTdata()"
+                style="background:var(--amber);color:#000;border:none;border-radius:8px;padding:10px 24px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:600;">
+                Зарегистрировать аккаунт
+              </button>
+              <span id="tdata-result" style="font-size:12px;color:var(--muted);margin-left:10px;"></span>
+            </div>
+
+            <div class="card" style="margin-top:14px;">
+              <div class="card-head"><span class="title">Массовая загрузка tdata</span></div>
+              <div class="note-box" style="margin-bottom:10px;">
+                Для загрузки 10–100+ аккаунтов сразу — вставь JSON с телефонами и путями к session-файлам:
+              </div>
+              <div class="note-box mono" style="font-size:11px;margin-bottom:10px;color:var(--faint);">[
+  {"username":"+48111222333","geo":"PL","partner_program":"dr.cash","gologin_profile_id":"abc123"},
+  {"username":"+48444555666","geo":"PL"},
+  {"username":"+48777888999","geo":"RO","niche":"nutra"}
+]</div>
+              <textarea id="tdata-bulk-input" rows="6" placeholder="JSON-массив Telegram аккаунтов…"
+                style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-family:'IBM Plex Mono',monospace;font-size:12px;resize:vertical;box-sizing:border-box;"></textarea>
+              <div style="margin-top:10px;display:flex;gap:10px;align-items:center;">
+                <button onclick="submitTdataBulk()"
+                  style="background:var(--amber);color:#000;border:none;border-radius:8px;padding:10px 24px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:600;">
+                  Импортировать Telegram-аккаунты
+                </button>
+                <span id="tdata-bulk-result" style="font-size:12px;color:var(--muted);"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── ЧЕКЕР ─── -->
+    <div id="acc-checker" style="display:none;">
+      <div class="card">
+        <div class="card-head"><span class="title">Account Checker</span><span class="right">проверяет ER, прокси, теневой бан</span></div>
+        <div class="note-box" style="margin-bottom:14px;">
+          Запускает проверку всех аккаунтов со статусом <code>warming</code> и <code>active</code>.
+          Пороги ER зависят от фазы прогрева (FIX #5).
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+          <button onclick="runChecker()"
+            style="background:#4ade80;color:#000;border:none;border-radius:8px;padding:10px 24px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:600;">
+            🔍 Запустить проверку
+          </button>
+          <span id="checker-status" style="font-size:12px;color:var(--muted);"></span>
+        </div>
+        <div id="checker-summary" style="display:none;" class="stat-grid">
+          <div class="stat"><div class="label">Всего</div><div class="value" id="cs-total">—</div></div>
+          <div class="stat"><div class="label" style="color:var(--green);">OK</div><div class="value" style="color:var(--green);" id="cs-ok">—</div></div>
+          <div class="stat"><div class="label" style="color:var(--amber);">WARN</div><div class="value" style="color:var(--amber);" id="cs-warn">—</div></div>
+          <div class="stat"><div class="label" style="color:var(--red);">STOP</div><div class="value" style="color:var(--red);" id="cs-stop">—</div></div>
+        </div>
+        <div id="checker-results"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span class="title">Пороги по фазе</span><span class="right">справка</span></div>
+        <table><tr><th>Фаза</th><th>ER warn</th><th>ER stop</th><th>Прокси warn</th><th>Прокси stop</th></tr>
+          <tr><td class="primary">views_only</td><td>—</td><td>—</td><td>500ms</td><td>2000ms</td></tr>
+          <tr><td class="primary">neutral_content</td><td>0.3%</td><td>0.1%</td><td>500ms</td><td>2000ms</td></tr>
+          <tr><td class="primary">niche_content</td><td>0.5%</td><td>0.2%</td><td>500ms</td><td>2000ms</td></tr>
+          <tr><td class="primary">monetization</td><td>2%</td><td>1%</td><td>500ms</td><td>2000ms</td></tr>
+          <tr><td class="primary">established (15+ дней)</td><td>3%</td><td>1.5%</td><td>300ms</td><td>1000ms</td></tr>
+        </table>
+      </div>
     </div>
   `;
+}
+
+// ── Логика вкладок аккаунтов ──────────────────────────────
+function accTab(name){
+  ["list","add","import","checker"].forEach(t=>{
+    document.getElementById("acc-"+t).style.display = t===name ? "block" : "none";
+    const btn = document.getElementById("tab-"+t);
+    if(btn){
+      btn.style.background = t===name ? "var(--indigo)" : "var(--surface2)";
+      btn.style.color      = t===name ? "#fff"          : "var(--muted)";
+      btn.style.borderColor= t===name ? "var(--indigo)" : "var(--border)";
+    }
+  });
+  if(name === "add") populateVerticalSelects();
+}
+function importTab(name){
+  document.getElementById("import-json-panel").style.display  = name==="json"  ? "block" : "none";
+  document.getElementById("import-tdata-panel").style.display = name==="tdata" ? "block" : "none";
+  ["json","tdata"].forEach(t=>{
+    const b = document.getElementById("itab-"+t);
+    b.style.background  = t===name ? "var(--indigo)" : "var(--surface2)";
+    b.style.color       = t===name ? "#fff"           : "var(--muted)";
+    b.style.borderColor = t===name ? "var(--indigo)"  : "var(--border)";
+  });
+}
+function filterPlatform(p){
+  document.querySelectorAll("#acc-table tr[data-platform]").forEach(r=>{
+    r.style.display = (!p || r.dataset.platform===p) ? "" : "none";
+  });
+}
+
+async function populateVerticalSelects(){
+  const projects = await fetchRows("vertical_configs","select=id,name&order=name.asc");
+  ["af-vertical"].forEach(sid=>{
+    const el = document.getElementById(sid);
+    if(!el) return;
+    const existing = el.innerHTML;
+    el.innerHTML = '<option value="">— не привязан к проекту —</option>' +
+      projects.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  });
+}
+
+async function submitAddAccount(){
+  const platform  = document.getElementById("af-platform").value;
+  const username  = document.getElementById("af-username").value.trim();
+  const geo       = document.getElementById("af-geo").value.trim();
+  const niche     = document.getElementById("af-niche").value.trim();
+  const partner   = document.getElementById("af-partner").value;
+  const gologin   = document.getElementById("af-gologin").value.trim();
+  const verticalId= document.getElementById("af-vertical").value;
+  const msg       = document.getElementById("add-result");
+
+  if(!username){ msg.textContent="⚠️ username обязателен"; msg.style.color="var(--red)"; return; }
+  msg.textContent="Отправляю…"; msg.style.color="var(--muted)";
+
+  try{
+    const body = {platform, username};
+    if(geo)        body.geo = geo;
+    if(niche)      body.niche = niche;
+    if(partner)    body.partner_program = partner;
+    if(gologin)    body.gologin_profile_id = gologin;
+    if(verticalId) body.vertical_id = verticalId;
+
+    const res = await fetchWithTimeout(`${AGENTS_SERVER}/accounts/add`,{
+      method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
+    }, 15000);
+    const data = await res.json();
+    if(data.error){ msg.textContent="❌ "+data.error; msg.style.color="var(--red)"; }
+    else { msg.textContent=`✅ Добавлен @${username} (${platform})`; msg.style.color="var(--green)"; }
+  }catch(e){ msg.textContent="❌ "+e.message; msg.style.color="var(--red)"; }
+}
+
+async function submitImport(){
+  const raw = document.getElementById("import-json-input").value.trim();
+  const msg = document.getElementById("import-result");
+  msg.textContent="Парсинг…"; msg.style.color="var(--muted)";
+  let arr;
+  try{ arr = JSON.parse(raw); }
+  catch(e){ msg.textContent="❌ Невалидный JSON: "+e.message; msg.style.color="var(--red)"; return; }
+  if(!Array.isArray(arr)){ msg.textContent="❌ Ожидается массив []"; msg.style.color="var(--red)"; return; }
+  msg.textContent=`Импортирую ${arr.length} аккаунтов…`;
+  try{
+    const res = await fetchWithTimeout(`${AGENTS_SERVER}/accounts/import`,{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({accounts:arr})
+    }, 60000);
+    const data = await res.json();
+    if(data.error){ msg.textContent="❌ "+data.error; msg.style.color="var(--red)"; }
+    else {
+      msg.textContent=`✅ Вставлено: ${data.inserted}, пропущено: ${data.skipped}`;
+      msg.style.color = data.skipped > 0 ? "var(--amber)" : "var(--green)";
+    }
+  }catch(e){ msg.textContent="❌ "+e.message; msg.style.color="var(--red)"; }
+}
+
+async function submitTdata(){
+  const phone   = document.getElementById("tdata-phone").value.trim();
+  const geo     = document.getElementById("tdata-geo").value.trim();
+  const msg     = document.getElementById("tdata-result");
+  if(!phone){ msg.textContent="⚠️ номер телефона обязателен"; msg.style.color="var(--red)"; return; }
+  msg.textContent="Добавляю…";
+  const body = {platform:"telegram", username:phone};
+  if(geo) body.geo = geo;
+  try{
+    const res = await fetchWithTimeout(`${AGENTS_SERVER}/accounts/add`,{
+      method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
+    }, 15000);
+    const data = await res.json();
+    if(data.error){ msg.textContent="❌ "+data.error; msg.style.color="var(--red)"; }
+    else { msg.textContent="✅ Telegram-аккаунт зарегистрирован"; msg.style.color="var(--green)"; }
+  }catch(e){ msg.textContent="❌ "+e.message; msg.style.color="var(--red)"; }
+}
+
+async function submitTdataBulk(){
+  const raw = document.getElementById("tdata-bulk-input").value.trim();
+  const msg = document.getElementById("tdata-bulk-result");
+  let arr;
+  try{ arr = JSON.parse(raw); }
+  catch(e){ msg.textContent="❌ Невалидный JSON"; msg.style.color="var(--red)"; return; }
+  // принудительно ставим platform=telegram
+  const accounts = arr.map(a=>({...a, platform:"telegram"}));
+  msg.textContent=`Импортирую ${accounts.length} Telegram-аккаунтов…`; msg.style.color="var(--muted)";
+  try{
+    const res = await fetchWithTimeout(`${AGENTS_SERVER}/accounts/import`,{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({accounts})
+    }, 60000);
+    const data = await res.json();
+    if(data.error){ msg.textContent="❌ "+data.error; msg.style.color="var(--red)"; }
+    else {
+      msg.textContent=`✅ ${data.inserted} аккаунтов добавлено, пропущено: ${data.skipped}`;
+      msg.style.color = data.skipped > 0 ? "var(--amber)" : "var(--green)";
+    }
+  }catch(e){ msg.textContent="❌ "+e.message; msg.style.color="var(--red)"; }
+}
+
+async function runChecker(){
+  const btn = document.querySelector('[onclick="runChecker()"]');
+  const statusEl = document.getElementById("checker-status");
+  btn.disabled = true; btn.textContent = "⏳ Проверяю…";
+  statusEl.textContent = "Запрос отправлен, ждём результат…"; statusEl.style.color="var(--muted)";
+  try{
+    const res = await fetchWithTimeout(`${AGENTS_SERVER}/accounts/checker/run`,{
+      method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"
+    }, 120000);
+    const data = await res.json();
+    if(data.error){ statusEl.textContent="❌ "+data.error; statusEl.style.color="var(--red)"; return; }
+    // summary
+    const s = data.summary || {};
+    document.getElementById("checker-summary").style.display = "grid";
+    document.getElementById("cs-total").textContent = data.total || 0;
+    document.getElementById("cs-ok").textContent    = s.ok   || 0;
+    document.getElementById("cs-warn").textContent  = s.warn || 0;
+    document.getElementById("cs-stop").textContent  = s.stop || 0;
+    statusEl.textContent = `✅ Проверено ${data.total} аккаунтов`; statusEl.style.color="var(--green)";
+    // results table
+    const results = data.results || [];
+    if(results.length){
+      const verdictColor = {ok:"var(--green)",warn:"var(--amber)",stop:"var(--red)"};
+      document.getElementById("checker-results").innerHTML = `
+        <table style="margin-top:14px;">
+          <tr><th>Username</th><th>Платформа</th><th>Фаза</th><th>День</th><th>Вердикт</th><th>Детали</th></tr>
+          ${results.map(r=>`<tr>
+            <td class="primary mono">@${esc(r.username||r.account_id?.slice(0,8)||'?')}</td>
+            <td>${esc(r.platform||'—')}</td>
+            <td class="mono" style="font-size:11px;">${esc(r.phase||'—')}</td>
+            <td>${esc(r.warming_day??'—')}</td>
+            <td><span style="color:${verdictColor[r.verdict]||'var(--muted)'};font-weight:600;">${esc(r.verdict?.toUpperCase()||'?')}</span></td>
+            <td style="font-size:11px;">${(r.checks||[]).map(c=>`<span style="color:${c.status==='OK'?'var(--green)':c.status==='WARN'?'var(--amber)':'var(--red)'}">${esc(c.metric)}: ${esc(c.status)}</span>`).join(' · ')}</td>
+          </tr>`).join("")}
+        </table>
+      `;
+    } else {
+      document.getElementById("checker-results").innerHTML = `<div class="note-box" style="margin-top:10px;">Нет активных или прогреваемых аккаунтов для проверки.</div>`;
+    }
+  }catch(e){ statusEl.textContent="❌ "+e.message; statusEl.style.color="var(--red)"; }
+  btn.disabled=false; btn.textContent="🔍 Запустить проверку";
 }
 
 /* ============================================================
@@ -367,34 +768,81 @@ async function renderClients(){
 async function openProject(id, projects){
   CURRENT_PROJECT = id;
   const project = projects.find(p => p.id === id);
-  const knowledge = await fetchRows("knowledge_entries", `select=type,content,created_at&vertical=eq.${id}&order=created_at.desc&limit=5`);
-  const history = await fetchRows("chat_messages", `select=role,content,created_at&vertical_id=eq.${id}&order=created_at.asc&limit=30`);
+
+  // Параллельно грузим данные проекта
+  const [knowledge, history, projAccounts] = await Promise.all([
+    fetchRows("knowledge_entries", `select=type,content,created_at&vertical=eq.${encodeURIComponent(id)}&order=created_at.desc&limit=5`),
+    fetchRows("chat_messages", `select=role,content,created_at&vertical_id=eq.${encodeURIComponent(id)}&order=created_at.asc&limit=30`),
+    fetchRows("accounts", `select=id,platform,username,status,warming_phase,warming_day&vertical_id=eq.${encodeURIComponent(id)}&order=created_at.desc&limit=50`),
+  ]);
+
+  const platformColors = {tiktok:"#f472b6",youtube:"#f87171",instagram:"#fb923c",telegram:"#60a5fa"};
+  const statusColors   = {new:"#94a3b8",warming:"#f59e0b",active:"#4ade80",shadow_banned:"#f87171",hard_banned:"#dc2626",replaced:"#6b7280",paused:"#a78bfa"};
 
   document.getElementById("project-workspace").innerHTML = `
-    <div class="card">
-      <div class="card-head"><span class="title">📂 ${esc(project.name)}</span><span class="right">${refTag()} конфигурация проекта</span></div>
-      <div class="note-box mono" style="font-size:11.5px;white-space:pre-wrap;">${esc(JSON.stringify(project.config_yaml, null, 2))}</div>
+    <div class="card" style="border-left:3px solid var(--indigo);">
+      <div class="card-head">
+        <span class="title">📂 ${esc(project.name)}</span>
+        <span class="right" style="font-size:11px;color:var(--faint);">${esc(project.category||'')}</span>
+      </div>
+      <div class="note-box mono" style="font-size:11px;white-space:pre-wrap;max-height:120px;overflow-y:auto;">${esc(typeof project.config_yaml==='string' ? project.config_yaml : JSON.stringify(project.config_yaml,null,2))}</div>
     </div>
 
+    <!-- АККАУНТЫ ПРОЕКТА -->
     <div class="card">
-      <div class="card-head"><span class="title">База знаний проекта</span><span class="right">${liveTag()} ${knowledge.length} записей</span></div>
+      <div class="card-head">
+        <span class="title">Аккаунты проекта ${liveTag()}</span>
+        <span class="right">${projAccounts.length} аккаунтов</span>
+      </div>
+      ${projAccounts.length ? `
+        <table>
+          <tr><th>Платформа</th><th>Username</th><th>Статус</th><th>Фаза</th><th>День</th></tr>
+          ${projAccounts.map(a=>`<tr>
+            <td><span style="color:${platformColors[a.platform]||'var(--muted)'};font-weight:600;">${esc(a.platform)}</span></td>
+            <td class="primary mono">@${esc(a.username||'—')}</td>
+            <td><span class="chip" style="color:${statusColors[a.status]||'var(--muted)'};background:${statusColors[a.status]||'var(--muted)'}1a">${esc(a.status)}</span></td>
+            <td class="mono" style="font-size:11px;">${esc(a.warming_phase||'idle')}</td>
+            <td class="mono">${esc(a.warming_day??0)}</td>
+          </tr>`).join('')}
+        </table>
+      ` : `
+        <div class="note-box">
+          Нет аккаунтов для этого проекта.
+          <button onclick="accTab('add');document.getElementById('tab-add').click()"
+            style="margin-left:10px;background:var(--indigo);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">
+            + Добавить аккаунт
+          </button>
+        </div>
+      `}
+    </div>
+
+    <!-- БАЗА ЗНАНИЙ -->
+    <div class="card">
+      <div class="card-head"><span class="title">База знаний проекта ${liveTag()}</span><span class="right">${knowledge.length} записей</span></div>
       ${knowledge.length
         ? `<table><tr><th>Тип</th><th>Содержание</th><th>Дата</th></tr>${knowledge.map(k=>
-            `<tr><td><span class="badge caution">${esc(k.type)}</span></td><td class="content-snippet">${esc((k.content||"").slice(0,90))}…</td><td class="mono">${esc((k.created_at||"").slice(0,10))}</td></tr>`
+            `<tr><td style="font-size:11px;color:var(--muted);">${esc(k.type)}</td>
+             <td style="font-size:12px;">${esc((k.content||"").slice(0,120))}…</td>
+             <td class="mono" style="font-size:11px;">${esc((k.created_at||"").slice(0,10))}</td></tr>`
           ).join("")}</table>`
         : `<div class="note-box">Пока нет записей знаний для этого проекта.</div>`}
     </div>
 
+    <!-- ЧАТ С ОРКЕСТРАТОРОМ -->
     <div class="card">
-      <div class="card-head"><span class="title">💬 Чат с оркестратором</span><span class="right">${liveTag()}</span></div>
+      <div class="card-head"><span class="title">💬 Чат с оркестратором</span><span class="right">${liveTag()} /orchestrator/chat</span></div>
       <div id="chat-log" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
-        ${history.map(renderChatMsg).join("")}
+        ${history.length
+          ? history.map(renderChatMsg).join("")
+          : `<div style="color:var(--faint);font-size:12px;text-align:center;padding:20px;">
+               Начните диалог с оркестратором — он знает конфигурацию и историю этого проекта.
+             </div>`}
       </div>
       <div style="display:flex;gap:8px;">
         <textarea id="chat-input" rows="2" placeholder="Спроси оркестратора об этом проекте…"
           style="flex:1;background:var(--void);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-family:inherit;font-size:13px;resize:vertical;"></textarea>
         <button id="chat-send" onclick="sendChatMessage()"
-          style="background:var(--indigo);color:#fff;border:none;border-radius:8px;padding:0 18px;font-size:13px;cursor:pointer;">Отправить</button>
+          style="background:var(--indigo);color:#fff;border:none;border-radius:8px;padding:0 18px;font-size:13px;cursor:pointer;white-space:nowrap;">Отправить</button>
       </div>
     </div>
   `;

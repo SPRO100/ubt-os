@@ -28,11 +28,15 @@ CREATE TABLE IF NOT EXISTS accounts (
     niche               TEXT,
     geo                 TEXT,           -- PL, RO, MX, BR, IN ...
     partner_program     TEXT,           -- 1win, mostbet, dr.cash ...
+    vertical_id         TEXT,           -- привязка к проекту (vertical_configs.id)
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     -- WRITER: только ACCOUNT_MANAGER может менять эту строку
     owned_by_agent  TEXT NOT NULL DEFAULT 'ACCOUNT_MANAGER'
 );
+
+-- Добавить колонку если уже существует (миграция)
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS vertical_id TEXT;
 
 -- ─────────────────────────────────────────
 -- 2. CONTENT_PLANS — владелец: CONTENT_CREATOR
