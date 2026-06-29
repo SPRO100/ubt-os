@@ -8,7 +8,7 @@ from .ads_auditor           import AdsAuditor, AuditResult
 from .youtube_creator       import YoutubeCreator, YTContent, YTFormat
 from .obsidian_brain        import ObsidianBrain, IngestResult, QueryResult, HealthReport
 from .compliance_gate       import ComplianceGate, ComplianceResult, RiskLevel
-from .blotato_publisher     import BlatoPublisher, PublishResult, PublishPlatform
+from .blotato_publisher     import BlatoPublisher, PubelerPublisher, PublishResult, PublishPlatform
 from .spy_analyzer          import SpyAnalyzer, SpyAnalysisResult
 from .warmup_manager        import WarmupManager, WarmupCheckResult, WarmupStatus
 from .prelanding_generator  import PrelandingGenerator, PrelandingResult
@@ -28,7 +28,7 @@ __all__ = [
     "ObsidianBrain", "IngestResult", "QueryResult", "HealthReport",
     # A25–A26
     "ComplianceGate", "ComplianceResult", "RiskLevel",
-    "BlatoPublisher", "PublishResult", "PublishPlatform",
+    "BlatoPublisher", "PubelerPublisher", "PublishResult", "PublishPlatform",
     # A27–A29
     "SpyAnalyzer", "SpyAnalysisResult",
     "WarmupManager", "WarmupCheckResult", "WarmupStatus",

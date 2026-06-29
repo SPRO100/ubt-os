@@ -205,11 +205,11 @@ const NAV = [
 ];
 const TITLES = {
   dashboard:["Dashboard","Реальное состояние системы прямо сейчас"],
-  accounts:["Аккаунты","0 подключённых аккаунтов · протокол прогрева ниже — справка"],
+  accounts:["Аккаунты","TikTok / Facebook / Instagram · купленные aged аккаунты · 5–7 дней прогрева"],
   content:["Производство","Архитектура пайплайна контента · что реально работает помечено LIVE"],
   pipeline:["Пайплайн (n8n)","6 воркфлоу реально развёрнуты и опубликованы на сервере"],
   clients:["Клиенты","White-label агентская модель, CPA-only оплата"],
-  agents:["Агенты","18 агентов реально существуют как код · A12–A29"],
+  agents:["Агенты","18 агентов (A12–A29) · A26 теперь через Publer · TikTok + Facebook + Instagram"],
   launch:["Запуск агентов","Прямой запуск A19–A29 из браузера · результаты сразу в чате"],
   analytics:["Аналитика","Реальная выручка $0 · условия партнёрок — справка, аккаунты не подключены"],
   infra:["Инфраструктура","FirstVDS Амстердам — реально развёрнут и работает"],
@@ -263,11 +263,11 @@ async function renderDashboard(){
 
     <div class="card">
       <div class="card-head"><span class="title">Что дальше</span><span class="right">актуальный приоритет</span></div>
-      ${["Подключить Higgsfield API → первая реальная генерация видео",
-         "Зарегистрировать партнёрки (1win, Dr.Cash) и подключить Keitaro для трекинга конверсий",
-         "Завести первый реальный аккаунт и пройти 7-дневный протокол прогрева",
-         "Настроить Compliance Gate перед первой публикацией (особенно для беттинга)",
-         "После первых реальных видео — включить Risk Engine и Strategy Engine по расписанию"]
+      ${["Получить API ключ Publer ($12/мес) → добавить PUBLER_API_KEY и PUBLER_*_PROFILE_IDS на сервер",
+         "Купить готовые aged аккаунты TikTok + Facebook → зарегистрировать в A28 (5–7 дней прогрева)",
+         "Зарегистрировать партнёрки (1win, Dr.Cash) → получить affiliate links для Keitaro",
+         "Подключить Higgsfield API → запустить A21+A19 пайплайн → первый UGC-ролик через Publer",
+         "Запустить A29 Prelanding Generator → создать HTML прелендинг → подключить воронку"]
         .map((t,i)=>`<div class="priority-item"><span class="num">${String(i+1).padStart(2,"0")}</span>${esc(t)}</div>`).join("")}
     </div>
 
@@ -289,35 +289,83 @@ async function renderDashboard(){
 /* ============================================================
    ACCOUNTS
    ============================================================ */
+let _acctFilter = "all";
 async function renderAccounts(){
-  const accounts = await fetchRows("accounts", "select=id,platform,status,created_at&order=created_at.desc&limit=20");
+  const accounts = await fetchRows("accounts", "select=id,platform,status,proxy,publer_profile_id,created_at&order=created_at.desc&limit=50");
+  const tiktok   = accounts.filter(a=>a.platform==="tiktok");
+  const facebook = accounts.filter(a=>a.platform==="facebook");
+  const instagram= accounts.filter(a=>a.platform==="instagram");
+
+  function acctTable(rows, cols){
+    if(!rows.length) return `<div class="note-box" style="padding:10px 0;">Нет аккаунтов этой платформы — добавь через форму ниже.</div>`;
+    return `<table><tr>${cols.map(c=>`<th>${c[1]}</th>`).join("")}</tr>${
+      rows.map(r=>`<tr>${cols.map(c=>`<td class="${c[2]||''}">${esc(r[c[0]]||"—")}</td>`).join("")}</tr>`).join("")
+    }</table>`;
+  }
+
+  const tabs = [["all","Все","#94a3b8"],["tiktok","TikTok","#f87171"],["facebook","Facebook","#6366f1"],["instagram","Instagram","#f472b6"]];
+
   document.getElementById("sec-accounts").innerHTML = `
-    <div class="card">
-      <div class="card-head"><span class="title">Подключённые аккаунты</span><span class="right">${liveTag()} ${accounts.length} найдено</span></div>
-      ${accounts.length ? `<table><tr><th>Платформа</th><th>Статус</th><th>Создан</th></tr>${
-        accounts.map(a=>`<tr><td class="primary">${esc(a.platform)}</td><td>${esc(a.status)}</td><td class="mono">${esc((a.created_at||"").slice(0,10))}</td></tr>`).join("")
-      }</table>` : `<div class="note-box">Таблица <code>accounts</code> пуста — ни один аккаунт пока не подключён к системе.</div>`}
+    <!-- Platform tabs -->
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+      ${tabs.map(([id,label,color])=>`
+        <button onclick="filterAccts('${id}')" id="acct-tab-${id}"
+          style="padding:7px 16px;border-radius:7px;border:1px solid ${_acctFilter===id?color:'var(--border)'};
+                 background:${_acctFilter===id?color+'22':'transparent'};color:${_acctFilter===id?color:'var(--faint)'};
+                 cursor:pointer;font-size:12px;font-family:inherit;">
+          ${label} <span style="font-size:10px;opacity:.7">${id==='all'?accounts.length:id==='tiktok'?tiktok.length:id==='facebook'?facebook.length:instagram.length}</span>
+        </button>`).join("")}
     </div>
 
+    <!-- TikTok -->
+    <div class="card" id="acct-sec-tiktok" style="${_acctFilter!=='all'&&_acctFilter!=='tiktok'?'display:none':''}">
+      <div class="card-head"><span class="title">TikTok аккаунты</span><span class="right">${liveTag()} ${tiktok.length}</span></div>
+      ${acctTable(tiktok,[["id","ID аккаунта","primary mono"],["status","Статус"],["proxy","Прокси","mono"],["publer_profile_id","Publer ID","mono"],["created_at","Создан","mono"]])}
+    </div>
+
+    <!-- Facebook -->
+    <div class="card" id="acct-sec-facebook" style="${_acctFilter!=='all'&&_acctFilter!=='facebook'?'display:none':''}">
+      <div class="card-head"><span class="title">Facebook Pages</span><span class="right">${liveTag()} ${facebook.length}</span></div>
+      ${acctTable(facebook,[["id","ID страницы","primary mono"],["status","Статус"],["proxy","Прокси","mono"],["publer_profile_id","Publer ID","mono"],["created_at","Добавлен","mono"]])}
+      <div style="margin-top:12px;font-size:12px;color:var(--faint);">
+        ℹ️ Facebook Pages регистрируются через <b style="color:var(--muted)">Meta Graph API</b> (бесплатно) + <b style="color:var(--muted)">Publer</b> для публикации.
+        Покупай готовые Farm-аккаунты с уже верифицированными Pages.
+      </div>
+    </div>
+
+    <!-- Instagram -->
+    <div class="card" id="acct-sec-instagram" style="${_acctFilter!=='all'&&_acctFilter!=='instagram'?'display:none':''}">
+      <div class="card-head"><span class="title">Instagram аккаунты</span><span class="right">${liveTag()} ${instagram.length}</span></div>
+      ${acctTable(instagram,[["id","ID аккаунта","primary mono"],["status","Статус"],["proxy","Прокси","mono"],["publer_profile_id","Publer ID","mono"],["created_at","Добавлен","mono"]])}
+    </div>
+
+    <!-- Warmup protocols -->
     <div class="card">
-      <div class="card-head"><span class="title">Протокол прогрева — 7 дней</span><span class="right">${refTag()}</span></div>
-      <table><tr><th>День</th><th>Действие</th></tr>
-        <tr><td class="primary">1–3</td><td>Только просмотры (20–30 видео) и лайки (10–15), без публикаций.</td></tr>
-        <tr><td class="primary">4–5</td><td>1 нейтральный пост не по теме ниши.</td></tr>
-        <tr><td class="primary">6–7</td><td>1 нишевый пост без ссылок и CTA.</td></tr>
-        <tr><td class="primary">8+</td><td>Старт монетизации. Первый CTA-пост.</td></tr>
+      <div class="card-head"><span class="title">Протокол прогрева — купленные аккаунты (aged)</span><span class="right">${refTag()} A28 WarmupManager</span></div>
+      <table><tr><th>День</th><th>TikTok (aged, 7 дней)</th><th>Facebook (aged, 5 дней)</th></tr>
+        <tr><td class="primary">1</td><td>Скролль FYP 20–30 мин. Только просмотры.</td><td>Просмотр ленты, лайки (10–15). Без постов.</td></tr>
+        <tr><td class="primary">2–3</td><td>Лайки (30), подписки (10), 2 комментария. Без постов.</td><td>Лайки (20–30), репосты. 1 нейтральный пост.</td></tr>
+        <tr><td class="primary">4–5</td><td>Первый НЕЙТРАЛЬНЫЙ пост (не по офферу). Лайки (40), подписки (15).</td><td>1–2 поста по нише без CTA. Можно ссылку в описании.</td></tr>
+        <tr><td class="primary">6–7</td><td>Нишевый пост без прямого CTA. 80% нейтральный / 20% целевой контент.</td><td>Первый CTA-пост. Facebook Pixel для ретаргетинга.</td></tr>
+        <tr><td class="primary">8+</td><td>Полноценная публикация через A26 (Publer). Ссылка в bio.</td><td>Регулярные посты с аффилиат-ссылками через Publer.</td></tr>
       </table>
     </div>
 
     <div class="card">
-      <div class="card-head"><span class="title">Пороги тревоги Account Checker</span><span class="right">${refTag()} воркфлоу опубликован и работает</span></div>
+      <div class="card-head"><span class="title">Пороги тревоги Account Checker</span><span class="right">${refTag()} A14 воркфлоу работает</span></div>
       <table><tr><th>Метрика</th><th>Действие</th></tr>
         <tr><td class="primary">ER &lt; 2%</td><td>Алерт в Telegram</td></tr>
         <tr><td class="primary">ER &lt; 1%</td><td>Стоп публикаций + замена прокси</td></tr>
         <tr><td class="primary">Бан зафиксирован</td><td>Запись в Knowledge Base</td></tr>
+        <tr><td class="primary">Proxy timeout</td><td>Автосмена прокси (IPRoyal — pay per GB)</td></tr>
       </table>
     </div>
   `;
+}
+
+function filterAccts(platform){
+  _acctFilter = platform;
+  renderAccounts();
 }
 
 /* ============================================================
@@ -332,16 +380,18 @@ async function renderContent(){
     </div>
 
     <div class="card">
-      <div class="card-head"><span class="title">Производственный пайплайн</span><span class="right">${refTag()} архитектура</span></div>
-      <table><tr><th>Этап</th><th>Инструмент</th><th>Статус</th></tr>
-        <tr><td class="primary">Контент-план</td><td>A21 content_creator.py</td><td>${chip("код есть","#4ade80")}</td></tr>
-        <tr><td class="primary">Очистка AI-маркеров</td><td>A19 text_humanizer.py (Stop-Slop)</td><td>${chip("код есть","#4ade80")}</td></tr>
-        <tr><td class="primary">Тренды / конкуренты</td><td>A20 trend_scraper.py (Firecrawl)</td><td>${chip("нужен API ключ","#f59e0b")}</td></tr>
-        <tr><td class="primary">Compliance Gate</td><td>A25 compliance_gate.py (regex L1 + LLM L2/L3)</td><td>${chip("код есть","#4ade80")}</td></tr>
-        <tr><td class="primary">Видеогенерация</td><td>Higgsfield MCP + Arcads</td><td>${chip("нужен API ключ","#f59e0b")}</td></tr>
-        <tr><td class="primary">Озвучка</td><td>edge-tts (установлен)</td><td>${chip("готов","#4ade80")}</td></tr>
-        <tr><td class="primary">Keitaro UTM</td><td>_build_utm() в A26 + /keitaro skill</td><td>${chip("код есть","#4ade80")}</td></tr>
-        <tr><td class="primary">Публикация</td><td>A26 blotato_publisher.py</td><td>${chip("нужен BLOTATO_API_KEY","#f59e0b")}</td></tr>
+      <div class="card-head"><span class="title">Производственный пайплайн</span><span class="right">${refTag()} архитектура A19–A29</span></div>
+      <table><tr><th>Этап</th><th>Инструмент</th><th>Платформы</th><th>Статус</th></tr>
+        <tr><td class="primary">Spy-анализ крипов</td><td>A27 spy_analyzer.py (PiPiAds / AdHeart)</td><td>TikTok / FB</td><td>${chip("готов","#4ade80")}</td></tr>
+        <tr><td class="primary">Тренды / конкуренты</td><td>A20 trend_scraper.py (Firecrawl)</td><td>Все</td><td>${chip("нужен FIRECRAWL_API_KEY","#f59e0b")}</td></tr>
+        <tr><td class="primary">Контент-план</td><td>A21 content_creator.py</td><td>Все</td><td>${chip("готов","#4ade80")}</td></tr>
+        <tr><td class="primary">Очистка AI-маркеров</td><td>A19 text_humanizer.py (Stop-Slop 0–50)</td><td>Все</td><td>${chip("готов","#4ade80")}</td></tr>
+        <tr><td class="primary">Видеогенерация</td><td>Higgsfield MCP + Arcads</td><td>TikTok / IG</td><td>${chip("нужен API ключ","#f59e0b")}</td></tr>
+        <tr><td class="primary">Озвучка</td><td>edge-tts (установлен)</td><td>Все</td><td>${chip("готов","#4ade80")}</td></tr>
+        <tr><td class="primary">Прелендинг</td><td>A29 prelanding_generator.py (quiz/story/vsl)</td><td>Все воронки</td><td>${chip("готов","#4ade80")}</td></tr>
+        <tr><td class="primary">Compliance Gate</td><td>A25 compliance_gate.py (regex L1 + LLM L2/L3)</td><td>Все</td><td>${chip("готов","#4ade80")}</td></tr>
+        <tr><td class="primary">Keitaro UTM</td><td>_build_utm() в A26 + /keitaro skill</td><td>Все</td><td>${chip("готов","#4ade80")}</td></tr>
+        <tr><td class="primary">Публикация</td><td>A26 publer_publisher.py (Publer $12/мес)</td><td>TikTok / Facebook / IG</td><td>${chip("нужен PUBLER_API_KEY","#f59e0b")}</td></tr>
       </table>
     </div>
   `;
@@ -575,31 +625,37 @@ function renderAgents(){
     </div>
 
     <div class="card">
-      <div class="card-head"><span class="title">Контент-пайплайн A21 → A19 → Blotato</span><span class="right">${refTag()} схема работы</span></div>
-      <div style="display:flex;gap:0;align-items:center;flex-wrap:wrap;padding:8px 0;">
+      <div class="card-head"><span class="title">Контент-пайплайн A27 → A21 → A19 → A25 → A26 (Publer)</span><span class="right">${refTag()} схема работы</span></div>
+      <div style="display:flex;gap:0;align-items:center;flex-wrap:wrap;padding:8px 0;row-gap:8px;">
         ${[
+          ["A27 spy_analyzer","Spy анализ","#f472b6"],
+          ["→","","transparent"],
           ["A21 content_creator","Генерация текста","#6366f1"],
           ["→","","transparent"],
-          ["A19 text_humanizer","Очистка AI-маркеров","#4ade80"],
+          ["A19 text_humanizer","Stop-Slop очистка","#4ade80"],
           ["→","","transparent"],
-          ["Blotato","Публикация","#f59e0b"],
+          ["A25 compliance","Проверка клеймов","#f59e0b"],
           ["→","","transparent"],
-          ["Платформы","TikTok / IG / YT","#94a3b8"],
+          ["A29 prelanding","HTML страница","#94a3b8"],
+          ["→","","transparent"],
+          ["Publer A26","Публикация","#6366f1"],
+          ["→","","transparent"],
+          ["TikTok / FB / IG","Платформы","#4ade80"],
         ].map(([name,desc,color]) => name==="→"
-          ? `<div style="color:var(--faint);font-size:18px;padding:0 6px;">→</div>`
-          : `<div style="border:1px solid ${color}33;border-radius:8px;padding:10px 14px;background:${color}0d;min-width:120px;">
-               <div style="font-size:11px;font-weight:600;color:${color};font-family:'IBM Plex Mono',monospace;">${name}</div>
-               <div style="font-size:10px;color:var(--faint);margin-top:3px;">${desc}</div>
+          ? `<div style="color:var(--faint);font-size:18px;padding:0 4px;">→</div>`
+          : `<div style="border:1px solid ${color}33;border-radius:8px;padding:8px 12px;background:${color}0d;min-width:100px;">
+               <div style="font-size:10px;font-weight:600;color:${color};font-family:'IBM Plex Mono',monospace;">${name}</div>
+               <div style="font-size:9px;color:var(--faint);margin-top:2px;">${desc}</div>
              </div>`
         ).join("")}
       </div>
       <div style="margin-top:12px;font-size:12px;color:var(--faint);">
-        A20 trend_scraper работает параллельно: ежедневно 06:00 → результаты в strategy_engine → обновление trend_windows
+        A20 trend_scraper параллельно: ежедневно 06:00 → A24 Obsidian Brain → обновление trend_windows в strategy_engine
       </div>
     </div>
 
     <div class="card">
-      <div class="card-head"><span class="title">Claude Code Skills (.claude/skills/)</span><span class="right">${refTag()} 11 скиллов для разработки</span></div>
+      <div class="card-head"><span class="title">Claude Code Skills (.claude/skills/)</span><span class="right">${refTag()} 11 скиллов · /blotato → /publer</span></div>
       <table><tr><th>Команда</th><th>Что делает</th></tr>
         <tr><td class="primary mono">/stop-slop</td><td>Очистка AI-маркеров, оценка текста 0–50</td></tr>
         <tr><td class="primary mono">/marketing &lt;формат&gt; &lt;vertical&gt; &lt;geo&gt;</td><td>30+ промптов для betting/nutra контента</td></tr>
@@ -611,7 +667,7 @@ function renderAgents(){
         <tr><td class="primary mono">/caveman [lite|full|ultra]</td><td>Сжатие ответов Claude на 65–75%</td></tr>
         <tr><td class="primary mono">/higgsfield ugc|short|ab &lt;скрипт&gt;</td><td>Видеогенерация UGC/Shorts/A-B тест через Higgsfield MCP</td></tr>
         <tr><td class="primary mono">/keitaro link|utm|campaign</td><td>Трекинг-ссылки и UTM для affiliate-кампаний</td></tr>
-        <tr><td class="primary mono">/blotato schedule|batch|calendar</td><td>Управление расписанием публикаций через Blotato</td></tr>
+        <tr><td class="primary mono">/publer schedule|batch|calendar</td><td>Управление расписанием публикаций через Publer (TikTok / Facebook / Instagram)</td></tr>
       </table>
     </div>
 
@@ -627,8 +683,8 @@ function renderAgents(){
         <tr>
           <td class="mono" style="color:var(--faint)">A26</td>
           <td class="primary mono">blotato_publisher.py</td>
-          <td>Публикация TikTok/IG/YT через Blotato API. Auto UTM-параметры. Compliance Gate перед отправкой.</td>
-          <td><span class="chip" style="color:var(--amber);background:rgba(245,158,11,.1)">нужен BLOTATO_API_KEY</span></td>
+          <td>Публикация TikTok/Facebook/Instagram через Publer API ($12/мес). Auto UTM. Compliance Gate.</td>
+          <td><span class="chip" style="color:var(--amber);background:rgba(245,158,11,.1)">нужен PUBLER_API_KEY</span></td>
         </tr>
       </table>
     </div>
@@ -936,21 +992,21 @@ function renderLaunch(){
         <div class="agent-result" id="a25-result"></div>
       </div>
 
-      <!-- A26 blotato_publisher -->
+      <!-- A26 publer_publisher -->
       <div class="agent-card">
         <div class="agent-header">
           <span class="agent-id">A26</span>
-          <span class="agent-name">blotato_publisher</span>
+          <span class="agent-name">publer_publisher</span>
         </div>
-        <div class="agent-desc">Публикация в TikTok/IG/YouTube через Blotato. Автоматически добавляет UTM-параметры и проверяет compliance</div>
+        <div class="agent-desc">Публикация в TikTok / Facebook / Instagram через Publer API. Compliance Gate + Keitaro UTM автоматически</div>
         <div class="agent-form">
           <label>Текст поста</label>
           <textarea id="a26-text" placeholder="Готовый текст для публикации…" style="min-height:60px;"></textarea>
           <label>Платформа</label>
           <select id="a26-platform">
             <option value="tiktok">TikTok</option>
+            <option value="facebook">Facebook</option>
             <option value="instagram">Instagram</option>
-            <option value="youtube">YouTube Shorts</option>
           </select>
           <label>Affiliate URL (необязательно)</label>
           <input type="text" id="a26-url" placeholder="https://1win.com/promo/…">
@@ -963,7 +1019,8 @@ function renderLaunch(){
             <option value="US">US</option><option value="BR">BR</option>
             <option value="MX">MX</option><option value="DE">DE</option><option value="PL">PL</option>
           </select>
-          <button class="run-btn" onclick="runAgent('blotato_publisher',{text:v('a26-text'),platform:v('a26-platform'),affiliate_url:v('a26-url'),vertical:v('a26-vertical'),geo:v('a26-geo'),dry_run:true},'a26-result')">▶ Проверить и опубликовать (dry run)</button>
+          <div style="font-size:11px;color:var(--faint);padding:4px 0;">Требуется: PUBLER_API_KEY + PUBLER_&lt;PLATFORM&gt;_PROFILE_IDS на сервере</div>
+          <button class="run-btn" onclick="runAgent('publer_publisher',{text:v('a26-text'),platform:v('a26-platform'),affiliate_url:v('a26-url'),vertical:v('a26-vertical'),geo:v('a26-geo'),dry_run:true},'a26-result')">▶ Проверить и опубликовать (dry run)</button>
         </div>
         <div class="agent-result" id="a26-result"></div>
       </div>
@@ -1240,7 +1297,7 @@ function renderAgentResult(resultEl, agent, params, data){
       ${data.clean_version ? `<b style="font-size:11px;color:var(--green)">ИСПРАВЛЕННАЯ ВЕРСИЯ</b><br><div style="margin-top:4px;white-space:pre-wrap;">${esc(data.clean_version)}</div>` : ""}
       <div style="margin-top:8px;font-size:11px;color:var(--faint)">${esc(data.reason||"")}</div>`;
 
-  } else if(agent === "blotato_publisher"){
+  } else if(agent === "publer_publisher" || agent === "blotato_publisher"){
     const status = data.status ?? "—";
     const statusColor = {"published":"#4ade80","dry_run":"#6366f1","blocked":"#f87171","failed":"#f87171"}[status] || "#94a3b8";
     const statusLabel = {"published":"✅ Опубликовано","dry_run":"🔵 Dry Run (без реальной отправки)","blocked":"🚫 Заблокировано compliance","failed":"❌ Ошибка отправки"}[status] || status;

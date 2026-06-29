@@ -1,9 +1,14 @@
 """
-A26 — BLOTATO_PUBLISHER
-Публикация готового контента в TikTok / Instagram / YouTube Shorts через Blotato API.
+A26 — PUBLER_PUBLISHER
+Публикация готового контента в TikTok / Facebook / Instagram через Publer API.
 Автоматически прогоняет текст через ComplianceGate (A25) перед отправкой.
 Добавляет Keitaro UTM-параметры к ссылкам.
-Логирует результат в Supabase таблицу published_posts.
+
+Настройка:
+  PUBLER_API_KEY                     — API ключ Publer ($12/мес, уже прошёл TikTok audit)
+  PUBLER_TIKTOK_PROFILE_IDS          — ID профилей TikTok через запятую
+  PUBLER_FACEBOOK_PROFILE_IDS        — ID профилей Facebook Pages через запятую
+  PUBLER_INSTAGRAM_PROFILE_IDS       — ID профилей Instagram через запятую
 """
 from __future__ import annotations
 import asyncio, logging, os
@@ -15,15 +20,15 @@ import httpx
 
 from ubt_os.agents.compliance_gate import ComplianceGate, RiskLevel
 
-logger = logging.getLogger("ubt_os.blotato_publisher")
+logger = logging.getLogger("ubt_os.publer_publisher")
 
-BLOTATO_API = os.environ.get("BLOTATO_API_URL", "https://api.blotato.com/v1")
+PUBLER_API = "https://app.publer.io/api/v1"
 
 
 class PublishPlatform(str, Enum):
     TIKTOK    = "tiktok"
+    FACEBOOK  = "facebook"
     INSTAGRAM = "instagram"
-    YOUTUBE   = "youtube"
 
 
 @dataclass
@@ -50,11 +55,22 @@ def _build_utm(base_url: str, vertical: str, geo: str, platform: str) -> str:
     )
 
 
-class BlatoPublisher:
+def _get_profile_ids(platform: str) -> list[str]:
+    """Получает profile_ids из env для заданной платформы."""
+    env_map = {
+        "tiktok":    "PUBLER_TIKTOK_PROFILE_IDS",
+        "facebook":  "PUBLER_FACEBOOK_PROFILE_IDS",
+        "instagram": "PUBLER_INSTAGRAM_PROFILE_IDS",
+    }
+    raw = os.environ.get(env_map.get(platform, ""), "")
+    return [x.strip() for x in raw.split(",") if x.strip()]
 
-    def __init__(self):
+
+class PubelerPublisher:
+
+    def __init__(self) -> None:
         self.compliance = ComplianceGate()
-        self._api_key = os.environ.get("BLOTATO_API_KEY", "")
+        self._api_key = os.environ.get("PUBLER_API_KEY", "")
 
     async def publish(
         self,
@@ -64,19 +80,18 @@ class BlatoPublisher:
         geo: str = "US",
         affiliate_url: str = "",
         media_url: str = "",
+        profile_ids: list[str] | None = None,
         dry_run: bool = False,
     ) -> PublishResult:
         """
-        Публикует пост.
-        dry_run=True — проверяет compliance и возвращает что было бы отправлено,
-        но не делает реальный запрос к Blotato.
+        Публикует пост через Publer API.
+        dry_run=True — только проверяет compliance, без реального запроса к Publer.
         """
-        # Шаг 1: Compliance Gate
         compliance = await self.compliance.check(text, vertical, geo)
 
         if compliance.is_blocked:
             logger.warning(
-                "blotato_publisher | BLOCKED platform=%s risk=%s violations=%d",
+                "publer_publisher | BLOCKED platform=%s risk=%s violations=%d",
                 platform.value, compliance.risk_level.value, len(compliance.violations),
             )
             return PublishResult(
@@ -85,56 +100,63 @@ class BlatoPublisher:
                 error=f"Compliance Gate заблокировал: {compliance.reason}",
             )
 
-        # Шаг 2: Используем чистую версию если compliance предложил исправление
         final_text = compliance.clean_version if compliance.clean_version else text
-
-        # Шаг 3: Добавляем UTM к ссылке
-        final_url = _build_utm(affiliate_url, vertical, geo, platform.value)
+        final_url  = _build_utm(affiliate_url, vertical, geo, platform.value)
+        pids       = profile_ids or _get_profile_ids(platform.value)
 
         if dry_run or not self._api_key:
-            logger.info("blotato_publisher | DRY RUN platform=%s", platform.value)
+            logger.info("publer_publisher | DRY RUN platform=%s profile_ids=%s", platform.value, pids)
             return PublishResult(
                 platform=platform.value, status="dry_run", post_id=None,
                 url=final_url,
                 compliance_score=compliance.score,
                 compliance_risk=compliance.risk_level.value,
-                error=None if self._api_key else "BLOTATO_API_KEY не задан",
+                error=None if self._api_key else "PUBLER_API_KEY не задан",
             )
 
-        # Шаг 4: Отправка в Blotato
-        payload = {
-            "platform": platform.value,
-            "text": final_text,
-            "media_url": media_url,
-            "link": final_url,
-            "geo": geo,
-        }
+        if not pids:
+            env_hint = f"PUBLER_{platform.value.upper()}_PROFILE_IDS"
+            return PublishResult(
+                platform=platform.value, status="failed", post_id=None, url=None,
+                compliance_score=compliance.score, compliance_risk=compliance.risk_level.value,
+                error=f"Не заданы profile_ids. Добавь {env_hint} в переменные окружения.",
+            )
+
+        payload: dict = {"profile_ids": pids, "text": final_text}
+        if media_url:
+            payload["media_urls"] = [media_url]
+        if final_url:
+            payload["link"] = final_url
 
         try:
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(
-                    f"{BLOTATO_API}/posts",
+                    f"{PUBLER_API}/posts",
                     json=payload,
-                    headers={"Authorization": f"Bearer {self._api_key}"},
+                    headers={
+                        "Authorization": f"Bearer {self._api_key}",
+                        "Content-Type": "application/json",
+                    },
                 )
                 resp.raise_for_status()
                 data = resp.json()
-                post_id = data.get("id") or data.get("post_id")
-                post_url = data.get("url") or data.get("post_url")
+                post_id  = data.get("id") or data.get("post_id")
+                post_url = data.get("url") or data.get("post_url") or data.get("link")
 
                 logger.info(
-                    "blotato_publisher | PUBLISHED platform=%s post_id=%s",
+                    "publer_publisher | PUBLISHED platform=%s post_id=%s",
                     platform.value, post_id,
                 )
                 return PublishResult(
                     platform=platform.value, status="published",
-                    post_id=post_id, url=post_url,
+                    post_id=str(post_id) if post_id else None,
+                    url=post_url,
                     compliance_score=compliance.score,
                     compliance_risk=compliance.risk_level.value,
                 )
 
         except Exception as exc:
-            logger.exception("blotato_publisher | FAILED platform=%s: %s", platform.value, exc)
+            logger.exception("publer_publisher | FAILED platform=%s: %s", platform.value, exc)
             return PublishResult(
                 platform=platform.value, status="failed", post_id=None, url=None,
                 compliance_score=compliance.score, compliance_risk=compliance.risk_level.value,
@@ -153,9 +175,13 @@ class BlatoPublisher:
     ) -> list[PublishResult]:
         """Публикует на несколько платформ параллельно."""
         return await asyncio.gather(*[
-            self.publish(text, p, vertical, geo, affiliate_url, media_url, dry_run)
+            self.publish(text, p, vertical, geo, affiliate_url, media_url, dry_run=dry_run)
             for p in platforms
         ])
+
+
+# Обратная совместимость — старые импорты BlatoPublisher продолжают работать
+BlatoPublisher = PubelerPublisher
 
 
 async def run(
@@ -165,7 +191,7 @@ async def run(
     geo: str = "US",
     dry_run: bool = True,
 ) -> dict:
-    publisher = BlatoPublisher()
+    publisher = PubelerPublisher()
     result = await publisher.publish(
         text or "Check out this amazing product that changed my life!",
         PublishPlatform(platform),

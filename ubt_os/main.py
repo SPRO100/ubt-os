@@ -243,7 +243,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "- A23 youtube_creator: сценарии Shorts/Long-form, хуки, metadata, thumbnail\n"
             "- A24 obsidian_brain: запрос или добавление знаний в Obsidian Vault\n"
             "- A25 compliance_gate: проверка текста на запрещённые заявления перед публикацией\n"
-            "- A26 blotato_publisher: публикация в TikTok/IG/YouTube через Blotato API\n"
+            "- A26 publer_publisher: публикация в TikTok/Facebook/Instagram через Publer API\n"
             "- A27 spy_analyzer: анализ крипов конкурентов из PiPiAds/AdHeart, паттерны хуков и brief для A21\n"
             "- A28 warmup_manager: трекер 14-дневного прогрева аккаунтов, GEO-инфраструктура, лимиты активности\n"
             "- A29 prelanding_generator: генерация HTML прелендингов (quiz/story/article/vsl) для воронки\n\n"
@@ -383,9 +383,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     "reason": result.reason,
                 }
 
-            elif agent == "blotato_publisher":
-                from ubt_os.agents import BlatoPublisher, PublishPlatform
-                publisher = BlatoPublisher()
+            elif agent in ("blotato_publisher", "publer_publisher"):
+                from ubt_os.agents import PubelerPublisher, PublishPlatform
+                publisher = PubelerPublisher()
                 result    = await publisher.publish(
                     params.get("text", ""),
                     PublishPlatform(params.get("platform", "tiktok")),
@@ -393,6 +393,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     params.get("geo", "US"),
                     params.get("affiliate_url", ""),
                     params.get("media_url", ""),
+                    profile_ids=params.get("profile_ids") or None,
                     dry_run=params.get("dry_run", True),
                 )
                 return {
