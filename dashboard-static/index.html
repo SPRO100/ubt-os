@@ -640,20 +640,77 @@ another@gmail.com:AnotherPass:recovery@mail.com</div>
     <!-- ─── ЧЕКЕР ─── -->
     <div id="acc-checker" style="display:none;">
       <div class="card">
-        <div class="card-head"><span class="title">Account Checker</span><span class="right">проверяет ER, прокси, теневой бан</span></div>
-        <div class="note-box" style="margin-bottom:14px;">
-          Запускает проверку всех аккаунтов со статусом <code>warming</code> и <code>active</code>.
-          Пороги ER зависят от фазы прогрева (FIX #5).
+        <div class="card-head"><span class="title">Account Checker</span><span class="right">ER · прокси · теневой бан</span></div>
+
+        <!-- ФИЛЬТРЫ -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:5px;">ПЛАТФОРМА</label>
+            <select id="ck-platform" onchange="checkerPreview()"
+              style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:8px 10px;font-size:12px;font-family:inherit;">
+              <option value="">Все платформы</option>
+              <option value="tiktok">TikTok</option>
+              <option value="instagram">Instagram</option>
+              <option value="telegram">Telegram</option>
+              <option value="youtube">YouTube</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:5px;">СТАТУС</label>
+            <select id="ck-status" onchange="checkerPreview()"
+              style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:8px 10px;font-size:12px;font-family:inherit;">
+              <option value="">warming + active</option>
+              <option value="warming">Только warming</option>
+              <option value="active">Только active</option>
+              <option value="new">Только new</option>
+              <option value="all">Все статусы</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:5px;">ДОБАВЛЕН ЗА</label>
+            <select id="ck-days" onchange="checkerPreview()"
+              style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:8px 10px;font-size:12px;font-family:inherit;">
+              <option value="">Всё время</option>
+              <option value="1">Последние 24 ч</option>
+              <option value="3">Последние 3 дня</option>
+              <option value="7">Последние 7 дней</option>
+              <option value="14">Последние 14 дней</option>
+              <option value="30">Последние 30 дней</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:5px;">ПРОЕКТ</label>
+            <select id="ck-vertical" onchange="checkerPreview()"
+              style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:8px 10px;font-size:12px;font-family:inherit;">
+              <option value="">Все проекты</option>
+            </select>
+          </div>
         </div>
-        <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+
+        <!-- ПРЕДПРОСМОТР -->
+        <div style="margin-bottom:14px;">
+          <div style="font-size:11px;color:var(--faint);margin-bottom:8px;">АККАУНТЫ ПОД ПРОВЕРКУ <span id="ck-preview-count" style="color:var(--indigo);font-weight:600;"></span></div>
+          <div id="ck-preview" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
+            <div style="padding:20px;text-align:center;color:var(--faint);font-size:12px;">Выбери фильтры выше — здесь появится список аккаунтов</div>
+          </div>
+        </div>
+
+        <!-- ЗАПУСК -->
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
           <button onclick="runChecker()"
             style="background:#4ade80;color:#000;border:none;border-radius:8px;padding:10px 24px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:600;">
             🔍 Запустить проверку
           </button>
+          <button onclick="checkerPreview()"
+            style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:10px 18px;font-size:12px;cursor:pointer;font-family:inherit;">
+            ↻ Обновить список
+          </button>
           <span id="checker-status" style="font-size:12px;color:var(--muted);"></span>
         </div>
+
+        <!-- ИТОГИ -->
         <div id="checker-summary" style="display:none;" class="stat-grid">
-          <div class="stat"><div class="label">Всего</div><div class="value" id="cs-total">—</div></div>
+          <div class="stat"><div class="label">Проверено</div><div class="value" id="cs-total">—</div></div>
           <div class="stat"><div class="label" style="color:var(--green);">OK</div><div class="value" style="color:var(--green);" id="cs-ok">—</div></div>
           <div class="stat"><div class="label" style="color:var(--amber);">WARN</div><div class="value" style="color:var(--amber);" id="cs-warn">—</div></div>
           <div class="stat"><div class="label" style="color:var(--red);">STOP</div><div class="value" style="color:var(--red);" id="cs-stop">—</div></div>
@@ -686,7 +743,8 @@ function accTab(name){
       btn.style.borderColor= t===name ? "var(--indigo)" : "var(--border)";
     }
   });
-  if(name === "add") populateVerticalSelects();
+  if(name === "add")     populateVerticalSelects();
+  if(name === "checker") initCheckerTab();
 }
 function importPlatTab(plat){
   ["tg","tt","ig","yt","json"].forEach(p=>{
@@ -1002,14 +1060,89 @@ async function submitTdataBulk(){
   }catch(e){ msg.textContent="❌ "+e.message; msg.style.color="var(--red)"; }
 }
 
+function checkerFilters(){
+  const platform   = document.getElementById("ck-platform")?.value || "";
+  const statusVal  = document.getElementById("ck-status")?.value   || "";
+  const days       = document.getElementById("ck-days")?.value     || "";
+  const verticalId = document.getElementById("ck-vertical")?.value || "";
+  const body = {};
+  if(platform)   body.platform    = platform;
+  if(days)       body.days        = parseInt(days);
+  if(verticalId) body.vertical_id = verticalId;
+  if(statusVal === "all")         body.status_filter = ["new","warming","active","shadow_banned","paused","replaced","hard_banned"];
+  else if(statusVal === "warming") body.status_filter = ["warming"];
+  else if(statusVal === "active")  body.status_filter = ["active"];
+  else if(statusVal === "new")     body.status_filter = ["new"];
+  return body;
+}
+
+async function checkerPreview(){
+  const preview   = document.getElementById("ck-preview");
+  const countEl   = document.getElementById("ck-preview-count");
+  if(!preview) return;
+  preview.innerHTML = `<div style="padding:16px;text-align:center;color:var(--faint);font-size:12px;">⏳ Загружаю…</div>`;
+
+  const filters = checkerFilters();
+  let query = "select=id,platform,username,status,warming_phase,warming_day,geo,created_at&order=created_at.desc&limit=200";
+  if(filters.platform)    query += `&platform=eq.${encodeURIComponent(filters.platform)}`;
+  if(filters.vertical_id) query += `&vertical_id=eq.${encodeURIComponent(filters.vertical_id)}`;
+
+  // статусы
+  const statuses = filters.status_filter || ["warming","active"];
+  query += `&status=in.(${statuses.join(",")})`;
+
+  // дата
+  if(filters.days){
+    const cutoff = new Date(Date.now() - filters.days*86400000).toISOString();
+    query += `&created_at=gte.${cutoff}`;
+  }
+
+  const accounts = await fetchRows("accounts", query);
+  if(countEl) countEl.textContent = `(${accounts.length})`;
+
+  if(!accounts.length){
+    preview.innerHTML = `<div style="padding:16px;text-align:center;color:var(--faint);font-size:12px;">Нет аккаунтов по выбранным фильтрам</div>`;
+    return;
+  }
+
+  const platformColors = {tiktok:"#f472b6",youtube:"#f87171",instagram:"#fb923c",telegram:"#60a5fa"};
+  const statusColors   = {new:"#94a3b8",warming:"#f59e0b",active:"#4ade80",shadow_banned:"#f87171",hard_banned:"#dc2626",replaced:"#6b7280",paused:"#a78bfa"};
+
+  preview.innerHTML = `
+    <table>
+      <tr><th>Платформа</th><th>Username</th><th>Статус</th><th>Фаза</th><th>День</th><th>ГЕО</th><th>Добавлен</th></tr>
+      ${accounts.map(a=>`<tr>
+        <td><span style="color:${platformColors[a.platform]||'var(--muted)'};font-size:12px;font-weight:600;">${esc(a.platform||'—')}</span></td>
+        <td class="primary mono" style="font-size:12px;">@${esc(a.username||'—')}</td>
+        <td><span class="chip" style="color:${statusColors[a.status]||'var(--muted)'};background:${statusColors[a.status]||'var(--muted)'}1a;font-size:11px;">${esc(a.status)}</span></td>
+        <td style="font-size:11px;color:var(--faint);">${esc(a.warming_phase||'idle')}</td>
+        <td style="font-size:12px;">${esc(a.warming_day??0)}</td>
+        <td style="font-size:11px;color:var(--faint);">${esc(a.geo||'—')}</td>
+        <td style="font-size:11px;color:var(--faint);">${(a.created_at||'').slice(0,10)}</td>
+      </tr>`).join("")}
+    </table>`;
+}
+
+async function initCheckerTab(){
+  // Заполняем select проектов
+  const projects = await fetchRows("vertical_configs","select=id,name&order=name.asc");
+  const sel = document.getElementById("ck-vertical");
+  if(sel && projects.length){
+    sel.innerHTML = '<option value="">Все проекты</option>' +
+      projects.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  }
+  checkerPreview();
+}
+
 async function runChecker(){
   const btn = document.querySelector('[onclick="runChecker()"]');
   const statusEl = document.getElementById("checker-status");
   btn.disabled = true; btn.textContent = "⏳ Проверяю…";
   statusEl.textContent = "Запрос отправлен, ждём результат…"; statusEl.style.color="var(--muted)";
+  const body = checkerFilters();
   try{
     const res = await fetchWithTimeout(`${AGENTS_SERVER}/accounts/checker/run`,{
-      method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"
+      method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
     }, 120000);
     const data = await res.json();
     if(data.error){ statusEl.textContent="❌ "+data.error; statusEl.style.color="var(--red)"; return; }

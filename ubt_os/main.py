@@ -486,11 +486,16 @@ class WebhookHandler(BaseHTTPRequestHandler):
         }
 
     async def _accounts_checker_run(self, body: dict):
-        """POST /accounts/checker/run — запустить чекер и вернуть результаты синхронно."""
+        """POST /accounts/checker/run — запустить чекер с фильтрами."""
         from ubt_os.agents import AccountChecker
         db = _get_db()
         checker = AccountChecker(db_client=db)
-        results = await checker.check_all()
+        results = await checker.check_all(
+            platform=body.get("platform") or None,
+            status_filter=body.get("status_filter") or None,
+            days=body.get("days") or None,
+            vertical_id=body.get("vertical_id") or None,
+        )
         summary = {"ok": 0, "warn": 0, "stop": 0}
         for r in results:
             v = r.get("verdict", "ok")

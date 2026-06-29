@@ -77,15 +77,24 @@ class AccountChecker:
         self.db       = db_client
         self.alert_fn = telegram_alert_fn
 
-    async def check_all(self) -> list[dict]:
-        """Проверяет все active + warming аккаунты."""
-        accounts = (
-            self.db.table("accounts")
-            .select("*")
-            .in_("status", ["warming", "active"])
-            .execute()
-            .data
-        )
+    async def check_all(
+        self,
+        platform: Optional[str] = None,
+        status_filter: Optional[list] = None,
+        days: Optional[int] = None,
+        vertical_id: Optional[str] = None,
+    ) -> list[dict]:
+        """Проверяет аккаунты с поддержкой фильтров."""
+        q = self.db.table("accounts").select("*")
+        q = q.in_("status", status_filter or ["warming", "active"])
+        if platform:
+            q = q.eq("platform", platform)
+        if vertical_id:
+            q = q.eq("vertical_id", vertical_id)
+        if days:
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=int(days))).isoformat()
+            q = q.gte("created_at", cutoff)
+        accounts = q.execute().data
         results = []
         for acc in accounts:
             result = await self.check_one(acc)
