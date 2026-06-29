@@ -63,6 +63,31 @@
    - Тысячеликий Герой → серийный сторителлинг
 
 ---
+**2026-06-29** | Источник: cpa.rip (7 разделов изучено)
+**Affiliate Marketing: ключевые инсайты из cpa.rip**
+
+1. **Nutra модели биллинга**: COD ($5–20, BR/MX/PL) → Trial ($20–60, rebill ≥60%, US) → SS ($90–130, US). Старт UBT OS = COD на BR/MX, затем Trial US.
+2. **TikTok аккаунты**: self-reg (тест) → agency ($50–300/мес) для масштаба. Storytelling формат обходит модерацию. Nutra anti-aging/varicose = белое, weight loss = клоак.
+3. **Спай-сервисы**: PiPiAds ($155/мес, TikTok nutra), AdHeart ($53/мес, betting FB). Workflow: спай → хук → A21 адаптация.
+4. **Прогрев аккаунтов**: 14-дневный план. Day 1: только скроллинг. Days 5-6: первое нейтральное видео. Day 14+: целевой контент + bio-ссылка.
+5. **Инфраструктура**: Dolphin Anty API + Airalo US eSIM + Nodemaven mobile proxy = правильная связка для US TikTok аккаунтов.
+
+Полная документация: [[cpa-rip-knowledge-base]] | [[nutra-billing-models]] | [[tiktok-arbitrage-techniques]] | [[affiliate-tools-directory]] | [[affiliate-marketing-glossary]] | [[tiktok-account-warmup]]
+
+---
+**2026-06-29** | Источник: partnerkin.com, affmaven.com, trafficcardinal.com, 360uniquizer.com
+**Расширенные инсайты из похожих сайтов**
+
+1. **TikTok ban в US**: AffMaven фиксирует частичный бан TikTok в US (январь 2025, 170M+ пользователей). Органический TikTok US всё ещё работает НО риски нужно учитывать. Telegram Mini-Apps = emerging channel (CPC $0.015 для gambling, 160% ROI).
+2. **Nutra sub-niches 2026**: Weight loss + Men's health = ТОП. Для US Tier-1: скинкеа, CBD, men's health (premium creatives). Для Tier-2 (LATAM): weight loss, joints, detox (COD, локализованные лендинги).
+3. **Agency vs Self-reg TikTok**: Bigo Ads = альтернатива TikTok для gambling/crypto (нет ограничений). CPC на 30-50% дешевле TikTok. Agency аккаунты: комиссия от 6%, принимают gambling/nutra.
+4. **14-Day warmup (точные лимиты)**: Day 1 = 0 активности. Days 2: 15-20 лайков. Days 3-4: 30 лайков, 5-10 подписок. Days 5-6: первое видео. Day 7: тест оффера. Day 11-14: 70% нейтральный / 30% целевой контент. Ссылка в bio = день 10-12 минимум.
+5. **Кейсы**: Spain nutra joints: $6,240 → $9,467 (51.7% ROI). Bangladesh potency: $12,624 → $18,868 (49.5% ROI). Multi-GEO with proxies: +52% ROI.
+6. **ROI нормы**: Nutra COD нормально 30-100% ROI. Для масштабирования: ROI >50% на малом объёме → рост бюджета 5-10% в день.
+
+Полная документация: [[affiliate-sources-comparison]]
+
+---
 **2026-06-29** | Источник: TokPortal, VPNtoUS, Hootsuite, PostEverywhere (2025–2026)
 **Алгоритм 3 — ВЫДАЧА КОНТЕНТА (Distribution)**
 
