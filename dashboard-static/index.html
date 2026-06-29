@@ -209,7 +209,7 @@ const TITLES = {
   content:["Производство","Архитектура пайплайна контента · что реально работает помечено LIVE"],
   pipeline:["Пайплайн (n8n)","6 воркфлоу реально развёрнуты и опубликованы на сервере"],
   clients:["Клиенты","White-label агентская модель, CPA-only оплата"],
-  agents:["Агенты","13 агентов реально существуют как код · A12–A24"],
+  agents:["Агенты","15 агентов реально существуют как код · A12–A26"],
   launch:["Запуск агентов","Прямой запуск A19–A24 из браузера · результаты сразу в чате"],
   analytics:["Аналитика","Реальная выручка $0 · условия партнёрок — справка, аккаунты не подключены"],
   infra:["Инфраструктура","FirstVDS Амстердам — реально развёрнут и работает"],
@@ -337,11 +337,11 @@ async function renderContent(){
         <tr><td class="primary">Контент-план</td><td>A21 content_creator.py</td><td>${chip("код есть","#4ade80")}</td></tr>
         <tr><td class="primary">Очистка AI-маркеров</td><td>A19 text_humanizer.py (Stop-Slop)</td><td>${chip("код есть","#4ade80")}</td></tr>
         <tr><td class="primary">Тренды / конкуренты</td><td>A20 trend_scraper.py (Firecrawl)</td><td>${chip("нужен API ключ","#f59e0b")}</td></tr>
-        <tr><td class="primary">Compliance Gate</td><td>Haiku, 3 уровня анализа</td><td>${chip("не реализован","#f87171")}</td></tr>
-        <tr><td class="primary">Видеогенерация</td><td>Higgsfield MCP + Arcads</td><td>${chip("API не подключён","#f59e0b")}</td></tr>
-        <tr><td class="primary">Озвучка</td><td>edge-tts (установлен)</td><td>${chip("готов к использованию","#4ade80")}</td></tr>
-        <tr><td class="primary">Keitaro UTM</td><td>трекинг-ссылки</td><td>${chip("не подключён","#f87171")}</td></tr>
-        <tr><td class="primary">Публикация</td><td>Blotato</td><td>${chip("не подключён","#f87171")}</td></tr>
+        <tr><td class="primary">Compliance Gate</td><td>A25 compliance_gate.py (regex L1 + LLM L2/L3)</td><td>${chip("код есть","#4ade80")}</td></tr>
+        <tr><td class="primary">Видеогенерация</td><td>Higgsfield MCP + Arcads</td><td>${chip("нужен API ключ","#f59e0b")}</td></tr>
+        <tr><td class="primary">Озвучка</td><td>edge-tts (установлен)</td><td>${chip("готов","#4ade80")}</td></tr>
+        <tr><td class="primary">Keitaro UTM</td><td>_build_utm() в A26 + /keitaro skill</td><td>${chip("код есть","#4ade80")}</td></tr>
+        <tr><td class="primary">Публикация</td><td>A26 blotato_publisher.py</td><td>${chip("нужен BLOTATO_API_KEY","#f59e0b")}</td></tr>
       </table>
     </div>
   `;
@@ -599,7 +599,7 @@ function renderAgents(){
     </div>
 
     <div class="card">
-      <div class="card-head"><span class="title">Claude Code Skills (.claude/skills/)</span><span class="right">${refTag()} 8 скиллов для разработки</span></div>
+      <div class="card-head"><span class="title">Claude Code Skills (.claude/skills/)</span><span class="right">${refTag()} 11 скиллов для разработки</span></div>
       <table><tr><th>Команда</th><th>Что делает</th></tr>
         <tr><td class="primary mono">/stop-slop</td><td>Очистка AI-маркеров, оценка текста 0–50</td></tr>
         <tr><td class="primary mono">/marketing &lt;формат&gt; &lt;vertical&gt; &lt;geo&gt;</td><td>30+ промптов для betting/nutra контента</td></tr>
@@ -609,6 +609,27 @@ function renderAgents(){
         <tr><td class="primary mono">/arcads &lt;стиль&gt; &lt;скрипт&gt;</td><td>AI видео-реклама (Sora, Veo, Kling)</td></tr>
         <tr><td class="primary mono">/market-report &lt;vertical&gt; &lt;geo&gt;</td><td>Конкурентный отчёт по рынку</td></tr>
         <tr><td class="primary mono">/caveman [lite|full|ultra]</td><td>Сжатие ответов Claude на 65–75%</td></tr>
+        <tr><td class="primary mono">/higgsfield ugc|short|ab &lt;скрипт&gt;</td><td>Видеогенерация UGC/Shorts/A-B тест через Higgsfield MCP</td></tr>
+        <tr><td class="primary mono">/keitaro link|utm|campaign</td><td>Трекинг-ссылки и UTM для affiliate-кампаний</td></tr>
+        <tr><td class="primary mono">/blotato schedule|batch|calendar</td><td>Управление расписанием публикаций через Blotato</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="title">Публикация (A25–A26)</span><span class="right">${refTag()} добавлены 29 июня</span></div>
+      <table><tr><th>ID</th><th>Файл</th><th>Роль</th><th>Статус</th></tr>
+        <tr>
+          <td class="mono" style="color:var(--faint)">A25</td>
+          <td class="primary mono">compliance_gate.py</td>
+          <td>3-уровневая проверка контента. Regex (L1) + LLM (L2/L3). Блокирует медицинские/беттинг нарушения.</td>
+          <td>${chip("готов","#4ade80")}</td>
+        </tr>
+        <tr>
+          <td class="mono" style="color:var(--faint)">A26</td>
+          <td class="primary mono">blotato_publisher.py</td>
+          <td>Публикация TikTok/IG/YT через Blotato API. Auto UTM-параметры. Compliance Gate перед отправкой.</td>
+          <td><span class="chip" style="color:var(--amber);background:rgba(245,158,11,.1)">нужен BLOTATO_API_KEY</span></td>
+        </tr>
       </table>
     </div>
 
@@ -687,7 +708,9 @@ function renderKnowledge(){
 /* ============================================================
    LAUNCH — прямой запуск агентов
    ============================================================ */
+let _launchRendered = false;
 function renderLaunch(){
+  if(_launchRendered) return;
   document.getElementById("sec-launch").innerHTML = `
     <div class="agent-launcher">
 
@@ -865,8 +888,65 @@ function renderLaunch(){
         <div class="agent-result" id="a24-result"></div>
       </div>
 
+      <!-- A25 compliance_gate -->
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-id">A25</span>
+          <span class="agent-name">compliance_gate</span>
+        </div>
+        <div class="agent-desc">3-уровневая проверка контента перед публикацией. Блокирует запрещённые медицинские и беттинг-заявления</div>
+        <div class="agent-form">
+          <label>Текст для проверки</label>
+          <textarea id="a25-text" placeholder="Вставь текст для проверки на соответствие…" style="min-height:70px;"></textarea>
+          <label>Вертикаль</label>
+          <select id="a25-vertical">
+            <option value="nutra">Nutra</option><option value="betting">Betting</option>
+          </select>
+          <label>GEO</label>
+          <select id="a25-geo">
+            <option value="US">US</option><option value="BR">BR</option>
+            <option value="MX">MX</option><option value="DE">DE</option><option value="PL">PL</option>
+          </select>
+          <button class="run-btn" onclick="runAgent('compliance_gate',{text:v('a25-text'),vertical:v('a25-vertical'),geo:v('a25-geo')},'a25-result')">▶ Проверить</button>
+        </div>
+        <div class="agent-result" id="a25-result"></div>
+      </div>
+
+      <!-- A26 blotato_publisher -->
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-id">A26</span>
+          <span class="agent-name">blotato_publisher</span>
+        </div>
+        <div class="agent-desc">Публикация в TikTok/IG/YouTube через Blotato. Автоматически добавляет UTM-параметры и проверяет compliance</div>
+        <div class="agent-form">
+          <label>Текст поста</label>
+          <textarea id="a26-text" placeholder="Готовый текст для публикации…" style="min-height:60px;"></textarea>
+          <label>Платформа</label>
+          <select id="a26-platform">
+            <option value="tiktok">TikTok</option>
+            <option value="instagram">Instagram</option>
+            <option value="youtube">YouTube Shorts</option>
+          </select>
+          <label>Affiliate URL (необязательно)</label>
+          <input type="text" id="a26-url" placeholder="https://1win.com/promo/…">
+          <label>Вертикаль</label>
+          <select id="a26-vertical">
+            <option value="nutra">Nutra</option><option value="betting">Betting</option>
+          </select>
+          <label>GEO</label>
+          <select id="a26-geo">
+            <option value="US">US</option><option value="BR">BR</option>
+            <option value="MX">MX</option><option value="DE">DE</option><option value="PL">PL</option>
+          </select>
+          <button class="run-btn" onclick="runAgent('blotato_publisher',{text:v('a26-text'),platform:v('a26-platform'),affiliate_url:v('a26-url'),vertical:v('a26-vertical'),geo:v('a26-geo'),dry_run:true},'a26-result')">▶ Проверить и опубликовать (dry run)</button>
+        </div>
+        <div class="agent-result" id="a26-result"></div>
+      </div>
+
     </div>
   `;
+  _launchRendered = true;
 }
 
 function toggleA24(){
@@ -885,13 +965,158 @@ function runA24(){
 
 function v(id){ const el = document.getElementById(id); return el ? el.value : ""; }
 
+function copyResult(btn){
+  const box = btn.closest(".agent-result");
+  const text = box.innerText.replace("Скопировать\n","").trim();
+  navigator.clipboard.writeText(text).then(()=>{
+    const orig = btn.textContent; btn.textContent = "Скопировано ✓";
+    setTimeout(()=>{ btn.textContent = orig; }, 1500);
+  });
+}
+
+function renderAgentResult(resultEl, agent, params, data){
+  let html = "";
+  const copyBtn = `<button onclick="copyResult(this)" style="float:right;background:var(--border);border:none;border-radius:5px;color:var(--muted);padding:3px 8px;font-size:10px;cursor:pointer;">Скопировать</button>`;
+
+  if(data.error){
+    resultEl.innerHTML = `<span style="color:var(--red)">Ошибка: ${esc(data.error)}</span>`;
+    return;
+  }
+
+  if(agent === "content_creator" || agent === "text_humanizer"){
+    const score = data.score ?? 0;
+    const passed = data.passed;
+    const pct = Math.min(100, Math.round((score/50)*100));
+    const scoreColor = passed ? "#4ade80" : score < 40 ? "#f87171" : "#f59e0b";
+    html = `${copyBtn}
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--faint);margin-bottom:4px;">
+          Оценка Stop-Slop: <b style="color:${scoreColor}">${score}/50</b>
+          · ${passed ? '<span style="color:#4ade80">✅ Прошёл</span>' : '<span style="color:#f87171">❌ Нужна доработка</span>'}
+        </div>
+        <div class="score-bar"><div class="score-fill" style="width:${pct}%;background:${scoreColor}"></div></div>
+      </div>
+      <div style="white-space:pre-wrap;line-height:1.65;">${esc(data.result || "")}</div>`;
+
+  } else if(agent === "ads_auditor"){
+    const score = data.health_score ?? 0;
+    const grade = String(data.grade ?? "—");
+    const gradeColor = {"A+":"#4ade80","A":"#4ade80","B":"#6366f1","C":"#f59e0b","D":"#f87171","F":"#f87171"}[grade] || "#94a3b8";
+    const pct = Math.min(100, score);
+    html = `${copyBtn}
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
+        <div>
+          <div style="font-size:28px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:${gradeColor}">${grade}</div>
+          <div style="font-size:10px;color:var(--faint)">GRADE</div>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:11px;color:var(--faint);margin-bottom:4px;">Health Score: <b style="color:${gradeColor}">${score}/100</b></div>
+          <div class="score-bar"><div class="score-fill" style="width:${pct}%;background:${gradeColor}"></div></div>
+        </div>
+      </div>
+      <div style="margin-bottom:8px;"><b style="color:var(--red);font-size:11px;">КРИТИЧЕСКИЕ ПРОБЛЕМЫ</b><br>
+        ${(data.critical_issues||[]).map(i=>`<div style="padding:3px 0;border-bottom:1px solid var(--border)">• ${esc(i)}</div>`).join("") || '<span style="color:var(--faint)">нет</span>'}
+      </div>
+      <div><b style="color:var(--green);font-size:11px;">QUICK WINS</b><br>
+        ${(data.quick_wins||[]).map(i=>`<div style="padding:3px 0;border-bottom:1px solid var(--border)">• ${esc(i)}</div>`).join("") || '<span style="color:var(--faint)">нет</span>'}
+      </div>`;
+
+  } else if(agent === "trend_scraper"){
+    const score = data.trend_score ?? 0;
+    html = `${copyBtn}
+      <div style="font-size:11px;color:var(--faint);margin-bottom:10px;">Trend Score: <b style="color:var(--amber)">${score}/10</b></div>
+      <b style="color:var(--amber);font-size:11px;">ХУКИ КОНКУРЕНТОВ</b><br>
+      ${(data.hooks||[]).slice(0,5).map(h=>`<div style="padding:3px 0;border-bottom:1px solid var(--border)">• ${esc(h)}</div>`).join("") || '<span style="color:var(--faint)">нет</span>'}
+      <br><b style="color:var(--red);font-size:11px;">БОЛИ АУДИТОРИИ</b><br>
+      ${(data.pains||[]).slice(0,5).map(p=>`<div style="padding:3px 0;border-bottom:1px solid var(--border)">• ${esc(p)}</div>`).join("") || '<span style="color:var(--faint)">нет</span>'}
+      <br><b style="color:var(--green);font-size:11px;">ACTION ITEMS</b><br>
+      ${(data.action_items||[]).map(a=>`<div style="padding:3px 0;border-bottom:1px solid var(--border)">• ${esc(a)}</div>`).join("") || '<span style="color:var(--faint)">нет</span>'}`;
+
+  } else if(agent === "youtube_creator"){
+    const c = data.content || {};
+    const order = ["title","titles","hook","hooks","script","intro","cta","strategy","post","tiktok","telegram","twitter_thread"];
+    let parts = [];
+    for(const key of order){
+      if(c[key] == null) continue;
+      let val = Array.isArray(c[key])
+        ? c[key].map((x,i)=>`${i+1}. ${typeof x==="string"?x:JSON.stringify(x)}`).join("\n")
+        : (typeof c[key]==="string" ? c[key] : JSON.stringify(c[key], null, 2));
+      parts.push(`<b style="color:var(--indigo);font-size:11px;">${key.toUpperCase()}</b>\n<div style="white-space:pre-wrap;margin-bottom:10px;">${esc(val.slice(0,600))}</div>`);
+    }
+    html = `${copyBtn}${parts.join("") || esc(JSON.stringify(c, null, 2).slice(0, 1200))}`;
+
+  } else if(agent === "obsidian_brain"){
+    if(params.action === "query"){
+      const conf = data.confidence ?? "—";
+      const confColor = conf==="high"?"#4ade80":conf==="medium"?"#f59e0b":"#f87171";
+      html = `${copyBtn}
+        <div style="font-size:11px;color:var(--faint);margin-bottom:8px;">
+          Уверенность: <b style="color:${confColor}">${conf}</b>
+          ${data.sources&&data.sources.length?` · Источники: <span style="color:var(--indigo)">${esc(data.sources.join(", "))}</span>`:""}
+        </div>
+        <div style="white-space:pre-wrap;line-height:1.65;">${esc(data.answer||"")}</div>`;
+    } else if(params.action === "ingest"){
+      html = `${copyBtn}
+        <b style="color:var(--green)">Создано страниц: ${data.pages_created || 0}</b><br>
+        <div style="font-size:11px;color:var(--faint);margin:4px 0;">${(data.filenames||[]).join(" · ")}</div>
+        ${data.summary ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">${esc(data.summary)}</div>` : ""}`;
+    } else {
+      const score = data.health_score ?? 0;
+      const sc = score>=80?"#4ade80":score>=50?"#f59e0b":"#f87171";
+      html = `${copyBtn}
+        <div style="font-size:24px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:${sc};margin-bottom:8px;">${score}/100</div>
+        Мёртвых ссылок: <b style="color:var(--red)">${data.dead_links ?? "—"}</b><br><br>
+        <b style="color:var(--green);font-size:11px;">ACTION ITEMS</b><br>
+        ${(data.action_items||[]).map(a=>`• ${esc(a)}`).join("<br>") || "нет"}`;
+    }
+  } else if(agent === "compliance_gate"){
+    const risk = data.risk_level ?? "—";
+    const score = data.score ?? 0;
+    const riskColor = risk==="safe"?"#4ade80":risk==="warning"?"#f59e0b":"#f87171";
+    const riskLabel = {"safe":"✅ БЕЗОПАСНО","warning":"⚠️ ПРЕДУПРЕЖДЕНИЕ","blocked":"🚫 ЗАБЛОКИРОВАНО"}[risk] || risk;
+    html = `${copyBtn}
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+        <b style="color:${riskColor};font-size:15px;">${riskLabel}</b>
+        <span style="font-size:11px;color:var(--faint)">Score: <b style="color:${riskColor}">${score}/100</b></span>
+      </div>
+      ${data.violations&&data.violations.length ? `
+        <b style="font-size:11px;color:var(--red)">НАРУШЕНИЯ</b><br>
+        ${data.violations.map(v=>`<div style="padding:3px 0;border-bottom:1px solid var(--border)"><span style="color:${v.severity==='hard'?'#f87171':'#f59e0b'}">[${v.severity}]</span> <b>${esc(v.rule)}</b>: "${esc(v.text)}"</div>`).join("")}
+        <br>` : ""}
+      ${data.suggestions&&data.suggestions.length ? `
+        <b style="font-size:11px;color:var(--amber)">КАК ИСПРАВИТЬ</b><br>
+        ${data.suggestions.map(s=>`• ${esc(s)}`).join("<br>")}<br><br>` : ""}
+      ${data.clean_version ? `<b style="font-size:11px;color:var(--green)">ИСПРАВЛЕННАЯ ВЕРСИЯ</b><br><div style="margin-top:4px;white-space:pre-wrap;">${esc(data.clean_version)}</div>` : ""}
+      <div style="margin-top:8px;font-size:11px;color:var(--faint)">${esc(data.reason||"")}</div>`;
+
+  } else if(agent === "blotato_publisher"){
+    const status = data.status ?? "—";
+    const statusColor = {"published":"#4ade80","dry_run":"#6366f1","blocked":"#f87171","failed":"#f87171"}[status] || "#94a3b8";
+    const statusLabel = {"published":"✅ Опубликовано","dry_run":"🔵 Dry Run (без реальной отправки)","blocked":"🚫 Заблокировано compliance","failed":"❌ Ошибка отправки"}[status] || status;
+    html = `${copyBtn}
+      <div style="margin-bottom:10px;"><b style="color:${statusColor}">${statusLabel}</b></div>
+      <div style="font-size:11px;color:var(--faint);">
+        Платформа: <b style="color:var(--text)">${esc(data.platform||"—")}</b><br>
+        Compliance Score: <b style="color:${data.compliance_risk==='safe'?'#4ade80':data.compliance_risk==='warning'?'#f59e0b':'#f87171'}">${data.compliance_score ?? "—"}/100 (${esc(data.compliance_risk||"—")})</b><br>
+        ${data.url ? `URL с UTM: <a href="${esc(data.url)}" style="color:var(--indigo)" target="_blank">${esc(data.url)}</a><br>` : ""}
+        ${data.error ? `<span style="color:var(--red)">Причина: ${esc(data.error)}</span>` : ""}
+      </div>`;
+
+  } else {
+    html = `${copyBtn}<pre style="margin:0;font-size:11px;">${esc(JSON.stringify(data, null, 2))}</pre>`;
+  }
+
+  resultEl.innerHTML = html;
+}
+
 async function runAgent(agent, params, resultId){
-  const btn = event.target;
+  const btn = event.currentTarget || event.target;
+  const origText = btn.textContent;
   const resultEl = document.getElementById(resultId);
   btn.disabled = true;
-  btn.textContent = "Работает…";
+  btn.textContent = "⏳ Работает…";
   resultEl.className = "agent-result visible";
-  resultEl.textContent = "Запрос к агенту…";
+  resultEl.innerHTML = `<span style="color:var(--faint)">Запрос к агенту…</span>`;
 
   try{
     const res = await fetchWithTimeout(`${AGENTS_SERVER}/agents/run`, {
@@ -900,38 +1125,13 @@ async function runAgent(agent, params, resultId){
       body: JSON.stringify({agent, params}),
     }, 120000);
     const data = await res.json();
-
-    if(data.error){
-      resultEl.textContent = "Ошибка: " + data.error;
-    } else if(agent === "content_creator" || agent === "text_humanizer"){
-      const score = data.score ?? "—";
-      const passed = data.passed;
-      const scoreColor = passed ? "#4ade80" : "#f87171";
-      resultEl.innerHTML = `<div style="margin-bottom:8px;font-size:11px;color:var(--faint)">
-        Оценка: <b style="color:${scoreColor}">${score}/50</b> · ${passed ? "✅ Прошёл" : "❌ Нужна доработка"}
-        <div class="score-bar"><div class="score-fill" style="width:${Math.min(100,(score/50)*100)}%;background:${scoreColor}"></div></div>
-      </div>${esc(data.result || JSON.stringify(data))}`;
-    } else if(agent === "ads_auditor"){
-      const score = data.health_score ?? "—";
-      const grade = data.grade ?? "—";
-      const gradeColor = {A:"+":"#4ade80",A:"#4ade80",B:"#6366f1",C:"#f59e0b",D:"#f87171",F:"#f87171"}[grade] || "#94a3b8";
-      resultEl.innerHTML = `<div style="margin-bottom:10px;">
-        Health Score: <b style="font-size:20px;color:${gradeColor}">${score}/100</b> · Grade: <b style="color:${gradeColor}">${grade}</b>
-      </div>
-      <b style="color:var(--red)">Критические проблемы:</b><br>${(data.critical_issues||[]).map(i=>`• ${esc(i)}`).join("<br>") || "нет"}
-      <br><br><b style="color:var(--green)">Quick wins:</b><br>${(data.quick_wins||[]).map(i=>`• ${esc(i)}`).join("<br>") || "нет"}`;
-    } else if(agent === "obsidian_brain" && params.action === "query"){
-      const conf = data.confidence ?? "—";
-      resultEl.innerHTML = `<div style="margin-bottom:6px;font-size:11px;color:var(--faint)">Уверенность: <b>${conf}</b> · Источники: ${(data.sources||[]).join(", ") || "нет"}</div>${esc(data.answer||"")}`;
-    } else {
-      resultEl.textContent = JSON.stringify(data, null, 2);
-    }
+    renderAgentResult(resultEl, agent, params, data);
   }catch(e){
-    resultEl.textContent = "⚠️ Ошибка соединения: " + e.message;
+    resultEl.innerHTML = `<span style="color:var(--red)">⚠️ Нет соединения с сервером: ${esc(e.message)}</span>`;
   }
 
   btn.disabled = false;
-  btn.textContent = "▶ Запустить";
+  btn.textContent = origText;
 }
 
 /* ============================================================

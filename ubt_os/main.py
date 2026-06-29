@@ -241,7 +241,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "- A21 content_creator: генерация before/after, хуков, UGC по Brand Voice\n"
             "- A22 ads_auditor: аудит TikTok/Meta/YouTube аккаунтов, Health Score 0–100\n"
             "- A23 youtube_creator: сценарии Shorts/Long-form, хуки, metadata, thumbnail\n"
-            "- A24 obsidian_brain: запрос или добавление знаний в Obsidian Vault\n\n"
+            "- A24 obsidian_brain: запрос или добавление знаний в Obsidian Vault\n"
+            "- A25 compliance_gate: проверка текста на запрещённые заявления перед публикацией\n"
+            "- A26 blotato_publisher: публикация в TikTok/IG/YouTube через Blotato API\n\n"
             "Если задача пользователя явно подходит для одного из агентов — добавь в КОНЕЦ ответа строку:\n"
             "[AGENT_SUGGEST: agent_id|Что именно агент сделает для этой задачи]\n"
             "Пример: [AGENT_SUGGEST: content_creator|Создать 3 варианта hook для нутра GEO US]\n"
@@ -359,6 +361,45 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 else:
                     r = await brain.query(params.get("question", ""))
                     return {"answer": r.answer, "sources": r.sources, "confidence": r.confidence}
+
+            elif agent == "compliance_gate":
+                from ubt_os.agents import ComplianceGate
+                gate   = ComplianceGate()
+                result = await gate.check(
+                    params.get("text", ""),
+                    params.get("vertical", "nutra"),
+                    params.get("geo", "US"),
+                )
+                return {
+                    "risk_level": result.risk_level.value,
+                    "score": result.score,
+                    "passed": result.passed,
+                    "violations": result.violations,
+                    "suggestions": result.suggestions,
+                    "clean_version": result.clean_version,
+                    "reason": result.reason,
+                }
+
+            elif agent == "blotato_publisher":
+                from ubt_os.agents import BlatoPublisher, PublishPlatform
+                publisher = BlatoPublisher()
+                result    = await publisher.publish(
+                    params.get("text", ""),
+                    PublishPlatform(params.get("platform", "tiktok")),
+                    params.get("vertical", "nutra"),
+                    params.get("geo", "US"),
+                    params.get("affiliate_url", ""),
+                    params.get("media_url", ""),
+                    dry_run=params.get("dry_run", True),
+                )
+                return {
+                    "status": result.status,
+                    "platform": result.platform,
+                    "compliance_score": result.compliance_score,
+                    "compliance_risk": result.compliance_risk,
+                    "url": result.url,
+                    "error": result.error,
+                }
 
             else:
                 return {"error": f"Неизвестный агент: {agent}"}

@@ -7,6 +7,8 @@ from .content_creator       import ContentCreator, ContentPiece, ContentFormat, 
 from .ads_auditor           import AdsAuditor, AuditResult
 from .youtube_creator       import YoutubeCreator, YTContent, YTFormat
 from .obsidian_brain        import ObsidianBrain, IngestResult, QueryResult, HealthReport
+from .compliance_gate       import ComplianceGate, ComplianceResult, RiskLevel
+from .blotato_publisher     import BlatoPublisher, PublishResult, PublishPlatform
 
 __all__ = [
     # Ядро (A12–A18)
@@ -21,4 +23,7 @@ __all__ = [
     "AdsAuditor", "AuditResult",
     "YoutubeCreator", "YTContent", "YTFormat",
     "ObsidianBrain", "IngestResult", "QueryResult", "HealthReport",
+    # A25–A26
+    "ComplianceGate", "ComplianceResult", "RiskLevel",
+    "BlatoPublisher", "PublishResult", "PublishPlatform",
 ]
