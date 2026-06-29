@@ -87,6 +87,33 @@ td.mono{font-family:'IBM Plex Mono',monospace;font-size:12px;}
   .nav-btn{white-space:nowrap;}
   main{padding:18px;}
 }
+
+/* AGENT LAUNCHER */
+.agent-launcher{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px;margin-bottom:18px;}
+.agent-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;}
+.agent-card .agent-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.agent-card .agent-id{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--faint);background:var(--border);padding:3px 8px;border-radius:5px;}
+.agent-card .agent-name{font-weight:600;font-size:13px;color:var(--text);}
+.agent-card .agent-desc{font-size:11.5px;color:var(--muted);margin-bottom:14px;line-height:1.5;}
+.agent-form label{font-size:11px;color:var(--faint);display:block;margin-bottom:3px;letter-spacing:.03em;}
+.agent-form select,.agent-form input,.agent-form textarea{
+  width:100%;background:var(--void);border:1px solid var(--border);border-radius:6px;
+  color:var(--text);padding:7px 10px;font-family:inherit;font-size:12px;margin-bottom:8px;
+}
+.agent-form textarea{resize:vertical;min-height:60px;}
+.agent-form select:focus,.agent-form input:focus,.agent-form textarea:focus{outline:none;border-color:var(--indigo);}
+.run-btn{width:100%;background:var(--indigo);color:#fff;border:none;border-radius:7px;padding:9px;font-size:13px;cursor:pointer;font-weight:500;margin-top:4px;}
+.run-btn:disabled{opacity:.5;cursor:not-allowed;}
+.agent-result{margin-top:12px;background:var(--void);border:1px solid var(--border);border-radius:7px;padding:12px;font-size:12px;color:var(--muted);line-height:1.6;white-space:pre-wrap;display:none;max-height:220px;overflow-y:auto;}
+.agent-result.visible{display:block;}
+.score-bar{height:4px;border-radius:2px;background:var(--border);margin-top:8px;}
+.score-fill{height:100%;border-radius:2px;transition:width .4s;}
+
+/* AGENT SUGGESTION CHIPS */
+.agent-suggest-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.suggest-chip{display:flex;align-items:center;gap:6px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:7px;padding:5px 10px;font-size:11.5px;color:#a5b4fc;cursor:pointer;}
+.suggest-chip:hover{background:rgba(99,102,241,.22);}
+.suggest-chip .chip-icon{font-size:12px;}
 </style>
 </head>
 <body>
@@ -114,6 +141,7 @@ td.mono{font-family:'IBM Plex Mono',monospace;font-size:12px;}
     <section class="section" id="sec-pipeline"></section>
     <section class="section" id="sec-clients"></section>
     <section class="section" id="sec-agents"></section>
+    <section class="section" id="sec-launch"></section>
     <section class="section" id="sec-analytics"></section>
     <section class="section" id="sec-infra"></section>
     <section class="section" id="sec-knowledge"></section>
@@ -170,6 +198,7 @@ const NAV = [
   {id:"pipeline",icon:"🔄",label:"Пайплайн (n8n)"},
   {id:"clients",icon:"🤝",label:"Клиенты"},
   {id:"agents",icon:"🧩",label:"Агенты"},
+  {id:"launch",icon:"🚀",label:"Запуск агентов"},
   {id:"analytics",icon:"📊",label:"Аналитика"},
   {id:"infra",icon:"🖥️",label:"Инфраструктура"},
   {id:"knowledge",icon:"🧠",label:"База знаний"},
@@ -181,6 +210,7 @@ const TITLES = {
   pipeline:["Пайплайн (n8n)","6 воркфлоу реально развёрнуты и опубликованы на сервере"],
   clients:["Клиенты","White-label агентская модель, CPA-only оплата"],
   agents:["Агенты","13 агентов реально существуют как код · A12–A24"],
+  launch:["Запуск агентов","Прямой запуск A19–A24 из браузера · результаты сразу в чате"],
   analytics:["Аналитика","Реальная выручка $0 · условия партнёрок — справка, аккаунты не подключены"],
   infra:["Инфраструктура","FirstVDS Амстердам — реально развёрнут и работает"],
   knowledge:["База знаний","Obsidian Vault, синхронизация через n8n каждый час"],
@@ -432,13 +462,50 @@ async function sendChatMessage(){
       body: JSON.stringify({vertical_id: CURRENT_PROJECT, message}),
     }, 120000);
     const data = await res.json();
+
     log.insertAdjacentHTML("beforeend", renderChatMsg({role:"assistant", content: data.reply || data.error || "Ошибка ответа"}));
+
+    // Показываем подсказки агентов если оркестратор их предложил
+    if(data.agent_suggestions && data.agent_suggestions.length > 0){
+      const chipsHtml = data.agent_suggestions.map(s => {
+        const agentLabels = {
+          content_creator:"A21 content_creator", text_humanizer:"A19 text_humanizer",
+          trend_scraper:"A20 trend_scraper", ads_auditor:"A22 ads_auditor",
+          youtube_creator:"A23 youtube_creator", obsidian_brain:"A24 obsidian_brain",
+        };
+        const label = agentLabels[s.agent] || s.agent;
+        return `<div class="suggest-chip" onclick="goToLaunch('${esc(s.agent)}')">
+          <span class="chip-icon">▶</span>
+          <span><b>${esc(label)}</b><br><span style="font-size:10.5px;color:var(--faint)">${esc(s.description)}</span></span>
+        </div>`;
+      }).join("");
+      log.insertAdjacentHTML("beforeend",
+        `<div class="agent-suggest-row">${chipsHtml}</div>`);
+    }
   }catch(e){
     log.insertAdjacentHTML("beforeend", renderChatMsg({role:"assistant", content:"⚠️ Не удалось связаться с оркестратором: "+e.message}));
   }
   log.scrollTop = log.scrollHeight;
   btn.disabled = false;
   btn.textContent = "Отправить";
+}
+
+function goToLaunch(agentId){
+  // Переключаемся на вкладку "Запуск агентов"
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+  const btn = document.querySelector(".nav-btn[data-id='launch']");
+  if(btn) btn.classList.add("active");
+  document.getElementById("sec-launch").classList.add("active");
+  document.getElementById("page-title").textContent = TITLES["launch"][0];
+  document.getElementById("page-desc").textContent = TITLES["launch"][1];
+  // Скролл к карточке нужного агента
+  setTimeout(() => {
+    const cards = document.querySelectorAll(".agent-card");
+    const agentMap = {content_creator:0,text_humanizer:1,trend_scraper:2,ads_auditor:3,youtube_creator:4,obsidian_brain:5};
+    const idx = agentMap[agentId] ?? 0;
+    if(cards[idx]) cards[idx].scrollIntoView({behavior:"smooth", block:"center"});
+  }, 100);
 }
 
 /* ============================================================
@@ -618,6 +685,256 @@ function renderKnowledge(){
 }
 
 /* ============================================================
+   LAUNCH — прямой запуск агентов
+   ============================================================ */
+function renderLaunch(){
+  document.getElementById("sec-launch").innerHTML = `
+    <div class="agent-launcher">
+
+      <!-- A21 content_creator -->
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-id">A21</span>
+          <span class="agent-name">content_creator</span>
+        </div>
+        <div class="agent-desc">Генерирует before/after, хуки, UGC по Brand Voice для выбранной вертикали и GEO</div>
+        <div class="agent-form" id="form-a21">
+          <label>Формат</label>
+          <select id="a21-format">
+            <option value="hook_problem">Hook + Problem</option>
+            <option value="before_after">Before / After</option>
+            <option value="ugc_reaction">UGC Reaction</option>
+            <option value="series_day">Series Day</option>
+            <option value="seo_article">SEO Article</option>
+            <option value="caption">Caption</option>
+          </select>
+          <label>Вертикаль</label>
+          <select id="a21-vertical">
+            <option value="nutra">Nutra</option>
+            <option value="betting">Betting</option>
+          </select>
+          <label>GEO</label>
+          <select id="a21-geo">
+            <option value="US">US</option><option value="BR">BR</option>
+            <option value="MX">MX</option><option value="DE">DE</option><option value="PL">PL</option>
+          </select>
+          <label>Оффер (необязательно)</label>
+          <input type="text" id="a21-offer" placeholder="Dr.Cash / 1win / …">
+          <button class="run-btn" onclick="runAgent('content_creator',{format:v('a21-format'),vertical:v('a21-vertical'),geo:v('a21-geo'),offer:v('a21-offer')},'a21-result')">▶ Запустить</button>
+        </div>
+        <div class="agent-result" id="a21-result"></div>
+      </div>
+
+      <!-- A19 text_humanizer -->
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-id">A19</span>
+          <span class="agent-name">text_humanizer</span>
+        </div>
+        <div class="agent-desc">Stop-Slop фильтр: убирает AI-маркеры, оценивает текст по 5 параметрам (0–50)</div>
+        <div class="agent-form">
+          <label>Текст для очистки</label>
+          <textarea id="a19-text" placeholder="Вставь текст — получишь очищенную версию…"></textarea>
+          <label>GEO</label>
+          <select id="a19-geo">
+            <option value="US">US</option><option value="BR">BR</option>
+            <option value="MX">MX</option><option value="DE">DE</option><option value="PL">PL</option>
+          </select>
+          <label>Вертикаль</label>
+          <select id="a19-vertical">
+            <option value="nutra">Nutra</option><option value="betting">Betting</option>
+          </select>
+          <button class="run-btn" onclick="runAgent('text_humanizer',{text:v('a19-text'),geo:v('a19-geo'),vertical:v('a19-vertical')},'a19-result')">▶ Запустить</button>
+        </div>
+        <div class="agent-result" id="a19-result"></div>
+      </div>
+
+      <!-- A20 trend_scraper -->
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-id">A20</span>
+          <span class="agent-name">trend_scraper</span>
+        </div>
+        <div class="agent-desc">Анализ конкурентов по URL или поиск трендов по вертикали и GEO через Firecrawl</div>
+        <div class="agent-form">
+          <label>URL конкурента (или оставь пустым — поиск трендов)</label>
+          <input type="text" id="a20-url" placeholder="https://competitor.com/post/…">
+          <label>Вертикаль</label>
+          <select id="a20-vertical">
+            <option value="nutra">Nutra</option><option value="betting">Betting</option>
+          </select>
+          <label>GEO</label>
+          <select id="a20-geo">
+            <option value="US">US</option><option value="BR">BR</option>
+            <option value="MX">MX</option><option value="DE">DE</option><option value="PL">PL</option>
+          </select>
+          <button class="run-btn" onclick="runAgent('trend_scraper',{url:v('a20-url'),vertical:v('a20-vertical'),geo:v('a20-geo')},'a20-result')">▶ Запустить</button>
+        </div>
+        <div class="agent-result" id="a20-result"></div>
+      </div>
+
+      <!-- A22 ads_auditor -->
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-id">A22</span>
+          <span class="agent-name">ads_auditor</span>
+        </div>
+        <div class="agent-desc">Аудит аккаунта по 250+ проверкам. Возвращает Health Score 0–100 и quick wins</div>
+        <div class="agent-form">
+          <label>Платформа</label>
+          <select id="a22-platform">
+            <option value="tiktok">TikTok</option>
+            <option value="meta">Meta (FB/IG)</option>
+            <option value="youtube">YouTube</option>
+          </select>
+          <label>Вертикаль</label>
+          <select id="a22-vertical">
+            <option value="nutra">Nutra</option><option value="betting">Betting</option>
+          </select>
+          <label>GEO</label>
+          <select id="a22-geo">
+            <option value="US">US</option><option value="BR">BR</option>
+            <option value="MX">MX</option><option value="DE">DE</option><option value="PL">PL</option>
+          </select>
+          <button class="run-btn" onclick="runAgent('ads_auditor',{platform:v('a22-platform'),vertical:v('a22-vertical'),geo:v('a22-geo'),account_data:{}},'a22-result')">▶ Запустить аудит</button>
+        </div>
+        <div class="agent-result" id="a22-result"></div>
+      </div>
+
+      <!-- A23 youtube_creator -->
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-id">A23</span>
+          <span class="agent-name">youtube_creator</span>
+        </div>
+        <div class="agent-desc">Retention-инжиниринг: сценарии Shorts/Long-form, хуки, metadata, thumbnail, calendar</div>
+        <div class="agent-form">
+          <label>Формат</label>
+          <select id="a23-format">
+            <option value="shorts">Shorts (15–60 сек)</option>
+            <option value="long_form">Long-form (8–15 мин)</option>
+            <option value="hook">5 вариантов хука</option>
+            <option value="metadata">SEO metadata</option>
+            <option value="thumbnail">Thumbnail A/B</option>
+            <option value="ideate">10 идей видео</option>
+            <option value="calendar">Месячный календарь</option>
+            <option value="repurpose">Repurpose → TikTok/IG</option>
+          </select>
+          <label>Тема / оффер</label>
+          <input type="text" id="a23-topic" placeholder="Похудение за 30 дней / 1win депозит…">
+          <label>Вертикаль</label>
+          <select id="a23-vertical">
+            <option value="nutra">Nutra</option><option value="betting">Betting</option>
+          </select>
+          <label>GEO</label>
+          <select id="a23-geo">
+            <option value="US">US</option><option value="BR">BR</option>
+            <option value="MX">MX</option><option value="DE">DE</option><option value="PL">PL</option>
+          </select>
+          <button class="run-btn" onclick="runAgent('youtube_creator',{format:v('a23-format'),topic:v('a23-topic'),vertical:v('a23-vertical'),geo:v('a23-geo')},'a23-result')">▶ Создать</button>
+        </div>
+        <div class="agent-result" id="a23-result"></div>
+      </div>
+
+      <!-- A24 obsidian_brain -->
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-id">A24</span>
+          <span class="agent-name">obsidian_brain</span>
+        </div>
+        <div class="agent-desc">Запрос к базе знаний, добавление источника или health check Obsidian Vault</div>
+        <div class="agent-form">
+          <label>Действие</label>
+          <select id="a24-action" onchange="toggleA24()">
+            <option value="query">Задать вопрос базе знаний</option>
+            <option value="ingest">Добавить источник в базу</option>
+            <option value="health">Health check vault</option>
+          </select>
+          <div id="a24-query-block">
+            <label>Вопрос</label>
+            <input type="text" id="a24-question" placeholder="Что мы знаем о прогреве TikTok аккаунтов?">
+          </div>
+          <div id="a24-ingest-block" style="display:none;">
+            <label>Текст источника</label>
+            <textarea id="a24-text" placeholder="Вставь статью, пост, исследование…" style="min-height:80px;"></textarea>
+            <label>Название источника</label>
+            <input type="text" id="a24-source" placeholder="competitor-analysis-june">
+          </div>
+          <button class="run-btn" onclick="runA24()">▶ Запустить</button>
+        </div>
+        <div class="agent-result" id="a24-result"></div>
+      </div>
+
+    </div>
+  `;
+}
+
+function toggleA24(){
+  const action = document.getElementById("a24-action").value;
+  document.getElementById("a24-query-block").style.display = action === "query" ? "" : "none";
+  document.getElementById("a24-ingest-block").style.display = action === "ingest" ? "" : "none";
+}
+
+function runA24(){
+  const action = document.getElementById("a24-action").value;
+  const params = {action};
+  if(action === "query")  { params.question = v("a24-question"); }
+  if(action === "ingest") { params.text = v("a24-text"); params.source_name = v("a24-source") || "dashboard"; }
+  runAgent("obsidian_brain", params, "a24-result");
+}
+
+function v(id){ const el = document.getElementById(id); return el ? el.value : ""; }
+
+async function runAgent(agent, params, resultId){
+  const btn = event.target;
+  const resultEl = document.getElementById(resultId);
+  btn.disabled = true;
+  btn.textContent = "Работает…";
+  resultEl.className = "agent-result visible";
+  resultEl.textContent = "Запрос к агенту…";
+
+  try{
+    const res = await fetchWithTimeout(`${AGENTS_SERVER}/agents/run`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({agent, params}),
+    }, 120000);
+    const data = await res.json();
+
+    if(data.error){
+      resultEl.textContent = "Ошибка: " + data.error;
+    } else if(agent === "content_creator" || agent === "text_humanizer"){
+      const score = data.score ?? "—";
+      const passed = data.passed;
+      const scoreColor = passed ? "#4ade80" : "#f87171";
+      resultEl.innerHTML = `<div style="margin-bottom:8px;font-size:11px;color:var(--faint)">
+        Оценка: <b style="color:${scoreColor}">${score}/50</b> · ${passed ? "✅ Прошёл" : "❌ Нужна доработка"}
+        <div class="score-bar"><div class="score-fill" style="width:${Math.min(100,(score/50)*100)}%;background:${scoreColor}"></div></div>
+      </div>${esc(data.result || JSON.stringify(data))}`;
+    } else if(agent === "ads_auditor"){
+      const score = data.health_score ?? "—";
+      const grade = data.grade ?? "—";
+      const gradeColor = {A:"+":"#4ade80",A:"#4ade80",B:"#6366f1",C:"#f59e0b",D:"#f87171",F:"#f87171"}[grade] || "#94a3b8";
+      resultEl.innerHTML = `<div style="margin-bottom:10px;">
+        Health Score: <b style="font-size:20px;color:${gradeColor}">${score}/100</b> · Grade: <b style="color:${gradeColor}">${grade}</b>
+      </div>
+      <b style="color:var(--red)">Критические проблемы:</b><br>${(data.critical_issues||[]).map(i=>`• ${esc(i)}`).join("<br>") || "нет"}
+      <br><br><b style="color:var(--green)">Quick wins:</b><br>${(data.quick_wins||[]).map(i=>`• ${esc(i)}`).join("<br>") || "нет"}`;
+    } else if(agent === "obsidian_brain" && params.action === "query"){
+      const conf = data.confidence ?? "—";
+      resultEl.innerHTML = `<div style="margin-bottom:6px;font-size:11px;color:var(--faint)">Уверенность: <b>${conf}</b> · Источники: ${(data.sources||[]).join(", ") || "нет"}</div>${esc(data.answer||"")}`;
+    } else {
+      resultEl.textContent = JSON.stringify(data, null, 2);
+    }
+  }catch(e){
+    resultEl.textContent = "⚠️ Ошибка соединения: " + e.message;
+  }
+
+  btn.disabled = false;
+  btn.textContent = "▶ Запустить";
+}
+
+/* ============================================================
    INIT
    ============================================================ */
 async function loadAll(){
@@ -627,6 +944,7 @@ async function loadAll(){
   renderPipeline();
   if (!CURRENT_PROJECT) { renderClients(); }
   renderAgents();
+  renderLaunch();
   await renderAnalytics();
   renderInfra();
   renderKnowledge();

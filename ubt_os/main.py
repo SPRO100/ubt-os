@@ -90,6 +90,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/obsidian/write":        self._run_obsidian_write,
             "/obsidian/append":       self._run_obsidian_append,
             "/orchestrator/chat":     self._run_orchestrator_chat,
+            "/agents/run":            self._run_agent,
         }
 
         handler = routes.get(self.path)
@@ -233,12 +234,27 @@ class WebhookHandler(BaseHTTPRequestHandler):
             .execute()
         ).data
 
+        agent_catalog = (
+            "\n\nДОСТУПНЫЕ АГЕНТЫ (предлагай когда они помогут задаче):\n"
+            "- A19 text_humanizer: очистка текста от AI-маркеров и шаблонности\n"
+            "- A20 trend_scraper: анализ трендов и конкурентов по URL или вертикали\n"
+            "- A21 content_creator: генерация before/after, хуков, UGC по Brand Voice\n"
+            "- A22 ads_auditor: аудит TikTok/Meta/YouTube аккаунтов, Health Score 0–100\n"
+            "- A23 youtube_creator: сценарии Shorts/Long-form, хуки, metadata, thumbnail\n"
+            "- A24 obsidian_brain: запрос или добавление знаний в Obsidian Vault\n\n"
+            "Если задача пользователя явно подходит для одного из агентов — добавь в КОНЕЦ ответа строку:\n"
+            "[AGENT_SUGGEST: agent_id|Что именно агент сделает для этой задачи]\n"
+            "Пример: [AGENT_SUGGEST: content_creator|Создать 3 варианта hook для нутра GEO US]\n"
+            "Добавляй не более 2 предложений. Если агент не нужен — ничего не добавляй."
+        )
+
         system_prompt = (
             f"Ты — ORCHESTRATOR проекта «{project['name']}» в системе UBT OS.\n"
             f"Конфигурация проекта: {project['config_yaml']}\n\n"
             f"Последние записи базы знаний этого проекта:\n"
             + ("\n".join(f"- [{k['type']}] {k['content'][:200]}" for k in knowledge) if knowledge else "пока нет записей")
             + "\n\nОтвечай по-русски, кратко и по делу, в контексте именно этого проекта."
+            + agent_catalog
         )
 
         messages = [{"role": h["role"], "content": h["content"]} for h in history]
@@ -251,12 +267,105 @@ class WebhookHandler(BaseHTTPRequestHandler):
             system=system_prompt,
             messages=messages,
         )
-        reply = resp.content[0].text
+        raw_reply = resp.content[0].text
+
+        # Extract [AGENT_SUGGEST: agent_id|description] markers from reply
+        import re as _re
+        suggestions = []
+        def _extract_suggestions(text):
+            for m in _re.finditer(r"\[AGENT_SUGGEST:\s*([^\|]+)\|([^\]]+)\]", text):
+                suggestions.append({"agent": m.group(1).strip(), "description": m.group(2).strip()})
+            return _re.sub(r"\[AGENT_SUGGEST:[^\]]+\]", "", text).strip()
+
+        reply = _extract_suggestions(raw_reply)
 
         db.table("chat_messages").insert({"vertical_id": vertical_id, "role": "user", "content": message}).execute()
         db.table("chat_messages").insert({"vertical_id": vertical_id, "role": "assistant", "content": reply}).execute()
 
-        return {"reply": reply, "vertical_id": vertical_id}
+        return {"reply": reply, "vertical_id": vertical_id, "agent_suggestions": suggestions}
+
+    async def _run_agent(self, body: dict):
+        """POST /agents/run — запуск A19–A24 напрямую из браузера."""
+        agent  = body.get("agent", "")
+        params = body.get("params", {})
+
+        try:
+            if agent == "content_creator":
+                from ubt_os.agents import ContentCreator, ContentFormat
+                creator = ContentCreator()
+                fmt     = ContentFormat(params.get("format", "hook_problem"))
+                result  = await creator.create(
+                    fmt,
+                    params.get("vertical", "nutra"),
+                    params.get("geo", "US"),
+                    params.get("offer", ""),
+                )
+                return {"result": result.humanized_text, "score": result.score, "passed": result.passed_quality}
+
+            elif agent == "text_humanizer":
+                from ubt_os.agents import TextHumanizer
+                h      = TextHumanizer()
+                result = await h.humanize(
+                    params.get("text", ""),
+                    params.get("geo", "US"),
+                    params.get("vertical", "nutra"),
+                )
+                return {"result": result.humanized_text, "score": result.total_score, "passed": result.passed}
+
+            elif agent == "trend_scraper":
+                from ubt_os.agents import TrendScraper
+                scraper = TrendScraper()
+                if params.get("url"):
+                    r = await scraper.analyze_url(params["url"])
+                else:
+                    r = await scraper.find_trends(params.get("vertical", "nutra"), params.get("geo", "US"))
+                return {"hooks": r.hooks, "pains": r.pains, "action_items": r.action_items, "trend_score": r.trend_score}
+
+            elif agent == "ads_auditor":
+                from ubt_os.agents import AdsAuditor
+                auditor = AdsAuditor()
+                result  = await auditor.audit(
+                    params.get("platform", "tiktok"),
+                    params.get("vertical", "nutra"),
+                    params.get("account_data", {}),
+                    params.get("geo", "US"),
+                )
+                return {"health_score": result.health_score, "grade": result.grade,
+                        "critical_issues": result.critical_issues, "quick_wins": result.quick_wins}
+
+            elif agent == "youtube_creator":
+                from ubt_os.agents import YoutubeCreator, YTFormat
+                creator = YoutubeCreator()
+                fmt     = YTFormat(params.get("format", "shorts"))
+                result  = await creator.create(
+                    fmt,
+                    params.get("vertical", "nutra"),
+                    params.get("geo", "US"),
+                    params.get("topic", ""),
+                    params.get("offer", ""),
+                )
+                return {"content": result.content}
+
+            elif agent == "obsidian_brain":
+                from ubt_os.agents import ObsidianBrain
+                brain  = ObsidianBrain()
+                action = params.get("action", "query")
+                if action == "ingest":
+                    r = await brain.ingest(params.get("text", ""), params.get("source_name", "dashboard"))
+                    return {"pages_created": r.pages_created, "filenames": r.filenames, "summary": r.summary}
+                elif action == "health":
+                    r = await brain.health_check()
+                    return {"health_score": r.health_score, "dead_links": len(r.dead_links), "action_items": r.action_items}
+                else:
+                    r = await brain.query(params.get("question", ""))
+                    return {"answer": r.answer, "sources": r.sources, "confidence": r.confidence}
+
+            else:
+                return {"error": f"Неизвестный агент: {agent}"}
+
+        except Exception as exc:
+            logger.exception("agents/run: agent=%s error=%s", agent, exc)
+            return {"error": str(exc)}
 
     async def _run_report(self, body: dict):
         from ubt_os.core import pipeline_lock
