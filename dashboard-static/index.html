@@ -180,7 +180,7 @@ const TITLES = {
   content:["Производство","Архитектура пайплайна контента · что реально работает помечено LIVE"],
   pipeline:["Пайплайн (n8n)","6 воркфлоу реально развёрнуты и опубликованы на сервере"],
   clients:["Клиенты","White-label агентская модель, CPA-only оплата"],
-  agents:["Агенты","10 агентов реально существуют как код · остальное — план"],
+  agents:["Агенты","13 агентов реально существуют как код · A12–A24"],
   analytics:["Аналитика","Реальная выручка $0 · условия партнёрок — справка, аккаунты не подключены"],
   infra:["Инфраструктура","FirstVDS Амстердам — реально развёрнут и работает"],
   knowledge:["База знаний","Obsidian Vault, синхронизация через n8n каждый час"],
@@ -460,7 +460,7 @@ function renderAgents(){
     </div>
 
     <div class="card">
-      <div class="card-head"><span class="title">Новые агенты — контент-пайплайн</span><span class="right">${refTag()} добавлены 29 июня · 3 агента</span></div>
+      <div class="card-head"><span class="title">Контент-пайплайн (A19–A21)</span><span class="right">${refTag()} добавлены 29 июня</span></div>
       <table><tr><th>ID</th><th>Файл</th><th>Роль</th><th>Требует</th></tr>
         <tr>
           <td class="mono" style="color:var(--faint)">A21</td>
@@ -471,7 +471,7 @@ function renderAgents(){
         <tr>
           <td class="mono" style="color:var(--faint)">A19</td>
           <td class="primary mono">text_humanizer.py</td>
-          <td>Убирает AI-маркеры из текста перед Blotato. Оценка 0–50 по 5 параметрам.</td>
+          <td>Stop-Slop фильтр перед Blotato. Оценка 0–50 по 5 параметрам.</td>
           <td><span class="chip" style="color:var(--amber);background:rgba(245,158,11,.1)">ANTHROPIC_API_KEY</span></td>
         </tr>
         <tr>
@@ -479,6 +479,30 @@ function renderAgents(){
           <td class="primary mono">trend_scraper.py</td>
           <td>Мониторинг конкурентов через Firecrawl. Хуки и тренды → strategy_engine</td>
           <td><span class="chip" style="color:var(--amber);background:rgba(245,158,11,.1)">FIRECRAWL_API_KEY</span></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="title">Новые агенты (A22–A24)</span><span class="right">${refTag()} добавлены 29 июня</span></div>
+      <table><tr><th>ID</th><th>Файл</th><th>Роль</th><th>Основан на</th></tr>
+        <tr>
+          <td class="mono" style="color:var(--faint)">A22</td>
+          <td class="primary mono">ads_auditor.py</td>
+          <td>Аудит TikTok/Meta/YouTube аккаунтов. 250+ проверок. Health Score 0–100.</td>
+          <td><span class="chip" style="color:var(--pink);background:rgba(244,114,182,.1)">claude-ads ⭐6.6k</span></td>
+        </tr>
+        <tr>
+          <td class="mono" style="color:var(--faint)">A23</td>
+          <td class="primary mono">youtube_creator.py</td>
+          <td>YouTube Shorts + Long-form. Retention-инжиниринг, хуки, metadata, calendar.</td>
+          <td><span class="chip" style="color:var(--pink);background:rgba(244,114,182,.1)">claude-youtube ⭐218</span></td>
+        </tr>
+        <tr>
+          <td class="mono" style="color:var(--faint)">A24</td>
+          <td class="primary mono">obsidian_brain.py</td>
+          <td>Self-organizing AI мозг. Ingestion → 8–15 wiki-страниц. Hot cache. Health check.</td>
+          <td><span class="chip" style="color:var(--pink);background:rgba(244,114,182,.1)">claude-obsidian ⭐8.2k</span></td>
         </tr>
       </table>
     </div>
