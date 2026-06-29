@@ -88,33 +88,12 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     environment:
-      ANTHROPIC_API_KEY:    ${ANTHROPIC_API_KEY}
-      SUPABASE_URL:         ${SUPABASE_URL}
-      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
-      REDIS_URL:            redis://:${REDIS_PASSWORD}@redis:6379
-      LITELLM_BASE_URL:     http://litellm:4000
-      LITELLM_MASTER_KEY:   ${LITELLM_MASTER_KEY}
-      LITELLM_DAILY_BUDGET: ${LITELLM_DAILY_BUDGET:-20.0}
-      HIGGSFIELD_API_KEY:   ${HIGGSFIELD_API_KEY}
-      ELEVENLABS_API_KEY:   ${ELEVENLABS_API_KEY}
-      BLOTATO_API_KEY:      ${BLOTATO_API_KEY}
-      KEITARO_DOMAIN:       ${KEITARO_DOMAIN}
-      KEITARO_API_KEY:      ${KEITARO_API_KEY}
-      TELEGRAM_ALERT_BOT_TOKEN: ${TELEGRAM_ALERT_BOT_TOKEN}
-      TELEGRAM_ALERT_CHAT_ID:   ${TELEGRAM_ALERT_CHAT_ID}
-      TELEGRAM_API_ID:      ${TELEGRAM_API_ID}
-      TELEGRAM_API_HASH:    ${TELEGRAM_API_HASH}
-      OBSIDIAN_VAULT_PATH:  /app/obsidian-vault
-      OBSIDIAN_REMOTE_URL:  ${OBSIDIAN_REMOTE_URL}
-      N8N_WEBHOOK_URL:      ${N8N_WEBHOOK_URL}
+      OBSIDIAN_VAULT_PATH: /app/obsidian-vault
     volumes:
       - obsidian_vault:/app/obsidian-vault
-    depends_on:
-      redis:
-        condition: service_healthy
-      litellm:
-        condition: service_healthy
 
   # ── HIGGSFIELD WORKER (отдельный сервис) ─────────────────
   higgsfield_worker:
@@ -123,16 +102,8 @@ services:
       dockerfile: deploy/Dockerfile
     restart: unless-stopped
     command: ["python", "-m", "ubt_os.pipelines.higgsfield_worker"]
-    environment:
-      REDIS_URL:            redis://:${REDIS_PASSWORD}@redis:6379
-      HIGGSFIELD_API_KEY:   ${HIGGSFIELD_API_KEY}
-      SUPABASE_URL:         ${SUPABASE_URL}
-      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
-      TELEGRAM_ALERT_BOT_TOKEN: ${TELEGRAM_ALERT_BOT_TOKEN}
-      TELEGRAM_ALERT_CHAT_ID:   ${TELEGRAM_ALERT_CHAT_ID}
-    depends_on:
-      redis:
-        condition: service_healthy
+    env_file:
+      - .env
 
   # ── OBSIDIAN SYNC (hourly cron) ───────────────────────────
   obsidian_sync:
