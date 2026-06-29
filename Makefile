@@ -27,25 +27,27 @@ setup:
 
 # ── БАЗА ДАННЫХ ──────────────────────────────────────────────
 db-init:
-	@echo "🗄️  Применяем все SQL схемы (FIX #4: было только 01_schema_sot.sql)..."
+	@echo "🗄️  Применяем все SQL схемы..."
 	@if [ -z "$(DATABASE_URL)" ]; then \
 		export $$(cat .env | xargs); \
 	fi
-	@echo "  [1/7] 01_schema_sot.sql"
+	@echo "  [1/8] 01_schema_sot.sql"
 	psql $${DATABASE_URL} -f deploy/01_schema_sot.sql
-	@echo "  [2/7] strategy_schema.sql"
+	@echo "  [2/8] strategy_schema.sql"
 	psql $${DATABASE_URL} -f deploy/strategy_schema.sql
-	@echo "  [3/7] revenue_schema.sql"
+	@echo "  [3/8] revenue_schema.sql"
 	psql $${DATABASE_URL} -f deploy/revenue_schema.sql
-	@echo "  [4/7] risk_schema.sql"
+	@echo "  [4/8] risk_schema.sql"
 	psql $${DATABASE_URL} -f deploy/risk_schema.sql
-	@echo "  [5/7] vertical_schema.sql"
+	@echo "  [5/8] vertical_schema.sql"
 	psql $${DATABASE_URL} -f deploy/vertical_schema.sql
-	@echo "  [6/7] creative_vault_schema.sql"
+	@echo "  [6/8] creative_vault_schema.sql"
 	psql $${DATABASE_URL} -f deploy/creative_vault_schema.sql
-	@echo "  [7/7] recovery_schema.sql"
+	@echo "  [7/8] recovery_schema.sql"
 	psql $${DATABASE_URL} -f deploy/recovery_schema.sql
-	@echo "✅ Все 7 схем применены"
+	@echo "  [8/8] 05_patch_projects_chat.sql  ← chat_messages + vertical_id"
+	psql $${DATABASE_URL} -f deploy/05_patch_projects_chat.sql
+	@echo "✅ Все 8 схем применены"
 
 apply-schema:
 	psql $${DATABASE_URL} -f $(SCHEMA)

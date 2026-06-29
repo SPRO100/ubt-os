@@ -779,20 +779,54 @@ async function openProject(id, projects){
   const platformColors = {tiktok:"#f472b6",youtube:"#f87171",instagram:"#fb923c",telegram:"#60a5fa"};
   const statusColors   = {new:"#94a3b8",warming:"#f59e0b",active:"#4ade80",shadow_banned:"#f87171",hard_banned:"#dc2626",replaced:"#6b7280",paused:"#a78bfa"};
 
+  const configStr = typeof project.config_yaml === 'string'
+    ? project.config_yaml
+    : JSON.stringify(project.config_yaml, null, 2);
+
   document.getElementById("project-workspace").innerHTML = `
-    <div class="card" style="border-left:3px solid var(--indigo);">
-      <div class="card-head">
-        <span class="title">📂 ${esc(project.name)}</span>
-        <span class="right" style="font-size:11px;color:var(--faint);">${esc(project.category||'')}</span>
+    <!-- ШАПКА ПРОЕКТА -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+      <div>
+        <div style="font-size:18px;font-weight:700;color:var(--text);">📂 ${esc(project.name)}</div>
+        <div style="font-size:12px;color:var(--faint);margin-top:2px;">${esc(project.category||'')} · ${projAccounts.length} аккаунтов · ${knowledge.length} записей знаний</div>
       </div>
-      <div class="note-box mono" style="font-size:11px;white-space:pre-wrap;max-height:120px;overflow-y:auto;">${esc(typeof project.config_yaml==='string' ? project.config_yaml : JSON.stringify(project.config_yaml,null,2))}</div>
+      <button onclick="document.getElementById('proj-config').style.display=document.getElementById('proj-config').style.display==='none'?'block':'none'"
+        style="font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;color:var(--faint);cursor:pointer;">
+        ⚙️ Конфигурация
+      </button>
+    </div>
+
+    <!-- КОНФИГ — скрыт по умолчанию -->
+    <div id="proj-config" style="display:none;" class="card">
+      <div class="note-box mono" style="font-size:11px;white-space:pre-wrap;max-height:200px;overflow-y:auto;">${esc(configStr)}</div>
+    </div>
+
+    <!-- ЧАТ С ОРКЕСТРАТОРОМ — первым -->
+    <div class="card">
+      <div class="card-head">
+        <span class="title">💬 Оркестратор</span>
+        <span class="right" style="font-size:11px;color:var(--green);">● онлайн</span>
+      </div>
+      <div id="chat-log" style="min-height:120px;max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+        ${history.length
+          ? history.map(renderChatMsg).join("")
+          : `<div style="color:var(--faint);font-size:12px;text-align:center;padding:30px 10px;">
+               Оркестратор знает конфигурацию этого проекта и его историю.<br>Задай любой вопрос.
+             </div>`}
+      </div>
+      <div style="display:flex;gap:8px;">
+        <textarea id="chat-input" rows="2" placeholder="Спроси оркестратора…"
+          style="flex:1;background:var(--void);border:1px solid var(--borderLight);border-radius:8px;color:var(--text);padding:10px;font-family:inherit;font-size:13px;resize:none;line-height:1.4;"></textarea>
+        <button id="chat-send" onclick="sendChatMessage()"
+          style="background:var(--indigo);color:#fff;border:none;border-radius:8px;padding:0 20px;font-size:13px;cursor:pointer;white-space:nowrap;font-weight:600;">↑</button>
+      </div>
     </div>
 
     <!-- АККАУНТЫ ПРОЕКТА -->
     <div class="card">
       <div class="card-head">
-        <span class="title">Аккаунты проекта ${liveTag()}</span>
-        <span class="right">${projAccounts.length} аккаунтов</span>
+        <span class="title">Аккаунты ${liveTag()}</span>
+        <span class="right">${projAccounts.length}</span>
       </div>
       ${projAccounts.length ? `
         <table>
@@ -806,10 +840,10 @@ async function openProject(id, projects){
           </tr>`).join('')}
         </table>
       ` : `
-        <div class="note-box">
-          Нет аккаунтов для этого проекта.
-          <button onclick="accTab('add');document.getElementById('tab-add').click()"
-            style="margin-left:10px;background:var(--indigo);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <span class="note-box" style="margin:0;">Нет аккаунтов для этого проекта</span>
+          <button onclick="document.querySelector('[data-id=accounts]').click()"
+            style="background:var(--indigo);color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;cursor:pointer;">
             + Добавить аккаунт
           </button>
         </div>
@@ -817,34 +851,17 @@ async function openProject(id, projects){
     </div>
 
     <!-- БАЗА ЗНАНИЙ -->
+    ${knowledge.length ? `
     <div class="card">
-      <div class="card-head"><span class="title">База знаний проекта ${liveTag()}</span><span class="right">${knowledge.length} записей</span></div>
-      ${knowledge.length
-        ? `<table><tr><th>Тип</th><th>Содержание</th><th>Дата</th></tr>${knowledge.map(k=>
-            `<tr><td style="font-size:11px;color:var(--muted);">${esc(k.type)}</td>
-             <td style="font-size:12px;">${esc((k.content||"").slice(0,120))}…</td>
-             <td class="mono" style="font-size:11px;">${esc((k.created_at||"").slice(0,10))}</td></tr>`
-          ).join("")}</table>`
-        : `<div class="note-box">Пока нет записей знаний для этого проекта.</div>`}
-    </div>
-
-    <!-- ЧАТ С ОРКЕСТРАТОРОМ -->
-    <div class="card">
-      <div class="card-head"><span class="title">💬 Чат с оркестратором</span><span class="right">${liveTag()} /orchestrator/chat</span></div>
-      <div id="chat-log" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
-        ${history.length
-          ? history.map(renderChatMsg).join("")
-          : `<div style="color:var(--faint);font-size:12px;text-align:center;padding:20px;">
-               Начните диалог с оркестратором — он знает конфигурацию и историю этого проекта.
-             </div>`}
-      </div>
-      <div style="display:flex;gap:8px;">
-        <textarea id="chat-input" rows="2" placeholder="Спроси оркестратора об этом проекте…"
-          style="flex:1;background:var(--void);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-family:inherit;font-size:13px;resize:vertical;"></textarea>
-        <button id="chat-send" onclick="sendChatMessage()"
-          style="background:var(--indigo);color:#fff;border:none;border-radius:8px;padding:0 18px;font-size:13px;cursor:pointer;white-space:nowrap;">Отправить</button>
-      </div>
-    </div>
+      <div class="card-head"><span class="title">База знаний ${liveTag()}</span><span class="right">${knowledge.length}</span></div>
+      <table><tr><th>Тип</th><th>Содержание</th><th>Дата</th></tr>
+        ${knowledge.map(k=>`<tr>
+          <td style="font-size:11px;color:var(--faint);">${esc(k.type)}</td>
+          <td style="font-size:12px;">${esc((k.content||'').slice(0,100))}…</td>
+          <td class="mono" style="font-size:11px;">${esc((k.created_at||'').slice(0,10))}</td>
+        </tr>`).join('')}
+      </table>
+    </div>` : ''}
   `;
   const log = document.getElementById("chat-log");
   if(log) log.scrollTop = log.scrollHeight;
