@@ -192,25 +192,45 @@ document.getElementById("nav").innerHTML = NAV.map(n =>
   </button>`
 ).join("");
 
+const _cache = {};
+const CACHE_TTL = 60000;
+const RENDER_FNS = {
+  dashboard: renderDashboard,
+  accounts:  renderAccounts,
+  content:   renderContent,
+  pipeline:  renderPipeline,
+  clients:   renderClients,
+  agents:    renderAgents,
+  analytics: renderAnalytics,
+  infra:     renderInfra,
+  knowledge: renderKnowledge,
+};
+async function activateSection(id){
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+  document.querySelector(`.nav-btn[data-id="${id}"]`)?.classList.add("active");
+  document.getElementById("sec-"+id)?.classList.add("active");
+  document.getElementById("page-title").textContent = TITLES[id]?.[0] || "";
+  document.getElementById("page-desc").textContent  = TITLES[id]?.[1] || "";
+  const now = Date.now();
+  if(!_cache[id] || now - _cache[id] > CACHE_TTL){
+    _cache[id] = now;
+    const fn = RENDER_FNS[id];
+    if(fn) await fn();
+  }
+}
 document.querySelectorAll(".nav-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
-    document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
-    btn.classList.add("active");
-    document.getElementById("sec-"+btn.dataset.id).classList.add("active");
-    document.getElementById("page-title").textContent = TITLES[btn.dataset.id][0];
-    document.getElementById("page-desc").textContent = TITLES[btn.dataset.id][1];
-  });
+  btn.addEventListener("click", () => activateSection(btn.dataset.id));
 });
 
 /* ============================================================
    DASHBOARD — живой статус
    ============================================================ */
 async function renderDashboard(){
-  const health = await checkHealth();
-  const [accounts, videos, revenueEvents, knowledgeCount, strategyCount, riskCount] = await Promise.all([
+  const [health, accounts, videos, revenueEvents, knowledgeCount] = await Promise.all([
+    checkHealth(),
     countOf("accounts"), countOf("videos"), countOf("revenue_events"),
-    countOf("knowledge_entries"), countOf("strategy_briefs"), countOf("account_risk_profiles"),
+    countOf("knowledge_entries"),
   ]);
 
   const supaOk = health && health.supabase === "ok";
@@ -1286,9 +1306,114 @@ async function openProject(id, projects){
         </tr>`).join('')}
       </table>
     </div>` : ''}
+
+    <!-- КАЛЕНДАРЬ ПУБЛИКАЦИЙ -->
+    <div class="card" id="pub-calendar-card">
+      <div class="card-head">
+        <span class="title">📅 Календарь публикаций</span>
+        <div style="display:flex;gap:8px;">
+          <button onclick="suggestSchedule()" id="suggest-btn"
+            style="background:var(--indigo);color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:inherit;">
+            🤖 Предложить расписание
+          </button>
+          <button onclick="showAddPubForm()"
+            style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit;">
+            + Добавить
+          </button>
+        </div>
+      </div>
+
+      <!-- Мини-календарь -->
+      <div id="mini-cal" style="margin-bottom:14px;"></div>
+
+      <!-- Форма добавления публикации (скрыта) -->
+      <div id="add-pub-form" style="display:none;border-top:1px solid var(--border);padding-top:14px;margin-bottom:14px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">ПЛАТФОРМА</label>
+            <select id="pub-platform" style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:8px;font-size:12px;font-family:inherit;">
+              <option value="instagram">Instagram</option>
+              <option value="tiktok">TikTok</option>
+              <option value="telegram">Telegram</option>
+              <option value="youtube">YouTube</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">ДАТА И ВРЕМЯ</label>
+            <input type="datetime-local" id="pub-time" style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:8px;font-size:12px;font-family:inherit;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">ТИП КОНТЕНТА</label>
+            <select id="pub-type" style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:8px;font-size:12px;font-family:inherit;">
+              <option value="reel">Reels / Short</option>
+              <option value="story">Story</option>
+              <option value="post">Post</option>
+              <option value="channel_post">Telegram пост</option>
+            </select>
+          </div>
+        </div>
+        <textarea id="pub-note" rows="2" placeholder="Заметка или идея контента…"
+          style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:8px;font-size:12px;font-family:inherit;resize:none;box-sizing:border-box;"></textarea>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+          <button onclick="savePubSlot()"
+            style="background:var(--indigo);color:#fff;border:none;border-radius:6px;padding:7px 18px;font-size:12px;cursor:pointer;font-family:inherit;">
+            Сохранить
+          </button>
+          <span id="pub-save-result" style="font-size:12px;color:var(--muted);"></span>
+        </div>
+      </div>
+
+      <!-- Очередь -->
+      <div id="pub-queue" style="display:flex;flex-direction:column;gap:6px;"></div>
+      <div id="pub-empty" style="display:none;" class="note-box">Публикации не запланированы. Добавьте вручную или попросите агента предложить расписание.</div>
+    </div>
+
+    <!-- ГЕНЕРАТОР ОПИСАНИЙ ВИДЕО -->
+    <div class="card">
+      <div class="card-head">
+        <span class="title">🎬 Описание для видео</span>
+        <span class="right" style="font-size:11px;">генерация через оркестратора</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">ТЕМА / КЛЮЧЕВЫЕ СЛОВА</label>
+          <input id="vd-topic" type="text" placeholder="похудение за 30 дней, keto диета"
+            style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 10px;font-size:13px;font-family:inherit;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">ПЛАТФОРМА</label>
+          <select id="vd-platform" style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 10px;font-size:13px;font-family:inherit;">
+            <option value="tiktok">TikTok</option>
+            <option value="instagram">Instagram Reels</option>
+            <option value="youtube">YouTube Shorts</option>
+            <option value="telegram">Telegram</option>
+          </select>
+        </div>
+      </div>
+      <textarea id="vd-context" rows="2" placeholder="Дополнительный контекст: партнёрка, оффер, ЦА…"
+        style="width:100%;background:var(--void);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 10px;font-size:12px;font-family:inherit;resize:none;box-sizing:border-box;margin-bottom:10px;"></textarea>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
+        <button onclick="generateVideoDesc()" id="vd-btn"
+          style="background:linear-gradient(135deg,var(--indigo),#7c3aed);color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:600;">
+          ✨ Сгенерировать описание
+        </button>
+        <span id="vd-status" style="font-size:12px;color:var(--muted);"></span>
+      </div>
+      <div id="vd-result" style="display:none;">
+        <div style="background:var(--void);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:8px;">
+          <div style="font-size:11px;color:var(--faint);margin-bottom:6px;">СГЕНЕРИРОВАННОЕ ОПИСАНИЕ:</div>
+          <div id="vd-text" style="font-size:13px;line-height:1.6;white-space:pre-wrap;color:var(--text);"></div>
+        </div>
+        <button onclick="navigator.clipboard.writeText(document.getElementById('vd-text').textContent).then(()=>{this.textContent='✅ Скопировано!';setTimeout(()=>this.textContent='📋 Копировать',1500)})"
+          style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;color:var(--muted);cursor:pointer;font-family:inherit;">
+          📋 Копировать
+        </button>
+      </div>
+    </div>
   `;
   const log = document.getElementById("chat-log");
   if(log) log.scrollTop = log.scrollHeight;
+  setupCalendar();
 }
 
 function renderChatMsg(m){
@@ -1326,6 +1451,191 @@ async function sendChatMessage(){
   log.scrollTop = log.scrollHeight;
   btn.disabled = false;
   btn.textContent = "Отправить";
+}
+
+/* ============================================================
+   PUBLICATION CALENDAR
+   ============================================================ */
+async function loadPublications(){
+  if(!CURRENT_PROJECT) return [];
+  return fetchRows("publications",
+    `select=id,platform,status,scheduled_at,published_at,created_at&vertical_id=eq.${encodeURIComponent(CURRENT_PROJECT)}&order=scheduled_at.asc&limit=50`
+  );
+}
+
+function renderMiniCalendar(pubs){
+  const cal = document.getElementById("mini-cal");
+  if(!cal) return;
+  const now = new Date();
+  const year = now.getFullYear(), month = now.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const monthNames = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+
+  // собираем занятые дни
+  const busyDays = new Set();
+  (pubs||[]).forEach(p=>{
+    const d = new Date(p.scheduled_at || p.created_at);
+    if(d.getFullYear()===year && d.getMonth()===month) busyDays.add(d.getDate());
+  });
+
+  const dayStart = firstDay === 0 ? 6 : firstDay-1; // Пн первый
+  let cells = "";
+  for(let i=0;i<dayStart;i++) cells += `<div></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const isToday = d===now.getDate();
+    const hasPub  = busyDays.has(d);
+    cells += `<div style="text-align:center;padding:4px 2px;border-radius:5px;font-size:12px;
+      ${isToday?'background:var(--indigo);color:#fff;font-weight:700;':'color:var(--text);'}
+      cursor:${hasPub?'pointer':'default'};position:relative;">
+      ${d}${hasPub?`<div style="width:5px;height:5px;background:#4ade80;border-radius:50%;margin:1px auto 0;"></div>`:'<div style="height:6px;"></div>'}
+    </div>`;
+  }
+
+  cal.innerHTML = `
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;">${monthNames[month]} ${year}</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;">
+      ${['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d=>`<div style="text-align:center;font-size:10px;color:var(--faint);padding:2px;">${d}</div>`).join('')}
+      ${cells}
+    </div>`;
+}
+
+function renderPubQueue(pubs){
+  const queue = document.getElementById("pub-queue");
+  const empty = document.getElementById("pub-empty");
+  if(!queue) return;
+  if(!pubs || !pubs.length){ queue.style.display="none"; if(empty) empty.style.display="block"; return; }
+  if(empty) empty.style.display="none";
+  queue.style.display="flex";
+  const platformColors = {tiktok:"#f472b6",youtube:"#f87171",instagram:"#fb923c",telegram:"#60a5fa"};
+  const statusIcon = {scheduled:"🕐",published:"✅",failed:"❌",draft:"📝"};
+  queue.innerHTML = pubs.map(p=>{
+    const dt = new Date(p.scheduled_at || p.created_at);
+    const dtStr = dt.toLocaleString("ru-RU",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--void);border:1px solid var(--border);border-radius:7px;">
+      <span style="font-size:16px;">${statusIcon[p.status]||'📋'}</span>
+      <span style="color:${platformColors[p.platform]||'var(--muted)'};font-size:12px;font-weight:600;min-width:70px;">${esc(p.platform||'—')}</span>
+      <span style="font-size:12px;color:var(--faint);font-family:'IBM Plex Mono',monospace;">${dtStr}</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--faint);">${esc(p.status||'—')}</span>
+    </div>`;
+  }).join("");
+}
+
+async function initCalendar(){
+  const pubs = await loadPublications();
+  renderMiniCalendar(pubs);
+  renderPubQueue(pubs);
+}
+
+// Вызывается после рендера openProject
+function setupCalendar(){ initCalendar(); }
+
+function showAddPubForm(){
+  const f = document.getElementById("add-pub-form");
+  if(f) f.style.display = f.style.display==="none" ? "block" : "none";
+  // Установим текущую дату+1ч
+  const inp = document.getElementById("pub-time");
+  if(inp && !inp.value){
+    const d = new Date(Date.now()+3600000);
+    inp.value = d.toISOString().slice(0,16);
+  }
+}
+
+async function savePubSlot(){
+  const platform = document.getElementById("pub-platform").value;
+  const time     = document.getElementById("pub-time").value;
+  const type     = document.getElementById("pub-type").value;
+  const note     = document.getElementById("pub-note").value.trim();
+  const res      = document.getElementById("pub-save-result");
+  if(!time){ res.textContent="⚠️ Укажи дату"; res.style.color="var(--amber)"; return; }
+  res.textContent="Сохраняю…"; res.style.color="var(--muted)";
+  try{
+    const db = window._supaDirectInsert;
+    // Прямая вставка через Supabase REST
+    const r = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/publications`,{
+      method:"POST",
+      headers:{...headers, "Content-Type":"application/json", Prefer:"return=representation"},
+      body:JSON.stringify({
+        platform, scheduled_at: new Date(time).toISOString(),
+        status:"scheduled", vertical_id:CURRENT_PROJECT,
+        note: note||null
+      })
+    },15000);
+    if(!r.ok) throw new Error(await r.text());
+    res.textContent="✅ Добавлено!"; res.style.color="var(--green)";
+    document.getElementById("add-pub-form").style.display="none";
+    await initCalendar();
+  }catch(e){ res.textContent="❌ "+e.message; res.style.color="var(--red)"; }
+}
+
+async function suggestSchedule(){
+  const btn = document.getElementById("suggest-btn");
+  if(!btn) return;
+  btn.disabled=true; btn.textContent="🤖 Думаю…";
+  const log = document.getElementById("chat-log");
+  const msg = `Предложи оптимальное расписание публикаций для проекта ${CURRENT_PROJECT} на ближайшую неделю. Учти: пики активности аудитории по платформам (TikTok — утро/вечер, Instagram — обед/вечер, Telegram — вечер), рекомендованная частота 1-2 публикации в день на прогретый аккаунт. Дай конкретные дни и время, объясни почему именно так.`;
+  if(log){
+    log.insertAdjacentHTML("beforeend", `<div style="align-self:flex-end;max-width:80%;background:var(--indigo);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;color:#fff;">📅 Предложи расписание публикаций на неделю</div>`);
+    log.scrollTop = log.scrollHeight;
+  }
+  try{
+    const r = await fetchWithTimeout(`${AGENTS_SERVER}/orchestrator/chat`,{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({vertical_id:CURRENT_PROJECT, message:msg})
+    },120000);
+    const data = await r.json();
+    if(log){
+      log.insertAdjacentHTML("beforeend", renderChatMsg({role:"assistant", content: data.reply || data.error || "Нет ответа"}));
+      log.scrollTop = log.scrollHeight;
+    }
+  }catch(e){
+    if(log) log.insertAdjacentHTML("beforeend", renderChatMsg({role:"assistant", content:"⚠️ "+e.message}));
+  }
+  btn.disabled=false; btn.textContent="🤖 Предложить расписание";
+}
+
+/* ============================================================
+   VIDEO DESCRIPTION GENERATOR
+   ============================================================ */
+async function generateVideoDesc(){
+  const topic    = document.getElementById("vd-topic")?.value.trim();
+  const platform = document.getElementById("vd-platform")?.value;
+  const context  = document.getElementById("vd-context")?.value.trim();
+  const btn      = document.getElementById("vd-btn");
+  const status   = document.getElementById("vd-status");
+  const resultEl = document.getElementById("vd-result");
+  const textEl   = document.getElementById("vd-text");
+
+  if(!topic){ if(status){status.textContent="⚠️ Укажи тему"; status.style.color="var(--amber)";} return; }
+  if(btn)  { btn.disabled=true; btn.textContent="✨ Генерирую…"; }
+  if(status){ status.textContent="Запрос к оркестратору…"; status.style.color="var(--muted)"; }
+  if(resultEl) resultEl.style.display="none";
+
+  const platformGuide = {
+    tiktok:"TikTok (до 150 символов + 5-7 хэштегов, разговорный стиль, крючок в первой строке)",
+    instagram:"Instagram Reels (до 300 символов + 10-15 хэштегов, CTA в конце)",
+    youtube:"YouTube Shorts (до 100 символов, ключевые слова в начале, один хэштег)",
+    telegram:"Telegram (300-600 символов, без хэштегов, акцент на ценность, emoji в меру)",
+  };
+  const prompt = `Сгенерируй описание для видео на платформу ${platformGuide[platform]||platform}.
+Тема: ${topic}.${context?`\nКонтекст: ${context}`:''}
+Проект: ${CURRENT_PROJECT||'общий'}.
+Верни только готовое описание, без пояснений, без кавычек.`;
+
+  try{
+    const r = await fetchWithTimeout(`${AGENTS_SERVER}/orchestrator/chat`,{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({vertical_id:CURRENT_PROJECT||"default", message:prompt})
+    },60000);
+    const data = await r.json();
+    const reply = (data.reply||data.error||"").trim();
+    if(textEl) textEl.textContent = reply;
+    if(resultEl) resultEl.style.display = "block";
+    if(status){ status.textContent=""; }
+  }catch(e){
+    if(status){ status.textContent="❌ "+e.message; status.style.color="var(--red)"; }
+  }
+  if(btn){ btn.disabled=false; btn.textContent="✨ Сгенерировать описание"; }
 }
 
 /* ============================================================
@@ -1392,10 +1702,10 @@ function renderInfra(){
     <div class="card">
       <div class="card-head"><span class="title">Развёрнутые сервисы</span><span class="right">${liveTag()} проверено сегодня</span></div>
       <table><tr><th>Сервис</th><th>Порт</th><th>Тип</th></tr>
+        <tr><td class="primary">nginx (дашборд + API)</td><td class="mono">80</td><td>Docker, restart always</td></tr>
+        <tr><td class="primary">UBT Agents</td><td class="mono">8080</td><td>Docker internal</td></tr>
         <tr><td class="primary">n8n</td><td class="mono">5678</td><td>Docker, restart always</td></tr>
-        <tr><td class="primary">LiteLLM</td><td class="mono">4000</td><td>systemd</td></tr>
-        <tr><td class="primary">UBT Agents</td><td class="mono">8080</td><td>systemd</td></tr>
-        <tr><td class="primary">Dashboard</td><td class="mono">3000</td><td>systemd</td></tr>
+        <tr><td class="primary">LiteLLM</td><td class="mono">4000</td><td>Docker, restart always</td></tr>
       </table>
     </div>
   `;
@@ -1421,18 +1731,28 @@ function renderKnowledge(){
    INIT
    ============================================================ */
 async function loadAll(){
+  // Загружаем только активный раздел при старте
   await renderDashboard();
-  await renderAccounts();
-  await renderContent();
+  // Статические разделы — быстрые, грузим сразу
   renderPipeline();
-  if (!CURRENT_PROJECT) { renderClients(); }
   renderAgents();
-  await renderAnalytics();
   renderInfra();
   renderKnowledge();
 }
+
+function refreshActive(){
+  // Сброс кеша и перерисовка активного раздела
+  const activeBtn = document.querySelector(".nav-btn.active");
+  if(activeBtn){
+    const id = activeBtn.dataset.id;
+    delete _cache[id];
+    const fn = RENDER_FNS[id];
+    if(fn) fn();
+  }
+}
+
 loadAll();
-setInterval(loadAll, 60000);
+setInterval(refreshActive, 60000);
 </script>
 
 </body>
