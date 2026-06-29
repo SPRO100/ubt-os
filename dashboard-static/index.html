@@ -180,7 +180,7 @@ const TITLES = {
   content:["Производство","Архитектура пайплайна контента · что реально работает помечено LIVE"],
   pipeline:["Пайплайн (n8n)","6 воркфлоу реально развёрнуты и опубликованы на сервере"],
   clients:["Клиенты","White-label агентская модель, CPA-only оплата"],
-  agents:["Агенты","7 агентов реально существуют как код · остальное — план"],
+  agents:["Агенты","10 агентов реально существуют как код · остальное — план"],
   analytics:["Аналитика","Реальная выручка $0 · условия партнёрок — справка, аккаунты не подключены"],
   infra:["Инфраструктура","FirstVDS Амстердам — реально развёрнут и работает"],
   knowledge:["База знаний","Obsidian Vault, синхронизация через n8n каждый час"],
@@ -304,12 +304,14 @@ async function renderContent(){
     <div class="card">
       <div class="card-head"><span class="title">Производственный пайплайн</span><span class="right">${refTag()} архитектура</span></div>
       <table><tr><th>Этап</th><th>Инструмент</th><th>Статус</th></tr>
-        <tr><td class="primary">Контент-план</td><td>CONTENT_CREATOR / strategy_engine.py</td><td>${chip("код есть","#4ade80")}</td></tr>
+        <tr><td class="primary">Контент-план</td><td>A21 content_creator.py</td><td>${chip("код есть","#4ade80")}</td></tr>
+        <tr><td class="primary">Очистка AI-маркеров</td><td>A19 text_humanizer.py (Stop-Slop)</td><td>${chip("код есть","#4ade80")}</td></tr>
+        <tr><td class="primary">Тренды / конкуренты</td><td>A20 trend_scraper.py (Firecrawl)</td><td>${chip("нужен API ключ","#f59e0b")}</td></tr>
         <tr><td class="primary">Compliance Gate</td><td>Haiku, 3 уровня анализа</td><td>${chip("не реализован","#f87171")}</td></tr>
-        <tr><td class="primary">Видеогенерация</td><td>Higgsfield MCP</td><td>${chip("API не подключён","#f59e0b")}</td></tr>
+        <tr><td class="primary">Видеогенерация</td><td>Higgsfield MCP + Arcads</td><td>${chip("API не подключён","#f59e0b")}</td></tr>
         <tr><td class="primary">Озвучка</td><td>edge-tts (установлен)</td><td>${chip("готов к использованию","#4ade80")}</td></tr>
         <tr><td class="primary">Keitaro UTM</td><td>трекинг-ссылки</td><td>${chip("не подключён","#f87171")}</td></tr>
-        <tr><td class="primary">Публикация</td><td>TikTokAutoUploader / Blotato</td><td>${chip("не подключён","#f87171")}</td></tr>
+        <tr><td class="primary">Публикация</td><td>Blotato</td><td>${chip("не подключён","#f87171")}</td></tr>
       </table>
     </div>
   `;
@@ -445,17 +447,80 @@ async function sendChatMessage(){
 function renderAgents(){
   document.getElementById("sec-agents").innerHTML = `
     <div class="card">
-      <div class="card-head"><span class="title">Реально существуют как код</span><span class="right">${refTag()} 7 файлов в ubt_os/agents/</span></div>
-      <table><tr><th>Файл</th><th>Роль</th></tr>
-        <tr><td class="primary mono">account_checker.py</td><td>Проверка здоровья аккаунтов</td></tr>
-        <tr><td class="primary mono">knowledge_synthesizer.py</td><td>Синтез знаний через Claude — протестирован, работает</td></tr>
-        <tr><td class="primary mono">strategy_engine.py</td><td>Недельная стратегия — протестирован, работает</td></tr>
-        <tr><td class="primary mono">revenue_analyst.py</td><td>Анализ выручки и атрибуции</td></tr>
-        <tr><td class="primary mono">failure_recovery.py</td><td>DLQ и восстановление после сбоев</td></tr>
-        <tr><td class="primary mono">warming_state_machine.py</td><td>State machine прогрева аккаунтов</td></tr>
-        <tr><td class="primary mono">telegram_jitter.py</td><td>Случайные задержки для Telegram-активности</td></tr>
+      <div class="card-head"><span class="title">Ядро системы</span><span class="right">${refTag()} 7 базовых агентов · ubt_os/agents/</span></div>
+      <table><tr><th>ID</th><th>Файл</th><th>Роль</th><th>Статус</th></tr>
+        <tr><td class="mono" style="color:var(--faint)">A14</td><td class="primary mono">account_checker.py</td><td>Проверка здоровья аккаунтов (ER, прокси, бан)</td><td>${chip("работает","#4ade80")}</td></tr>
+        <tr><td class="mono" style="color:var(--faint)">A18</td><td class="primary mono">knowledge_synthesizer.py</td><td>Синтез знаний через Claude — ежедневно 23:45</td><td>${chip("работает","#4ade80")}</td></tr>
+        <tr><td class="mono" style="color:var(--faint)">A15</td><td class="primary mono">strategy_engine.py</td><td>Недельная стратегия — воскресенье 20:00</td><td>${chip("работает","#4ade80")}</td></tr>
+        <tr><td class="mono" style="color:var(--faint)">A16</td><td class="primary mono">revenue_analyst.py</td><td>Анализ выручки и атрибуции</td><td>${chip("готов","#6366f1")}</td></tr>
+        <tr><td class="mono" style="color:var(--faint)">A17</td><td class="primary mono">failure_recovery.py</td><td>DLQ и восстановление после сбоев</td><td>${chip("готов","#6366f1")}</td></tr>
+        <tr><td class="mono" style="color:var(--faint)">A12</td><td class="primary mono">warming_state_machine.py</td><td>State machine 7-дневного прогрева аккаунтов</td><td>${chip("готов","#6366f1")}</td></tr>
+        <tr><td class="mono" style="color:var(--faint)">A13</td><td class="primary mono">telegram_jitter.py</td><td>Случайные задержки для human-behavior прогрева</td><td>${chip("готов","#6366f1")}</td></tr>
       </table>
     </div>
+
+    <div class="card">
+      <div class="card-head"><span class="title">Новые агенты — контент-пайплайн</span><span class="right">${refTag()} добавлены 29 июня · 3 агента</span></div>
+      <table><tr><th>ID</th><th>Файл</th><th>Роль</th><th>Требует</th></tr>
+        <tr>
+          <td class="mono" style="color:var(--faint)">A21</td>
+          <td class="primary mono">content_creator.py</td>
+          <td>Генерирует before/after, хуки, UGC по Brand Voice для US/BR/MX/DE/PL</td>
+          <td><span class="chip" style="color:var(--amber);background:rgba(245,158,11,.1)">ANTHROPIC_API_KEY</span></td>
+        </tr>
+        <tr>
+          <td class="mono" style="color:var(--faint)">A19</td>
+          <td class="primary mono">text_humanizer.py</td>
+          <td>Убирает AI-маркеры из текста перед Blotato. Оценка 0–50 по 5 параметрам.</td>
+          <td><span class="chip" style="color:var(--amber);background:rgba(245,158,11,.1)">ANTHROPIC_API_KEY</span></td>
+        </tr>
+        <tr>
+          <td class="mono" style="color:var(--faint)">A20</td>
+          <td class="primary mono">trend_scraper.py</td>
+          <td>Мониторинг конкурентов через Firecrawl. Хуки и тренды → strategy_engine</td>
+          <td><span class="chip" style="color:var(--amber);background:rgba(245,158,11,.1)">FIRECRAWL_API_KEY</span></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="title">Контент-пайплайн A21 → A19 → Blotato</span><span class="right">${refTag()} схема работы</span></div>
+      <div style="display:flex;gap:0;align-items:center;flex-wrap:wrap;padding:8px 0;">
+        ${[
+          ["A21 content_creator","Генерация текста","#6366f1"],
+          ["→","","transparent"],
+          ["A19 text_humanizer","Очистка AI-маркеров","#4ade80"],
+          ["→","","transparent"],
+          ["Blotato","Публикация","#f59e0b"],
+          ["→","","transparent"],
+          ["Платформы","TikTok / IG / YT","#94a3b8"],
+        ].map(([name,desc,color]) => name==="→"
+          ? `<div style="color:var(--faint);font-size:18px;padding:0 6px;">→</div>`
+          : `<div style="border:1px solid ${color}33;border-radius:8px;padding:10px 14px;background:${color}0d;min-width:120px;">
+               <div style="font-size:11px;font-weight:600;color:${color};font-family:'IBM Plex Mono',monospace;">${name}</div>
+               <div style="font-size:10px;color:var(--faint);margin-top:3px;">${desc}</div>
+             </div>`
+        ).join("")}
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--faint);">
+        A20 trend_scraper работает параллельно: ежедневно 06:00 → результаты в strategy_engine → обновление trend_windows
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="title">Claude Code Skills (.claude/skills/)</span><span class="right">${refTag()} 8 скиллов для разработки</span></div>
+      <table><tr><th>Команда</th><th>Что делает</th></tr>
+        <tr><td class="primary mono">/stop-slop</td><td>Очистка AI-маркеров, оценка текста 0–50</td></tr>
+        <tr><td class="primary mono">/marketing &lt;формат&gt; &lt;vertical&gt; &lt;geo&gt;</td><td>30+ промптов для betting/nutra контента</td></tr>
+        <tr><td class="primary mono">/brand-voice &lt;vertical&gt; &lt;geo&gt;</td><td>Голос бренда для US/BR/MX/DE/PL</td></tr>
+        <tr><td class="primary mono">/seo-article &lt;тема&gt; &lt;ключ&gt;</td><td>SEO-статья с E-E-A-T, FAQ, мета-тегами</td></tr>
+        <tr><td class="primary mono">/firecrawl-audit &lt;url&gt;</td><td>Аудит контент-стратегии конкурента</td></tr>
+        <tr><td class="primary mono">/arcads &lt;стиль&gt; &lt;скрипт&gt;</td><td>AI видео-реклама (Sora, Veo, Kling)</td></tr>
+        <tr><td class="primary mono">/market-report &lt;vertical&gt; &lt;geo&gt;</td><td>Конкурентный отчёт по рынку</td></tr>
+        <tr><td class="primary mono">/caveman [lite|full|ultra]</td><td>Сжатие ответов Claude на 65–75%</td></tr>
+      </table>
+    </div>
+
     <div class="card">
       <div class="card-head"><span class="title">Запланировано, не реализовано</span><span class="right">${refTag()} NUTRA.AUTO + Telegram-модуль</span></div>
       <div class="note-box">7 агентов NUTRA.AUTO (СТРАТЕГ, СЦЕНАРИСТ, РЕЖИССЁР, ДИКТОР, МОНТАЖЁР, ДИСТРИБЬЮТОР, АНАЛИТИК) и 4 Telegram-агента (T1–T4) существуют только в архитектурном плане — кода для них пока нет.</div>
