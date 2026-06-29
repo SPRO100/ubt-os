@@ -243,7 +243,10 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "- A23 youtube_creator: сценарии Shorts/Long-form, хуки, metadata, thumbnail\n"
             "- A24 obsidian_brain: запрос или добавление знаний в Obsidian Vault\n"
             "- A25 compliance_gate: проверка текста на запрещённые заявления перед публикацией\n"
-            "- A26 blotato_publisher: публикация в TikTok/IG/YouTube через Blotato API\n\n"
+            "- A26 blotato_publisher: публикация в TikTok/IG/YouTube через Blotato API\n"
+            "- A27 spy_analyzer: анализ крипов конкурентов из PiPiAds/AdHeart, паттерны хуков и brief для A21\n"
+            "- A28 warmup_manager: трекер 14-дневного прогрева аккаунтов, GEO-инфраструктура, лимиты активности\n"
+            "- A29 prelanding_generator: генерация HTML прелендингов (quiz/story/article/vsl) для воронки\n\n"
             "Если задача пользователя явно подходит для одного из агентов — добавь в КОНЕЦ ответа строку:\n"
             "[AGENT_SUGGEST: agent_id|Что именно агент сделает для этой задачи]\n"
             "Пример: [AGENT_SUGGEST: content_creator|Создать 3 варианта hook для нутра GEO US]\n"
@@ -399,6 +402,128 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     "compliance_risk": result.compliance_risk,
                     "url": result.url,
                     "error": result.error,
+                }
+
+            elif agent == "spy_analyzer":
+                from ubt_os.agents import SpyAnalyzer
+                analyzer = SpyAnalyzer()
+                creatives = params.get("creatives", [])
+                if isinstance(creatives, str):
+                    creatives = [creatives]
+                action = params.get("action", "analyze")
+                if action == "compare_hooks":
+                    result = await analyzer.compare_hooks(
+                        params.get("hooks", []),
+                        params.get("vertical", "nutra"),
+                        params.get("geo", "US"),
+                    )
+                    return result
+                result = await analyzer.analyze(
+                    creatives,
+                    params.get("vertical", "nutra"),
+                    params.get("geo", "US"),
+                    params.get("platform", "tiktok"),
+                    params.get("focus", "all"),
+                )
+                return {
+                    "hook_patterns": result.hook_patterns,
+                    "content_structures": result.content_structures,
+                    "key_phrases": result.key_phrases,
+                    "forbidden_phrases": result.forbidden_phrases,
+                    "winning_formats": result.winning_formats,
+                    "creative_brief": result.creative_brief,
+                    "a21_prompt_extension": result.a21_prompt_extension,
+                    "creatives_analyzed": result.creatives_analyzed,
+                }
+
+            elif agent == "warmup_manager":
+                from ubt_os.agents import WarmupManager
+                mgr    = WarmupManager()
+                action = params.get("action", "check")
+                account_id = params.get("account_id", "")
+                if action == "register":
+                    result = mgr.register(
+                        account_id,
+                        geo=params.get("geo", "US"),
+                        account_type=params.get("account_type", "new"),
+                        platform=params.get("platform", "tiktok"),
+                        device_type=params.get("device_type", "GLOBAL"),
+                        proxy_type=params.get("proxy_type", "mobile"),
+                        has_local_sim=params.get("has_local_sim", False),
+                        notes=params.get("notes", ""),
+                    )
+                elif action == "list":
+                    return {"accounts": mgr.list_accounts()}
+                elif action == "enable_bio_link":
+                    return mgr.enable_bio_link(account_id)
+                elif action == "reset":
+                    return mgr.reset(account_id)
+                elif action == "validate_infra":
+                    return mgr.validate_infra(
+                        account_id,
+                        params.get("device_type", "GLOBAL"),
+                        params.get("proxy_type", "mobile"),
+                        params.get("has_local_sim", False),
+                        params.get("geo", "US"),
+                    )
+                else:
+                    result = mgr.check(account_id)
+                from dataclasses import asdict
+                return {
+                    "account_id": result.account_id,
+                    "status": result.status,
+                    "current_day": result.current_day,
+                    "total_days": result.total_days,
+                    "progress_pct": result.progress_pct,
+                    "today_limits": result.today_limits,
+                    "content_split": result.content_split,
+                    "bio_link_allowed": result.bio_link_allowed,
+                    "infra_issues": result.infra_issues,
+                    "ready_to_publish": result.ready_to_publish,
+                    "next_action": result.next_action,
+                    "message": result.message,
+                }
+
+            elif agent == "prelanding_generator":
+                from ubt_os.agents import PrelandingGenerator
+                gen    = PrelandingGenerator()
+                action = params.get("action", "generate")
+                if action == "generate_variants":
+                    results = await gen.generate_variants(
+                        params.get("offer_name", "Product"),
+                        params.get("vertical", "nutra"),
+                        params.get("geo", "US"),
+                        params.get("billing_model", "COD"),
+                        params.get("formats", ["story", "native_article"]),
+                    )
+                    return {
+                        "variants": [
+                            {"format": r.format, "language": r.language,
+                             "estimated_cr": r.estimated_cr, "word_count": r.word_count,
+                             "html_content": r.html_content, "funnel_tips": r.funnel_tips}
+                            for r in results
+                        ]
+                    }
+                result = await gen.generate(
+                    params.get("offer_name", "Product"),
+                    params.get("vertical", "nutra"),
+                    params.get("geo", "US"),
+                    params.get("billing_model", "COD"),
+                    params.get("format", "story"),
+                    params.get("language"),
+                    params.get("product_benefits", []),
+                    params.get("target_audience", ""),
+                    params.get("lander_url", "LANDER_URL"),
+                )
+                return {
+                    "offer_name": result.offer_name,
+                    "format": result.format,
+                    "language": result.language,
+                    "estimated_cr": result.estimated_cr,
+                    "word_count": result.word_count,
+                    "html_content": result.html_content,
+                    "compliance_notes": result.compliance_notes,
+                    "funnel_tips": result.funnel_tips,
                 }
 
             else:

@@ -9,6 +9,9 @@ from .youtube_creator       import YoutubeCreator, YTContent, YTFormat
 from .obsidian_brain        import ObsidianBrain, IngestResult, QueryResult, HealthReport
 from .compliance_gate       import ComplianceGate, ComplianceResult, RiskLevel
 from .blotato_publisher     import BlatoPublisher, PublishResult, PublishPlatform
+from .spy_analyzer          import SpyAnalyzer, SpyAnalysisResult
+from .warmup_manager        import WarmupManager, WarmupCheckResult, WarmupStatus
+from .prelanding_generator  import PrelandingGenerator, PrelandingResult
 
 __all__ = [
     # Ядро (A12–A18)
@@ -26,4 +29,8 @@ __all__ = [
     # A25–A26
     "ComplianceGate", "ComplianceResult", "RiskLevel",
     "BlatoPublisher", "PublishResult", "PublishPlatform",
+    # A27–A29
+    "SpyAnalyzer", "SpyAnalysisResult",
+    "WarmupManager", "WarmupCheckResult", "WarmupStatus",
+    "PrelandingGenerator", "PrelandingResult",
 ]

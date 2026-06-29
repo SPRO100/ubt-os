@@ -209,8 +209,8 @@ const TITLES = {
   content:["Производство","Архитектура пайплайна контента · что реально работает помечено LIVE"],
   pipeline:["Пайплайн (n8n)","6 воркфлоу реально развёрнуты и опубликованы на сервере"],
   clients:["Клиенты","White-label агентская модель, CPA-only оплата"],
-  agents:["Агенты","15 агентов реально существуют как код · A12–A26"],
-  launch:["Запуск агентов","Прямой запуск A19–A24 из браузера · результаты сразу в чате"],
+  agents:["Агенты","18 агентов реально существуют как код · A12–A29"],
+  launch:["Запуск агентов","Прямой запуск A19–A29 из браузера · результаты сразу в чате"],
   analytics:["Аналитика","Реальная выручка $0 · условия партнёрок — справка, аккаунты не подключены"],
   infra:["Инфраструктура","FirstVDS Амстердам — реально развёрнут и работает"],
   knowledge:["База знаний","Obsidian Vault, синхронизация через n8n каждый час"],
@@ -634,6 +634,30 @@ function renderAgents(){
     </div>
 
     <div class="card">
+      <div class="card-head"><span class="title">Affiliate Intelligence (A27–A29)</span><span class="right">${liveTag()} добавлены 29 июня</span></div>
+      <table><tr><th>ID</th><th>Файл</th><th>Роль</th><th>Статус</th></tr>
+        <tr>
+          <td class="mono" style="color:var(--faint)">A27</td>
+          <td class="primary mono">spy_analyzer.py</td>
+          <td>Анализ крипов конкурентов (PiPiAds/AdHeart). Извлекает хуки, структуру, фразы. Creative brief для A21.</td>
+          <td>${chip("готов","#4ade80")}</td>
+        </tr>
+        <tr>
+          <td class="mono" style="color:var(--faint)">A28</td>
+          <td class="primary mono">warmup_manager.py</td>
+          <td>14-дневный прогрев аккаунтов. Трекер активности, GEO-инфраструктура, блокировка A26 до готовности.</td>
+          <td>${chip("готов","#4ade80")}</td>
+        </tr>
+        <tr>
+          <td class="mono" style="color:var(--faint)">A29</td>
+          <td class="primary mono">prelanding_generator.py</td>
+          <td>Генерация HTML прелендингов: quiz / native_article / story / vsl. COD/Trial/SS, мультиязычность.</td>
+          <td>${chip("готов","#4ade80")}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="card">
       <div class="card-head"><span class="title">Запланировано, не реализовано</span><span class="right">${refTag()} NUTRA.AUTO + Telegram-модуль</span></div>
       <div class="note-box">7 агентов NUTRA.AUTO (СТРАТЕГ, СЦЕНАРИСТ, РЕЖИССЁР, ДИКТОР, МОНТАЖЁР, ДИСТРИБЬЮТОР, АНАЛИТИК) и 4 Telegram-агента (T1–T4) существуют только в архитектурном плане — кода для них пока нет.</div>
     </div>
@@ -944,6 +968,79 @@ function renderLaunch(){
         <div class="agent-result" id="a26-result"></div>
       </div>
 
+      <!-- A27 spy_analyzer -->
+      <div class="agent-card">
+        <div class="agent-card-head">
+          <span class="agent-id">A27</span>
+          <span class="agent-name">spy_analyzer</span>
+        </div>
+        <div class="agent-desc">Анализ крипов конкурентов (PiPiAds/AdHeart) → паттерны хуков + creative brief для A21</div>
+        <div class="agent-form">
+          <label>Крипы конкурентов</label>
+          <textarea id="a27-creatives" rows="5" placeholder="Описания/транскрипты рекламных крипов конкурентов (каждый с новой строки)&#10;Пример: 'I lost 23 lbs in 30 days doing THIS one trick…'&#10;'Doctors HATE this woman for discovering the secret to blood sugar control'"></textarea>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <select id="a27-vertical"><option value="nutra">nutra</option><option value="betting">betting</option></select>
+            <select id="a27-geo"><option value="US">US</option><option value="BR">BR</option><option value="MX">MX</option><option value="DE">DE</option><option value="PL">PL</option></select>
+            <select id="a27-platform"><option value="tiktok">TikTok</option><option value="facebook">Facebook</option><option value="instagram">Instagram</option></select>
+          </div>
+          <button class="run-btn" onclick="runA27(event)">▶ Анализировать крипы</button>
+        </div>
+        <div class="agent-result" id="a27-result"></div>
+      </div>
+
+      <!-- A28 warmup_manager -->
+      <div class="agent-card">
+        <div class="agent-card-head">
+          <span class="agent-id">A28</span>
+          <span class="agent-name">warmup_manager</span>
+        </div>
+        <div class="agent-desc">Трекер 14-дневного прогрева аккаунтов. Лимиты активности по дням, проверка GEO-инфраструктуры</div>
+        <div class="agent-form">
+          <select id="a28-action" onchange="toggleA28()">
+            <option value="register">Зарегистрировать аккаунт</option>
+            <option value="check">Проверить статус</option>
+            <option value="list">Список всех аккаунтов</option>
+            <option value="validate_infra">Проверить инфраструктуру</option>
+          </select>
+          <input id="a28-account-id" placeholder="ID аккаунта (напр. tiktok_us_001)" style="display:block;width:100%;margin-top:6px;">
+          <div id="a28-register-block" style="margin-top:6px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <select id="a28-geo"><option value="US">US</option><option value="BR">BR</option><option value="MX">MX</option><option value="DE">DE</option></select>
+              <select id="a28-account-type"><option value="new">Новый (14 дней)</option><option value="aged">Aged (7 дней)</option></select>
+              <select id="a28-device"><option value="GLOBAL">GLOBAL device</option><option value="US">US device</option><option value="RU">RU device ⚠️</option><option value="CN">CN device ⚠️</option></select>
+              <select id="a28-proxy"><option value="mobile">Mobile proxy ✅</option><option value="residential">Residential ✅</option><option value="datacenter">Datacenter ⚠️</option><option value="vpn">VPN ❌</option><option value="none">Нет прокси ❌</option></select>
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:8px;">
+              <input type="checkbox" id="a28-sim"> Есть US SIM/eSIM (Airalo)
+            </label>
+          </div>
+          <button class="run-btn" onclick="runA28(event)" style="margin-top:8px;">▶ Запустить</button>
+        </div>
+        <div class="agent-result" id="a28-result"></div>
+      </div>
+
+      <!-- A29 prelanding_generator -->
+      <div class="agent-card">
+        <div class="agent-card-head">
+          <span class="agent-id">A29</span>
+          <span class="agent-name">prelanding_generator</span>
+        </div>
+        <div class="agent-desc">Генерация HTML прелендинг-страниц: quiz / story / native article / VSL. Поддержка COD/Trial/SS и мультиязычности</div>
+        <div class="agent-form">
+          <input id="a29-offer" placeholder="Название оффера/продукта (напр. BloodSugarX)" style="display:block;width:100%;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+            <select id="a29-vertical"><option value="nutra">nutra</option><option value="betting">betting</option></select>
+            <select id="a29-geo"><option value="US">US</option><option value="BR">BR</option><option value="MX">MX</option><option value="DE">DE</option><option value="PL">PL</option></select>
+            <select id="a29-billing"><option value="COD">COD (наложенный)</option><option value="Trial">Trial (пробный)</option><option value="SS">SS (прямая продажа)</option></select>
+            <select id="a29-format"><option value="story">Story (история)</option><option value="native_article">Native Article</option><option value="quiz">Quiz (квиз)</option><option value="vsl">VSL (видео-сейл)</option></select>
+          </div>
+          <textarea id="a29-benefits" rows="3" placeholder="Преимущества продукта (по одному на строку)&#10;Натуральный состав&#10;Эффект за 30 дней&#10;Тысячи довольных клиентов" style="margin-top:6px;"></textarea>
+          <input id="a29-lander" placeholder="URL лендинга (или оставь LANDER_URL)" value="LANDER_URL" style="display:block;width:100%;margin-top:6px;">
+          <button class="run-btn" onclick="runA29(event)" style="margin-top:8px;">▶ Генерировать прелендинг</button>
+        </div>
+        <div class="agent-result" id="a29-result"></div>
+      </div>
+
     </div>
   `;
   _launchRendered = true;
@@ -963,7 +1060,61 @@ function runA24(){
   runAgent("obsidian_brain", params, "a24-result");
 }
 
+function runA27(event){
+  const raw = v("a27-creatives");
+  const creatives = raw.split(/\n---\n|\n{2,}/).map(s=>s.trim()).filter(Boolean);
+  runAgent("spy_analyzer", {
+    creatives,
+    vertical: v("a27-vertical"),
+    geo: v("a27-geo"),
+    platform: v("a27-platform"),
+    focus: "all",
+  }, "a27-result", event);
+}
+
+function toggleA28(){
+  const action = document.getElementById("a28-action").value;
+  document.getElementById("a28-register-block").style.display =
+    (action === "register" || action === "validate_infra") ? "" : "none";
+}
+
+function runA28(event){
+  const action = v("a28-action");
+  const account_id = v("a28-account-id");
+  const params = {action, account_id};
+  if(action === "register" || action === "validate_infra"){
+    params.geo = v("a28-geo");
+    params.account_type = v("a28-account-type");
+    params.device_type = v("a28-device").replace(/ .*/,"");
+    params.proxy_type = v("a28-proxy").replace(/ .*/,"");
+    params.has_local_sim = document.getElementById("a28-sim")?.checked || false;
+  }
+  runAgent("warmup_manager", params, "a28-result", event);
+}
+
+function runA29(event){
+  const benefits = v("a29-benefits").split("\n").map(s=>s.trim()).filter(Boolean);
+  runAgent("prelanding_generator", {
+    offer_name: v("a29-offer") || "Product",
+    vertical: v("a29-vertical"),
+    geo: v("a29-geo"),
+    billing_model: v("a29-billing"),
+    format: v("a29-format"),
+    product_benefits: benefits,
+    lander_url: v("a29-lander") || "LANDER_URL",
+  }, "a29-result", event);
+}
+
 function v(id){ const el = document.getElementById(id); return el ? el.value : ""; }
+
+function copyHtml(btn){
+  const pre = btn.closest("div").querySelector("pre");
+  if(!pre) return;
+  navigator.clipboard.writeText(pre.textContent).then(()=>{
+    const orig = btn.textContent; btn.textContent = "Скопировано ✓";
+    setTimeout(()=>{ btn.textContent = orig; }, 1500);
+  });
+}
 
 function copyResult(btn){
   const box = btn.closest(".agent-result");
@@ -1102,6 +1253,105 @@ function renderAgentResult(resultEl, agent, params, data){
         ${data.error ? `<span style="color:var(--red)">Причина: ${esc(data.error)}</span>` : ""}
       </div>`;
 
+  } else if(agent === "spy_analyzer"){
+    const hooks = data.hook_patterns || [];
+    const phrases = data.key_phrases || [];
+    const formats = data.winning_formats || [];
+    html = `${copyBtn}
+      <div style="margin-bottom:10px;font-size:11px;color:var(--faint)">Проанализировано крипов: <b style="color:var(--text)">${data.creatives_analyzed || 0}</b></div>
+      ${hooks.length ? `<b style="font-size:11px;color:var(--green)">ПАТТЕРНЫ ХУКОВ</b><br>
+        <div style="margin:4px 0 10px;">${hooks.map(h=>`<div style="padding:4px 0;border-bottom:1px solid var(--border);font-size:12px;">
+          <span style="color:var(--text)">${esc(h.pattern||"")}</span>
+          ${h.example ? `<br><span style="color:var(--faint);font-style:italic">"${esc(h.example)}"</span>` : ""}
+          ${h.effectiveness ? `<span class="chip" style="float:right;color:var(--green);background:rgba(74,222,128,.1)">${esc(h.effectiveness)}</span>` : ""}
+        </div>`).join("")}</div>` : ""}
+      ${phrases.length ? `<b style="font-size:11px;color:var(--amber)">ЭФФЕКТИВНЫЕ ФРАЗЫ</b><br>
+        <div style="margin:4px 0 10px;">${phrases.map(p=>`<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;background:rgba(245,158,11,.1);border-radius:5px;font-size:11px;color:var(--amber)">${esc(p)}</span>`).join("")}</div>` : ""}
+      ${formats.length ? `<b style="font-size:11px;color:var(--indigo)">ВЫИГРЫШНЫЕ ФОРМАТЫ</b><br>
+        <div style="margin:4px 0 10px;">${formats.map(f=>`<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;background:rgba(99,102,241,.1);border-radius:5px;font-size:11px;color:var(--indigo)">${esc(f)}</span>`).join("")}</div>` : ""}
+      ${data.creative_brief ? `<b style="font-size:11px;color:var(--text)">CREATIVE BRIEF для A21</b>
+        <div style="margin-top:6px;padding:10px;background:var(--surface2);border-radius:6px;font-size:12px;white-space:pre-wrap;line-height:1.6;">${esc(data.creative_brief)}</div>` : ""}`;
+
+  } else if(agent === "warmup_manager"){
+    if(data.accounts){
+      const accs = data.accounts;
+      html = `${copyBtn}
+        <b style="font-size:11px;color:var(--text)">Аккаунты в системе прогрева: ${accs.length}</b>
+        <div style="margin-top:8px;">${accs.map(a=>{
+          const pct = a.progress || 0;
+          const sColor = a.status === "ready" ? "#4ade80" : a.status === "blocked" ? "#f87171" : "#6366f1";
+          return `<div style="padding:6px 0;border-bottom:1px solid var(--border);">
+            <span style="color:var(--text);font-weight:600">${esc(a.account_id)}</span>
+            <span class="chip" style="margin-left:8px;color:${sColor};background:${sColor}22">${esc(a.status)}</span>
+            <span style="float:right;font-size:11px;color:var(--faint)">День ${a.day}/${a.total} · ${a.geo}</span>
+            <div style="height:3px;background:var(--border);border-radius:2px;margin-top:4px;">
+              <div style="height:3px;width:${pct}%;background:${sColor};border-radius:2px;"></div>
+            </div>
+          </div>`;
+        }).join("")}</div>`;
+    } else if(data.infra_ok !== undefined){
+      const ok = data.infra_ok;
+      html = `${copyBtn}
+        <div style="margin-bottom:8px;"><b style="color:${ok?"#4ade80":"#f87171"}">${ok?"✅ Инфраструктура OK":"❌ Найдены проблемы инфраструктуры"}</b></div>
+        <div style="font-size:12px;color:var(--muted);">
+          Device: <b>${esc(data.device_type)}</b> · Proxy: <b>${esc(data.proxy_type)}</b> · SIM: <b>${data.has_local_sim?"есть ✅":"нет ⚠️"}</b>
+        </div>
+        ${(data.issues||[]).map(i=>`
+          <div style="margin-top:8px;padding:8px;background:${i.severity==="critical"?"rgba(248,113,113,.08)":"rgba(245,158,11,.08)"};border-radius:6px;border-left:3px solid ${i.severity==="critical"?"#f87171":"#f59e0b"};">
+            <div style="font-size:11px;font-weight:600;color:${i.severity==="critical"?"#f87171":"#f59e0b"}">${i.severity.toUpperCase()}: ${esc(i.field)}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">${esc(i.message)}</div>
+            <div style="font-size:11px;color:var(--faint);margin-top:4px;">Исправление: ${esc(i.fix)}</div>
+          </div>`).join("")}`;
+    } else {
+      const status = data.status || "—";
+      const sColor = status==="ready"?"#4ade80":status==="blocked"?"#f87171":status==="warming_up"?"#6366f1":"#94a3b8";
+      const pct = data.progress_pct || 0;
+      html = `${copyBtn}
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <b style="color:${sColor}">${esc(status.toUpperCase())}</b>
+          <span style="font-size:12px;color:var(--muted)">День ${data.current_day}/${data.total_days} (${pct}%)</span>
+          ${data.ready_to_publish ? `<span class="chip" style="color:#4ade80;background:rgba(74,222,128,.1)">✅ Готов к публикации</span>` : ""}
+          ${data.bio_link_allowed ? `<span class="chip" style="color:#6366f1;background:rgba(99,102,241,.1)">Ссылка в bio ✅</span>` : ""}
+        </div>
+        <div style="height:4px;background:var(--border);border-radius:2px;margin-bottom:12px;">
+          <div style="height:4px;width:${pct}%;background:${sColor};border-radius:2px;"></div>
+        </div>
+        ${data.today_limits ? `<b style="font-size:11px;color:var(--faint)">ЛИМИТЫ НА СЕГОДНЯ</b>
+          <div style="display:flex;gap:12px;margin:6px 0 12px;font-size:12px;">
+            ${Object.entries(data.today_limits).map(([k,v])=>`<span><b style="color:var(--text)">${v}</b> <span style="color:var(--faint)">${k}</span></span>`).join("")}
+          </div>` : ""}
+        ${data.content_split ? `<b style="font-size:11px;color:var(--faint)">КОНТЕНТ-СПЛИТ</b>
+          <div style="margin:6px 0 12px;font-size:12px;">
+            <span style="color:var(--muted)">Нейтральный: <b style="color:var(--text)">${data.content_split.neutral}%</b></span>
+            · <span style="color:var(--muted)">Целевой: <b style="color:var(--green)">${data.content_split.targeted}%</b></span>
+          </div>` : ""}
+        ${(data.infra_issues||[]).length ? `<b style="font-size:11px;color:var(--red)">ПРОБЛЕМЫ ИНФРАСТРУКТУРЫ</b>
+          ${data.infra_issues.map(i=>`<div style="margin-top:6px;padding:6px 8px;background:rgba(248,113,113,.08);border-radius:5px;font-size:11px;color:var(--red)">${esc(i.message)}<br><span style="color:var(--faint)">→ ${esc(i.fix)}</span></div>`).join("")}` : ""}
+        <div style="margin-top:10px;padding:8px;background:var(--surface2);border-radius:6px;font-size:12px;color:var(--muted);">
+          <b style="color:var(--text)">Следующее действие:</b><br>${esc(data.next_action||"")}
+        </div>`;
+    }
+
+  } else if(agent === "prelanding_generator"){
+    const cr = data.estimated_cr || "?";
+    const words = data.word_count || 0;
+    html = `${copyBtn}
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;">
+        <span>Формат: <b style="color:var(--text)">${esc(data.format||"?")}</b></span>
+        <span>Язык: <b style="color:var(--text)">${esc(data.language||"?")}</b></span>
+        <span>Ожид. CR: <b style="color:var(--green)">${esc(cr)}</b></span>
+        <span>Слов: <b style="color:var(--text)">${words}</b></span>
+      </div>
+      ${(data.funnel_tips||[]).length ? `<b style="font-size:11px;color:var(--amber)">СОВЕТЫ ДЛЯ ВОРОНКИ</b>
+        <div style="margin:4px 0 10px;">${data.funnel_tips.map(t=>`<div style="font-size:11px;color:var(--muted);padding:3px 0;border-bottom:1px solid var(--border);">• ${esc(t)}</div>`).join("")}</div>` : ""}
+      ${data.compliance_notes&&data.compliance_notes.length ? `<b style="font-size:11px;color:var(--red)">COMPLIANCE NOTES</b>
+        <div style="margin:4px 0 10px;">${data.compliance_notes.map(n=>`<div style="font-size:11px;color:var(--faint);padding:2px 0;">⚠ ${esc(n)}</div>`).join("")}</div>` : ""}
+      <b style="font-size:11px;color:var(--text)">HTML КОД ПРЕЛЕНДИНГА</b>
+      <div style="margin-top:6px;position:relative;">
+        <button onclick="copyHtml(this)" style="position:absolute;top:6px;right:6px;background:var(--border);border:none;border-radius:5px;color:var(--muted);padding:3px 10px;font-size:10px;cursor:pointer;z-index:1;">Скопировать HTML</button>
+        <pre style="margin:0;padding:10px;background:var(--surface2);border-radius:6px;font-size:10px;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;">${esc((data.html_content||"").substring(0, 2000))}${(data.html_content||"").length > 2000 ? "\n…(ещё " + ((data.html_content||"").length - 2000) + " символов)" : ""}</pre>
+      </div>`;
+
   } else {
     html = `${copyBtn}<pre style="margin:0;font-size:11px;">${esc(JSON.stringify(data, null, 2))}</pre>`;
   }
@@ -1109,8 +1359,8 @@ function renderAgentResult(resultEl, agent, params, data){
   resultEl.innerHTML = html;
 }
 
-async function runAgent(agent, params, resultId){
-  const btn = event.currentTarget || event.target;
+async function runAgent(agent, params, resultId, _event){
+  const btn = (_event && (_event.currentTarget || _event.target)) || (typeof event !== "undefined" && (event.currentTarget || event.target));
   const origText = btn.textContent;
   const resultEl = document.getElementById(resultId);
   btn.disabled = true;
