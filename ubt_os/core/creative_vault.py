@@ -8,8 +8,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from datetime import datetime, timedelta
-from typing import Any
+from datetime import datetime, timedelta, timezone
 
 from supabase import create_client, Client
 
@@ -108,7 +107,7 @@ class CreativeVaultUpdater:
 
     async def update_all_scores(self, lookback_days: int = 7):
         """Пересчитывает скоры для всех видео за lookback_days."""
-        since = (datetime.utcnow() - timedelta(days=lookback_days)).isoformat()
+        since = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).isoformat()
         assets = (
             self.db.table("creative_assets")
             .select("*")
@@ -131,7 +130,7 @@ class CreativeVaultUpdater:
                 "conversion_score":  cvs,
                 "composite_score":   cmp,
                 "is_top_performer":  cmp >= 70,
-                "scores_updated_at": datetime.utcnow().isoformat(),
+                "scores_updated_at": datetime.now(timezone.utc).isoformat(),
             }).eq("id", asset["id"]).execute()
 
         await self._update_hook_rankings()
@@ -178,7 +177,7 @@ class CreativeVaultUpdater:
                 "usage_count":         n,
                 "total_revenue":       total_revenue,
                 "hook_score":          round(min(hook_score, 100), 2),
-                "last_used_at":        datetime.utcnow().isoformat(),
+                "last_used_at":        datetime.now(timezone.utc).isoformat(),
             }, on_conflict="hook_text,vertical,geo,platform").execute()
 
     async def _update_cta_rankings(self):

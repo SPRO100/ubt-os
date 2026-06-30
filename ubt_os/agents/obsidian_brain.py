@@ -8,9 +8,9 @@ Health-чекер — находит мёртвые ссылки и против
 Запускается ежедневно 00:30 + по требованию при получении нового источника.
 """
 from __future__ import annotations
-import asyncio, logging, os, re
+import logging, os, re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from anthropic import AsyncAnthropic
 
@@ -92,7 +92,7 @@ class IngestResult:
     filenames: list[str]
     hot_cache_update: str
     summary: str
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 @dataclass
@@ -113,7 +113,7 @@ class HealthReport:
     stale_pages: list[str]
     health_score: int
     action_items: list[str]
-    checked_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    checked_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class ObsidianBrain:
@@ -129,7 +129,7 @@ class ObsidianBrain:
         return ""
 
     def _update_hot_cache(self, update: str) -> None:
-        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
         line = f"\n**{timestamp}** | {update}"
         current = HOT_CACHE.read_text(encoding="utf-8") if HOT_CACHE.exists() else "# Hot Cache — последние инсайты\n"
         lines = current.split("\n")
@@ -188,7 +188,7 @@ class ObsidianBrain:
             fname = page.get("filename", "unknown.md")
             tags = page.get("tags", [])
             content = page.get("content", "")
-            frontmatter = f"---\ntags: [{', '.join(tags)}]\ncreated: {datetime.utcnow().date()}\nsource: {source_name}\n---\n\n"
+            frontmatter = f"---\ntags: [{', '.join(tags)}]\ncreated: {datetime.now(timezone.utc).date()}\nsource: {source_name}\n---\n\n"
             (WIKI_DIR / fname).write_text(frontmatter + content, encoding="utf-8")
             filenames.append(fname)
 
@@ -270,7 +270,7 @@ class ObsidianBrain:
 
     async def auto_ingest_raw(self) -> list[IngestResult]:
         """Обрабатывает все файлы из 00 Inbox/raw/."""
-        results = []
+        results: list[IngestResult] = []
         if not RAW_DIR.exists():
             return results
         for raw_file in RAW_DIR.glob("*.md"):

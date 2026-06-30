@@ -18,12 +18,16 @@ import signal
 import sys
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 import json
 
 from ubt_os.core.logging_config import setup_logging, set_request_id
 
 setup_logging()
 logger = logging.getLogger("ubt_os.main")
+
+# Origin, которому разрешён CORS. По умолчанию "*" (dev), в проде задать домен dashboard.
+CORS_ALLOW_ORIGIN = os.getenv("CORS_ALLOW_ORIGIN", "*")
 
 # Простые in-memory счётчики для Prometheus-совместимого /metrics
 _METRICS: dict[str, int] = {
@@ -47,14 +51,41 @@ def _get_db():
 class WebhookHandler(BaseHTTPRequestHandler):
     """Принимает POST-запросы от n8n и запускает нужный пайплайн."""
 
-    def _verify_signature(self, raw_body: bytes) -> bool:
-        """HMAC-SHA256 проверка подписи вебхука. Пропускает если секрет не задан."""
+    def _authorized(self, raw_body: bytes) -> bool:
+        """Двойная аутентификация POST-запросов:
+
+        - n8n / серверные вызовы → HMAC-SHA256 подпись (заголовок X-Webhook-Signature, ключ WEBHOOK_SECRET)
+        - dashboard / браузер     → Bearer-токен (заголовок Authorization, ключ AGENTS_API_TOKEN)
+
+        Достаточно пройти любой из путей. Если ни WEBHOOK_SECRET, ни
+        AGENTS_API_TOKEN не заданы — пропускаем (dev-режим) с предупреждением.
+        """
         secret = os.getenv("WEBHOOK_SECRET")
-        if not secret:
+        token  = os.getenv("AGENTS_API_TOKEN")
+
+        if not secret and not token:
+            logger.warning(
+                "ВНИМАНИЕ: ни WEBHOOK_SECRET, ни AGENTS_API_TOKEN не заданы — "
+                "сервер принимает запросы без аутентификации (dev-режим)."
+            )
             return True
-        sig_header = self.headers.get("X-Webhook-Signature", "")
-        expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
-        return hmac.compare_digest(sig_header, expected)
+
+        # Путь 1 — HMAC-подпись (n8n)
+        if secret:
+            sig_header = self.headers.get("X-Webhook-Signature", "")
+            if sig_header:
+                expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
+                if hmac.compare_digest(sig_header, expected):
+                    return True
+
+        # Путь 2 — Bearer-токен (dashboard)
+        if token:
+            auth = self.headers.get("Authorization", "")
+            if auth.startswith("Bearer "):
+                if hmac.compare_digest(auth[7:], token):
+                    return True
+
+        return False
 
     def do_POST(self):
         length   = int(self.headers.get("Content-Length", 0))
@@ -62,10 +93,10 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
         _METRICS["webhook_requests_total"] += 1
 
-        if not self._verify_signature(raw_body):
+        if not self._authorized(raw_body):
             _METRICS["webhook_requests_unauthorized"] += 1
-            self._respond(403, {"error": "invalid signature"})
-            logger.warning("Webhook: отклонён — неверная подпись", extra={"path": self.path})
+            self._respond(403, {"error": "unauthorized"})
+            logger.warning("Webhook: отклонён — провал аутентификации", extra={"path": self.path})
             return
 
         # Correlation ID: берём из заголовка n8n или генерируем
@@ -91,6 +122,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/obsidian/append":       self._run_obsidian_append,
             "/orchestrator/chat":     self._run_orchestrator_chat,
             "/agents/run":            self._run_agent,
+            # Новые агенты: анализ конкурентов, прямая публикация, транскрипция
+            "/competitor/analyze":    self._run_competitor_analyze,
+            "/publish/direct":        self._run_publish_direct,
+            "/publish/bulk":          self._run_publish_bulk,
+            "/transcribe":            self._run_transcribe,
+            "/hooks/top":             self._run_hooks_top,
         }
 
         handler = routes.get(self.path)
@@ -115,7 +152,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
     def _respond(self, code: int, data: dict):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", CORS_ALLOW_ORIGIN)
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
 
@@ -125,9 +162,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         """PATCH: CORS preflight для POST-запросов с Content-Type: application/json."""
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", CORS_ALLOW_ORIGIN)
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Webhook-Signature")
         self.end_headers()
 
     # ── Обработчики пайплайнов ────────────────────────────
@@ -275,9 +312,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
             model="claude-sonnet-4-6",
             max_tokens=1024,
             system=system_prompt,
-            messages=messages,
+            messages=messages,  # type: ignore[arg-type]  # роли валидируются на стороне БД
         )
-        raw_reply = resp.content[0].text
+        raw_reply = getattr(resp.content[0], "text", "")
 
         import re as _re
         suggestions = []
@@ -329,6 +366,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
         """POST /agents/run — запуск A19–A24 напрямую из браузера."""
         agent  = body.get("agent", "")
         params = body.get("params", {})
+
+        # Диспетчер возвращает разнородные dataclass-результаты — типы динамические.
+        result:  Any
+        r:       Any
+        creator: Any
+        fmt:     Any
 
         try:
             if agent == "content_creator":
@@ -505,7 +548,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     )
                 else:
                     result = mgr.check(account_id)
-                from dataclasses import asdict
                 return {
                     "account_id": result.account_id,
                     "status": result.status,
@@ -564,7 +606,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 }
 
             elif agent == "higgsfield_agent":
-                from ubt_os.agents import HiggsFieldAgent, VideoFormat
+                from ubt_os.agents import HiggsFieldAgent
                 hf     = HiggsFieldAgent()
                 fmt    = params.get("format", "ugc")
 
@@ -626,7 +668,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
         async with pipeline_lock("daily-report", 120) as acquired:
             if not acquired:
                 return
-            await DeadLetterQueueManager.daily_report()
+            db = _get_db()
+            await DeadLetterQueueManager(db).daily_report()
 
     # ── FIX #1: новые обработчики ──────────────────────────
 
@@ -676,6 +719,80 @@ class WebhookHandler(BaseHTTPRequestHandler):
             return result
         return {"status": "skipped", "reason": "lock_busy"}
 
+    # ── DOHOO-inspired роуты ──────────────────────────────────
+
+    async def _run_competitor_analyze(self, body: dict):
+        """A14 COMPETITOR_ANALYST: анализ хуков конкурентов."""
+        from ubt_os.core import pipeline_lock
+        from ubt_os.agents.competitor_analyst import run_competitor_analyst
+        vertical     = body.get("vertical", "nutra")
+        lookback     = int(body.get("lookback_days", 3))
+        async with pipeline_lock(f"competitor-analyze-{vertical}", 600) as acquired:
+            if not acquired:
+                return {"status": "skipped", "reason": "lock_busy"}
+            return await run_competitor_analyst(vertical=vertical, lookback_days=lookback)
+
+    async def _run_publish_direct(self, body: dict):
+        """Прямая публикация в соцсеть без лимитов аккаунтов."""
+        from ubt_os.pipelines.social_publisher import create_and_publish
+        platform     = body.get("platform")
+        account_id   = body.get("account_id")
+        media_url    = body.get("media_url", "")
+        if not platform or not account_id:
+            return {"error": "platform и account_id обязательны"}
+        return await create_and_publish(
+            platform=platform,
+            account_id=account_id,
+            media_url=media_url,
+            caption=body.get("caption", ""),
+            hashtags=body.get("hashtags", []),
+            content_type=body.get("content_type", "video"),
+            extra=body.get("extra", {}),
+        )
+
+    async def _run_publish_bulk(self, body: dict):
+        """Массовая публикация: список джобов без ограничений."""
+        from ubt_os.pipelines.social_publisher import bulk_publish
+        jobs = body.get("jobs", [])
+        if not jobs:
+            return {"error": "jobs[] обязателен"}
+        return {"results": await bulk_publish(jobs)}
+
+    async def _run_transcribe(self, body: dict):
+        """AI-транскрипция видео + извлечение хука."""
+        from ubt_os.agents.transcription_agent import run_transcription, run_batch_transcription
+        urls = body.get("video_urls") or ([body.get("video_url")] if body.get("video_url") else [])
+        if not urls:
+            return {"error": "video_url или video_urls обязателен"}
+        kwargs = {
+            "source":   body.get("source", "competitor"),
+            "vertical": body.get("vertical", "nutra"),
+            "platform": body.get("platform", "tiktok"),
+            "geo":      body.get("geo", "RU"),
+            "language": body.get("language", "ru"),
+        }
+        if len(urls) == 1:
+            return await run_transcription(urls[0], **kwargs)
+        return {"results": await run_batch_transcription(urls, **kwargs)}
+
+    async def _run_hooks_top(self, body: dict):
+        """Возвращает топ хуков из библиотеки hook_templates."""
+        db       = _get_db()
+        vertical = body.get("vertical", "nutra")
+        platform = body.get("platform")
+        limit    = int(body.get("limit", 20))
+        q = (
+            db.table("hook_templates")
+            .select("hook_type,hook_text,visual_style,platform,geo,views_at_capture,er_at_capture,created_at")
+            .eq("vertical", vertical)
+            .eq("is_active", True)
+            .order("er_at_capture", desc=True)
+            .limit(limit)
+        )
+        if platform:
+            q = q.eq("platform", platform)
+        return {"hooks": q.execute().data}
+
     def _serve_metrics(self):
         """GET /metrics — Prometheus-совместимый текстовый формат."""
         lines = ["# HELP ubt_os_webhook UBT OS webhook counters", "# TYPE ubt_os_webhook counter"]
@@ -710,8 +827,11 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
 def main():
     port = int(os.getenv("AGENTS_PORT", "8080"))
-    logger.info(f"UBT OS запущен на порту {port}")
-    server = ThreadingHTTPServer(("0.0.0.0", port), WebhookHandler)
+    # По умолчанию слушаем все интерфейсы (нужно в контейнере за nginx).
+    # В проде за reverse-proxy можно ограничить до 127.0.0.1 через AGENTS_HOST.
+    host = os.getenv("AGENTS_HOST", "0.0.0.0")  # nosec B104 — доступ ограничен nginx + firewall + auth
+    logger.info(f"UBT OS запущен на {host}:{port}")
+    server = ThreadingHTTPServer((host, port), WebhookHandler)
 
     def _shutdown(signum, frame):
         logger.info("UBT OS: получен сигнал завершения, останавливаем сервер...")

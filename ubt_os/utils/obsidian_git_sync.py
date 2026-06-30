@@ -20,7 +20,6 @@ import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 import httpx
 
 logger = logging.getLogger("obsidian.sync")
@@ -151,14 +150,14 @@ class ObsidianSync:
 
         # 8. Статистика
         changed_files = len(status_after.splitlines()) if status_after else 0
-        result = {
+        stats = {
             "status":        "ok",
             "committed":     committed,
             "changed_files": changed_files,
             "synced_at":     now.isoformat(),
         }
         logger.info(f"[Sync] ✅ OK | изменено файлов: {changed_files}")
-        return result
+        return stats
 
     async def _init_repo(self):
         """Инициализирует git репозиторий если не существует."""

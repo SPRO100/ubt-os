@@ -15,8 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from datetime import datetime, timezone, time as dt_time
-from typing import Optional
+from datetime import datetime, timezone
 
 logger = logging.getLogger("telegram.jitter")
 
@@ -226,7 +225,7 @@ class TelegramReactorScheduler:
         count = self.jitter.daily_action_count("reaction")
         for channel in target_channels[:count]:
             await self.jitter.sleep("before_open_chat")
-            emoji = random.choice(self.REACTION_EMOJIS)
+            # emoji = random.choice(self.REACTION_EMOJIS)
             # await self._react(channel, emoji)
             await self.jitter.sleep("between_actions")
 

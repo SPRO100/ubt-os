@@ -7,8 +7,8 @@ from __future__ import annotations
 import asyncio, logging, os, time
 from dataclasses import dataclass, field
 from enum import Enum
-from datetime import datetime
-from typing import Callable, Optional
+from datetime import datetime, timezone
+from typing import Optional
 import httpx
 from supabase import create_client, Client
 import redis.asyncio as aioredis
@@ -29,7 +29,7 @@ class ComponentHealth:
     latency_ms:     float        = 0.0
     error:          Optional[str]= None
     fallback_active:bool         = False
-    checked_at:     str          = field(default_factory=lambda: datetime.utcnow().isoformat())
+    checked_at:     str          = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 # ── Health Checkers ───────────────────────────────────────
@@ -201,7 +201,7 @@ class HealthChecker:
                  "publer","supabase","redis","keitaro","tiktok_uploader"]
         out = {}
         for name, res in zip(names, results):
-            if isinstance(res, Exception):
+            if isinstance(res, BaseException):
                 out[name] = ComponentHealth(name, HealthStatus.UNHEALTHY, 0, str(res))
             else:
                 out[name] = res
@@ -233,14 +233,14 @@ class FallbackManager:
                 "component":      component,
                 "fallback_chain": fallbacks,
                 "active":         True,
-                "activated_at":   datetime.utcnow().isoformat(),
+                "activated_at":   datetime.now(timezone.utc).isoformat(),
             }, on_conflict="component").execute()
             logger.warning(f"[Fallback] {component} → {fallbacks[0]}")
         return fallbacks
 
     def deactivate(self, component: str):
         self.db.table("component_fallbacks").update({
-            "active": False, "resolved_at": datetime.utcnow().isoformat()
+            "active": False, "resolved_at": datetime.now(timezone.utc).isoformat()
         }).eq("component", component).execute()
         logger.info(f"[Fallback] {component} restored")
 
@@ -295,7 +295,7 @@ class FailureRecoveryAgent:
     async def run_once(self) -> dict:
         health = await self.checker.check_all()
         level  = degradation_level(health)
-        now    = datetime.utcnow().isoformat()
+        now    = datetime.now(timezone.utc).isoformat()
 
         for name, h in health.items():
             prev = self._prev_health.get(name, HealthStatus.HEALTHY)

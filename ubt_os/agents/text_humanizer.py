@@ -91,7 +91,7 @@ class TextHumanizer:
             messages=[{"role": "user", "content": user_msg}],
         )
 
-        raw = response.content[0].text
+        raw = getattr(response.content[0], "text", "")
         data = _extract_json(raw, fallback={
             "humanized_text": text,
             "original_score": {"total": 0},

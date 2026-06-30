@@ -7,7 +7,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from supabase import create_client, Client
@@ -29,7 +29,7 @@ class StrategyDataCollector:
 
     def __init__(self, db: Client, lookback_days: int = 7):
         self.db = db
-        self.since = (datetime.utcnow() - timedelta(days=lookback_days)).isoformat()
+        self.since = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).isoformat()
 
     async def collect(self) -> dict[str, Any]:
         trends      = self._fetch_trends()
@@ -44,7 +44,7 @@ class StrategyDataCollector:
             "revenue":     revenue,
             "competitors": competitors,
             "knowledge":   knowledge,
-            "collected_at": datetime.utcnow().isoformat(),
+            "collected_at": datetime.now(timezone.utc).isoformat(),
         }
 
     def _fetch_trends(self) -> list:
@@ -140,8 +140,8 @@ class StrategyAnalyst:
         self.client = AsyncAnthropic()
 
     async def analyze(self, data: dict) -> dict:
-        week_num = datetime.utcnow().isocalendar()[1]
-        year     = datetime.utcnow().year
+        week_num = datetime.now(timezone.utc).isocalendar()[1]
+        year     = datetime.now(timezone.utc).year
 
         resp = await self.client.messages.create(
             model   = "claude-sonnet-4-6",
@@ -161,7 +161,6 @@ class StrategyAnalyst:
             }],
         )
 
-        import json
         brief = _extract_json(resp.content[0].text)
         brief["raw_json"]  = brief.copy()
         brief["week_label"] = f"{year}-W{week_num:02d}"
@@ -199,8 +198,7 @@ class StrategyWriter:
 
     def _save_daily_queues(self, brief_id: int, brief: dict):
         rows = []
-        today = datetime.utcnow().date()
-        days  = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+        today = datetime.now(timezone.utc).date()
 
         for i, entry in enumerate(brief.get("daily_queue", [])):
             date = today + timedelta(days=i)
@@ -219,43 +217,43 @@ class StrategyWriter:
 
     def to_markdown(self, brief: dict) -> str:
         lines = [
-            f"---",
-            f"type: daily",
-            f"tags: [type/strategy, project/ubt-os]",
-            f"created: {datetime.utcnow().date()}",
-            f"---",
-            f"",
+            "---",
+            "type: daily",
+            "tags: [type/strategy, project/ubt-os]",
+            f"created: {datetime.now(timezone.utc).date()}",
+            "---",
+            "",
             f"# 🧭 Strategy Brief — {brief.get('week_label')}",
-            f"",
+            "",
             f"**Вертикаль:** {brief.get('vertical')} | "
             f"**ГЕО:** {', '.join(brief.get('geo_priority', []))} | "
             f"**Уверенность:** {int(brief.get('confidence_score',0)*100)}%",
-            f"",
-            f"## Топ форматы",
+            "",
+            "## Топ форматы",
         ]
         for fmt in brief.get("top_formats", []):
             lines.append(f"- **{fmt['format']}** (приоритет {fmt['priority']}, {fmt['daily_quota']}/день) — {fmt['reason']}")
         lines += [
-            f"",
-            f"## Масштабировать",
+            "",
+            "## Масштабировать",
         ]
         for s in brief.get("scale_formats", []):
             lines.append(f"- {s}")
         lines += [
-            f"",
-            f"## Остановить",
+            "",
+            "## Остановить",
         ]
         for s in brief.get("stop_formats", []):
             lines.append(f"- {s}")
         lines += [
-            f"",
-            f"## Тренд-окна",
+            "",
+            "## Тренд-окна",
         ]
         for tw in brief.get("trend_windows", []):
             lines.append(f"- **{tw['trend']}** — {tw['opportunity']} (истекает через {tw['expires_in_days']} дн.)")
         lines += [
-            f"",
-            f"## Флаги рисков",
+            "",
+            "## Флаги рисков",
         ]
         for r in brief.get("risk_flags", []):
             lines.append(f"- ⚠️ {r}")

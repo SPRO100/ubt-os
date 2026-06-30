@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { fetchRows, AGENTS_SERVER } from '../../api'
+import { fetchRows, AGENTS_SERVER, agentsHeaders } from '../../api'
 
 function parseTaskFromReply(reply, verticalName) {
   // Extract key params from orchestrator reply using simple heuristics
@@ -65,7 +65,7 @@ export default function Clients({ onCreateTask }) {
     setPendingTask(null)
     try {
       const res = await fetch(`${AGENTS_SERVER}/orchestrator/chat`, {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method:'POST', headers: agentsHeaders({'Content-Type':'application/json'}),
         body: JSON.stringify({ vertical_id: current.id, message: msg }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)

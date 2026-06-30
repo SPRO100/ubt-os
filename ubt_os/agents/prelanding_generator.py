@@ -9,7 +9,6 @@ import logging, os, re
 from dataclasses import dataclass
 from anthropic import AsyncAnthropic
 
-from ubt_os.utils.llm_utils import extract_json as _extract_json
 
 logger = logging.getLogger("ubt_os.prelanding_generator")
 
@@ -229,7 +228,7 @@ CTA подзаголовок: "{cta_sub}"
             system=_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_msg}],
         )
-        html_content = resp.content[0].text.strip()
+        html_content = getattr(resp.content[0], "text", "").strip()
 
         # Убираем markdown-обёртку если есть
         html_content = re.sub(r"^```(?:html)?\s*\n?", "", html_content)
@@ -246,10 +245,10 @@ CTA подзаголовок: "{cta_sub}"
         }
 
         funnel_tips = [
-            f"Keitaro: добавь прелендинг как промежуточную ступень перед лендингом",
-            f"A/B тест: создай 2–3 варианта заголовка для этого формата",
+            "Keitaro: добавь прелендинг как промежуточную ступень перед лендингом",
+            "A/B тест: создай 2–3 варианта заголовка для этого формата",
             f"GEO-локализация: убедись что язык ({lang}) совпадает с GEO ({geo}) аккаунта",
-            f"Скорость: страница должна грузиться <2 сек — убери лишние скрипты",
+            "Скорость: страница должна грузиться <2 сек — убери лишние скрипты",
             f"CTA кнопка '{cta_button}' должна быть видна без прокрутки (above the fold)",
         ]
 

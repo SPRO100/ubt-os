@@ -5,7 +5,7 @@ A16 — REVENUE_ANALYST
 """
 from __future__ import annotations
 import asyncio, logging, os, json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from supabase import create_client, Client
 from anthropic import AsyncAnthropic
@@ -23,7 +23,7 @@ class RevenueDataCollector:
 
     def __init__(self, db: Client, period_days: int = 1):
         self.db   = db
-        self.since = (datetime.utcnow() - timedelta(days=period_days)).isoformat()
+        self.since = (datetime.now(timezone.utc) - timedelta(days=period_days)).isoformat()
 
     def collect(self) -> dict[str, Any]:
         events      = self._events()
@@ -36,7 +36,7 @@ class RevenueDataCollector:
             "videos":       video_prof,
             "partners":     partner_cmp,
             "period_days":  1,
-            "collected_at": datetime.utcnow().isoformat(),
+            "collected_at": datetime.now(timezone.utc).isoformat(),
         }
 
     def _events(self) -> list:
@@ -72,12 +72,10 @@ class FunnelAnalyzer:
             actual_cr  = row.get("cr", 0)
             impressions= row.get("impressions", 1)
             clicks     = row.get("clicks", 0)
-            net_rev    = float(row.get("net_revenue", 0))
 
-            ctr_gap, cr_gap, upside = 0.0, 0.0, 0.0
+            cr_gap, upside = 0.0, 0.0
 
             if actual_ctr and actual_ctr < bench["ctr"] * 0.8:
-                ctr_gap     = bench["ctr"] - actual_ctr
                 ideal_clicks= int(impressions * bench["ctr"])
                 extra_clicks = ideal_clicks - clicks
                 upside      += extra_clicks * actual_cr * float(row.get("avg_payout", 40))
@@ -166,7 +164,7 @@ class RevenueReportGenerator:
 
     @staticmethod
     def _to_markdown(r: dict) -> str:
-        d = datetime.utcnow().strftime("%Y-%m-%d")
+        d = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         lines = [
             f"---\ntype: daily\ntags: [revenue, ubt-os]\ndate: {d}\n---\n",
             f"# 💰 Revenue Report — {d}\n",
@@ -202,7 +200,7 @@ class RevenueWriter:
 
     def save_report(self, report: dict, report_type: str = "daily") -> int:
         res = (self.db.table("revenue_reports").insert({
-            "report_date":    datetime.utcnow().date().isoformat(),
+            "report_date":    datetime.now(timezone.utc).date().isoformat(),
             "report_type":    report_type,
             "raw_json":       report,
             "markdown_report":report.get("markdown_report",""),
@@ -223,7 +221,7 @@ class RevenueWriter:
     def format_telegram(self, report: dict, leaks: list, candidates: list) -> str:
         total  = sum(float(e.get("net_amount",0)) for e in report.get("events",[]))
         n_conv = len([e for e in report.get("events",[]) if e.get("status")=="approved"])
-        top_up = sum(l.get("upside",0) for l in leaks[:2])
+        top_up = sum(leak.get("upside",0) for leak in leaks[:2])
         lines  = [
             "💰 *REVENUE REPORT*",
             f"Доход: *${total:.2f}* | Конверсий: *{n_conv}*",

@@ -349,7 +349,7 @@ class HiggsFieldAgent:
             max_tokens=800,
             messages=[{"role": "user", "content": msg}],
         )
-        raw = resp.content[0].text
+        raw = getattr(resp.content[0], "text", "")
         parsed = _extract_json(raw)
         if isinstance(parsed, list) and parsed:
             return parsed[:slide_count]

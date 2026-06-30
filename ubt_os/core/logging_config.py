@@ -68,7 +68,8 @@ class JsonFormatter(logging.Formatter):
 
 def setup_logging(level: str | None = None) -> None:
     """Настраивает глобальный logging. Вызывать один раз при старте."""
-    log_level = getattr(logging, (level or os.getenv("LOG_LEVEL", "INFO")).upper(), logging.INFO)
+    level_name = level or os.getenv("LOG_LEVEL") or "INFO"
+    log_level = getattr(logging, level_name.upper(), logging.INFO)
     log_format = os.getenv("LOG_FORMAT", "json")
 
     root = logging.getLogger()

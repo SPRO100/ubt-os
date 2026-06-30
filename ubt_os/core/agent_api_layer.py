@@ -8,7 +8,7 @@ FIX #1: Single Source of Truth — API-слой между агентами
 
 from __future__ import annotations
 import os
-from typing import Optional
+from typing import Any, Optional
 from supabase import create_client, Client
 from datetime import datetime, timezone
 
@@ -42,7 +42,7 @@ class AccountReader:
     @staticmethod
     def get_by_id(account_id: str) -> dict | None:
         res = get_db().table("accounts").select("*").eq("id", account_id).maybe_single().execute()
-        return res.data
+        return res.data if res else None
 
     @staticmethod
     def get_warming() -> list[dict]:
@@ -64,7 +64,7 @@ class ContentPlanReader:
     @staticmethod
     def get_by_id(plan_id: str) -> dict | None:
         res = get_db().table("content_plans").select("*").eq("id", plan_id).maybe_single().execute()
-        return res.data
+        return res.data if res else None
 
 
 class VideoReader:
@@ -77,7 +77,7 @@ class VideoReader:
     @staticmethod
     def get_by_id(video_id: str) -> dict | None:
         res = get_db().table("videos").select("*").eq("id", video_id).maybe_single().execute()
-        return res.data
+        return res.data if res else None
 
 
 # ══════════════════════════════════════════════════════════
@@ -98,7 +98,7 @@ class AccountWriter:
             )
 
     @classmethod
-    def update_status(cls, account_id: str, status: str, extra: dict | None = None) -> dict:
+    def update_status(cls, account_id: str, status: str, extra: dict | None = None) -> Any:
         payload = {"status": status}
         if extra:
             payload.update(extra)
@@ -135,7 +135,7 @@ class ContentPlanWriter:
         }).execute().data[0]
 
     @staticmethod
-    def approve(plan_id: str, approved_by: str = "user") -> dict:
+    def approve(plan_id: str, approved_by: str = "user") -> Any:
         return get_db().table("content_plans").update({
             "status": "approved",
             "approved_by": approved_by,
@@ -153,14 +153,14 @@ class VideoWriter:
         }).execute().data[0]
 
     @staticmethod
-    def set_generating(video_id: str, job_id: str) -> dict:
+    def set_generating(video_id: str, job_id: str) -> Any:
         return get_db().table("videos").update({
             "higgsfield_job_id": job_id,
             "status": "generating",
         }).eq("id", video_id).execute().data
 
     @staticmethod
-    def set_ready(video_id: str, storage_url: str, duration_sec: int) -> dict:
+    def set_ready(video_id: str, storage_url: str, duration_sec: int) -> Any:
         return get_db().table("videos").update({
             "status": "ready",
             "storage_url": storage_url,
@@ -168,7 +168,7 @@ class VideoWriter:
         }).eq("id", video_id).execute().data
 
     @staticmethod
-    def set_failed(video_id: str, error: str) -> dict:
+    def set_failed(video_id: str, error: str) -> Any:
         return get_db().table("videos").update({
             "status": "failed",
             "error_message": error,
@@ -188,7 +188,7 @@ class PublicationWriter:
         }).execute().data[0]
 
     @staticmethod
-    def mark_published(pub_id: str, platform_post_id: str) -> dict:
+    def mark_published(pub_id: str, platform_post_id: str) -> Any:
         return get_db().table("publications").update({
             "status":           "published",
             "published_at":     datetime.now(timezone.utc).isoformat(),
@@ -196,7 +196,7 @@ class PublicationWriter:
         }).eq("id", pub_id).execute().data
 
     @staticmethod
-    def increment_attempt(pub_id: str, error: str) -> dict:
+    def increment_attempt(pub_id: str, error: str) -> Any:
         pub = get_db().table("publications").select("attempt_count").eq("id", pub_id).single().execute().data
         new_count = (pub["attempt_count"] or 0) + 1
         new_status = "dead_letter" if new_count >= 3 else "failed"

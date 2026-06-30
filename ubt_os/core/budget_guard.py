@@ -10,7 +10,6 @@ FIX #6: LiteLLM Budget Guard — защита от бесконечных цик
 from __future__ import annotations
 import logging
 import os
-from typing import Optional
 import httpx
 
 logger = logging.getLogger("litellm.budget_guard")

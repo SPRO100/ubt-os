@@ -12,7 +12,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import time
 import uuid
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -44,6 +43,7 @@ async def get_redis() -> aioredis.Redis:
             decode_responses=True,
         )
         _redis_loop = current_loop
+    assert _redis is not None
     return _redis
 
 

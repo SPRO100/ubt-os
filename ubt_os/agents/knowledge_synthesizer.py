@@ -5,7 +5,7 @@ A18 — KNOWLEDGE_SYNTHESIZER
 """
 from __future__ import annotations
 import asyncio, json, logging, os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
 from anthropic import AsyncAnthropic
 
@@ -20,12 +20,12 @@ class KnowledgeDataCollector:
 
     def __init__(self, db: Client, days: int = 1):
         self.db    = db
-        self.since = (datetime.utcnow() - timedelta(days=days)).isoformat()
-        self.week  = (datetime.utcnow() - timedelta(days=7)).isoformat()
+        self.since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        self.week  = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
 
     def collect_daily(self) -> dict:
         return {
-            "date":      datetime.utcnow().date().isoformat(),
+            "date":      datetime.now(timezone.utc).date().isoformat(),
             "videos":    self._videos(),
             "revenue":   self._revenue(),
             "top_hooks": self._top_hooks(),
@@ -36,7 +36,7 @@ class KnowledgeDataCollector:
 
     def collect_weekly(self) -> dict:
         return {
-            "week":         datetime.utcnow().isocalendar()[1],
+            "week":         datetime.now(timezone.utc).isocalendar()[1],
             "videos_7d":    self._videos(self.week),
             "revenue_7d":   self._revenue(self.week),
             "patterns":     self._patterns(),
@@ -167,7 +167,7 @@ class KnowledgeWriter:
     def save_daily(self, synthesis: dict) -> list[int]:
         """Append-only записи — никогда не обновляем существующие."""
         ids = []
-        date = datetime.utcnow().date().isoformat()
+        date = datetime.now(timezone.utc).date().isoformat()
 
         # Сохраняем каждый вывод как отдельную запись
         entries = []
@@ -198,7 +198,7 @@ class KnowledgeWriter:
 
     def save_weekly(self, synthesis: dict) -> list[int]:
         ids  = []
-        week = f"W{datetime.utcnow().isocalendar()[1]:02d}"
+        week = f"W{datetime.now(timezone.utc).isocalendar()[1]:02d}"
 
         for p in synthesis.get("winning_patterns", []):
             self.db.table("winning_patterns").upsert(
@@ -211,7 +211,7 @@ class KnowledgeWriter:
         if compound:
             res = self.db.table("knowledge_entries").insert({
                 "type": "compound_learning", "content": compound,
-                "date": datetime.utcnow().date().isoformat(),
+                "date": datetime.now(timezone.utc).date().isoformat(),
                 "metadata": {"week": week}
             }).execute()
             ids.append(res.data[0]["id"])
@@ -226,7 +226,7 @@ class KnowledgeWriter:
             lines = [
                 f"---\ntype: daily-synthesis\ntags: [knowledge, synthesis]\ndate: {date}\n---\n",
                 f"# 🧠 Синтез знаний — {date}\n",
-                f"## Что сработало",
+                "## Что сработало",
             ]
             for w in synthesis.get("what_worked", []):
                 lines.append(f"- ✅ {w}")
@@ -252,7 +252,7 @@ class KnowledgeWriter:
             lines = [
                 f"---\ntype: weekly-synthesis\ntags: [knowledge, weekly]\nweek: {week}\n---\n",
                 f"# 🧠 Недельный обзор — {week}\n",
-                f"## Выигрышные паттерны",
+                "## Выигрышные паттерны",
             ]
             for p in synthesis.get("winning_patterns", []):
                 scale = "🚀 масштабировать" if p.get("scale") else ""
@@ -311,7 +311,7 @@ async def run_daily_synthesis() -> dict:
     logger.info("KNOWLEDGE_SYNTHESIZER: сохранение...")
     writer.save_daily(synthesis)
 
-    date       = datetime.utcnow().date().isoformat()
+    date       = datetime.now(timezone.utc).date().isoformat()
     path, md   = writer.to_obsidian_daily(synthesis, date)
     synthesis["obsidian_path"] = path
     synthesis["obsidian_md"]   = md
@@ -336,7 +336,7 @@ async def run_weekly_synthesis() -> dict:
     logger.info("KNOWLEDGE_SYNTHESIZER: сохранение...")
     writer.save_weekly(synthesis)
 
-    week       = f"W{datetime.utcnow().isocalendar()[1]:02d}"
+    week       = f"W{datetime.now(timezone.utc).isocalendar()[1]:02d}"
     path, md   = writer.to_obsidian_weekly(synthesis, week)
     synthesis["obsidian_path"] = path
     synthesis["obsidian_md"]   = md

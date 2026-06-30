@@ -131,10 +131,8 @@ class HiggsFieldQueue:
         if not items:
             return None
 
-        job_json, score = items[0], items[1] if len(items) > 1 else 0
-        # zpopmin возвращает список пар (member, score)
-        if isinstance(items, list) and len(items) == 2:
-            job_json = items[0]
+        # zpopmin возвращает список пар (member, score) — берём member
+        job_json = items[0]
 
         job = VideoJob.from_json(job_json)
         await r.sadd(PROCESSING_KEY, job.job_id)

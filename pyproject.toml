@@ -1,0 +1,27 @@
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+exclude = [".venv", "node_modules", "dashboard", "dashboard-static"]
+
+[tool.ruff.lint]
+# Проект намеренно использует компактный стиль: несколько импортов в одной
+# строке и короткие однострочные конструкции. Эти стилистические правила
+# отключены, содержательные (неиспользуемый код, ошибки) — включены.
+ignore = [
+    "E401",  # multiple-imports-on-one-line — принятый стиль
+    "E701",  # multiple-statements-on-one-line-colon — компактные guard'ы
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # ре-экспорты публичного API
+"tests/*"     = ["F401"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+
+# redis-py типизирует async-команды как Awaitable[T] | T (один класс на sync/async),
+# из-за чего `await r.zpopmin(...)` ложно флагается [misc]. Код корректен в рантайме.
+[[tool.mypy.overrides]]
+module = "ubt_os.pipelines.higgsfield_queue"
+disable_error_code = ["misc"]

@@ -8,7 +8,7 @@ A22 — ADS_AUDITOR
 from __future__ import annotations
 import asyncio, logging, os
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from anthropic import AsyncAnthropic
 
 from ubt_os.utils.llm_utils import extract_json as _extract_json
@@ -158,7 +158,7 @@ class AuditResult:
     quick_wins: list[str]
     action_plan: list[dict]
     estimated_improvement: str
-    audited_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    audited_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class AdsAuditor:

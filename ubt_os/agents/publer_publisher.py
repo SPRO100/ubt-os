@@ -15,12 +15,12 @@ A26 — PUBLER_PUBLISHER
 from __future__ import annotations
 import asyncio, logging, os
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 import httpx
 
-from ubt_os.agents.compliance_gate import ComplianceGate, RiskLevel
+from ubt_os.agents.compliance_gate import ComplianceGate
 
 logger = logging.getLogger("ubt_os.publer_publisher")
 
@@ -43,7 +43,7 @@ class PublishResult:
     compliance_score: int
     compliance_risk: str
     error: str | None = None
-    published_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    published_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 def _build_utm(base_url: str, vertical: str, geo: str, platform: str) -> str:
