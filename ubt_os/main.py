@@ -246,11 +246,16 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "- A26 publer_publisher: публикация в TikTok/Facebook/Instagram через Publer API\n"
             "- A27 spy_analyzer: анализ крипов конкурентов из PiPiAds/AdHeart, паттерны хуков и brief для A21\n"
             "- A28 warmup_manager: трекер 14-дневного прогрева аккаунтов, GEO-инфраструктура, лимиты активности\n"
-            "- A29 prelanding_generator: генерация HTML прелендингов (quiz/story/article/vsl) для воронки\n\n"
+            "- A29 prelanding_generator: генерация HTML прелендингов (quiz/story/article/vsl) для воронки\n"
+            "- A30 higgsfield_agent: генерация UGC-видео 9:16, Shorts 15–60с и каруселей через Higgsfield AI\n\n"
             "Если задача пользователя явно подходит для одного из агентов — добавь в КОНЕЦ ответа строку:\n"
             "[AGENT_SUGGEST: agent_id|Что именно агент сделает для этой задачи]\n"
             "Пример: [AGENT_SUGGEST: content_creator|Создать 3 варианта hook для нутра GEO US]\n"
-            "Добавляй не более 2 предложений. Если агент не нужен — ничего не добавляй."
+            "Добавляй не более 2 предложений. Если агент не нужен — ничего не добавляй.\n\n"
+            "Если в ответе уместна ссылка на внешний сервис (PiPiAds, AdHeart, Publer, Higgsfield, Keitaro и т.д.) — "
+            "добавь в конец ответа: [QUICK_LINK: Название|https://url]\n"
+            "Примеры: [QUICK_LINK: PiPiAds|https://www.pipiads.com] или [QUICK_LINK: Publer|https://app.publer.io]\n"
+            "Не более 3 ссылок. Только если они реально помогут пользователю прямо сейчас."
         )
 
         system_prompt = (
@@ -274,20 +279,51 @@ class WebhookHandler(BaseHTTPRequestHandler):
         )
         raw_reply = resp.content[0].text
 
-        # Extract [AGENT_SUGGEST: agent_id|description] markers from reply
         import re as _re
         suggestions = []
-        def _extract_suggestions(text):
+        quick_links = []
+
+        def _extract_markers(text):
             for m in _re.finditer(r"\[AGENT_SUGGEST:\s*([^\|]+)\|([^\]]+)\]", text):
                 suggestions.append({"agent": m.group(1).strip(), "description": m.group(2).strip()})
-            return _re.sub(r"\[AGENT_SUGGEST:[^\]]+\]", "", text).strip()
+            for m in _re.finditer(r"\[QUICK_LINK:\s*([^\|]+)\|([^\]]+)\]", text):
+                quick_links.append({"label": m.group(1).strip(), "url": m.group(2).strip()})
+            text = _re.sub(r"\[AGENT_SUGGEST:[^\]]+\]", "", text)
+            text = _re.sub(r"\[QUICK_LINK:[^\]]+\]", "", text)
+            return text.strip()
 
-        reply = _extract_suggestions(raw_reply)
+        reply = _extract_markers(raw_reply)
+
+        # Auto-add agent launch quick_links from suggestions
+        _agent_links = {
+            "spy_analyzer":         [
+                {"label": "PiPiAds", "url": "https://www.pipiads.com"},
+                {"label": "AdHeart", "url": "https://adheart.me"},
+            ],
+            "publer_publisher":     [{"label": "Publer", "url": "https://app.publer.io"}],
+            "higgsfield_agent":     [{"label": "Higgsfield", "url": "https://higgsfield.ai"}],
+            "prelanding_generator": [{"label": "Keitaro", "url": "https://keitaro.io"}],
+            "warmup_manager":       [
+                {"label": "IPRoyal", "url": "https://iproyal.com"},
+                {"label": "Airalo", "url": "https://www.airalo.com"},
+            ],
+        }
+        existing_urls = {ql["url"] for ql in quick_links}
+        for s in suggestions:
+            for link in _agent_links.get(s["agent"], []):
+                if link["url"] not in existing_urls and len(quick_links) < 4:
+                    quick_links.append(link)
+                    existing_urls.add(link["url"])
 
         db.table("chat_messages").insert({"vertical_id": vertical_id, "role": "user", "content": message}).execute()
         db.table("chat_messages").insert({"vertical_id": vertical_id, "role": "assistant", "content": reply}).execute()
 
-        return {"reply": reply, "vertical_id": vertical_id, "agent_suggestions": suggestions}
+        return {
+            "reply": reply,
+            "vertical_id": vertical_id,
+            "agent_suggestions": suggestions,
+            "quick_links": quick_links,
+        }
 
     async def _run_agent(self, body: dict):
         """POST /agents/run — запуск A19–A24 напрямую из браузера."""
@@ -525,6 +561,54 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     "html_content": result.html_content,
                     "compliance_notes": result.compliance_notes,
                     "funnel_tips": result.funnel_tips,
+                }
+
+            elif agent == "higgsfield_agent":
+                from ubt_os.agents import HiggsFieldAgent, VideoFormat
+                hf     = HiggsFieldAgent()
+                fmt    = params.get("format", "ugc")
+
+                if fmt == "check_status":
+                    r = await hf.check_status(params.get("job_id", ""))
+                    return {"format": r.format, "status": r.status,
+                            "video_url": r.video_url, "job_id": r.job_id, "error": r.error}
+
+                if fmt == "carousel":
+                    r = await hf.generate_carousel(
+                        params.get("offer_name", "Product"),
+                        params.get("benefits", []),
+                        params.get("carousel_style", "minimal"),
+                        params.get("vertical", "nutra"),
+                        params.get("slide_count", 5),
+                        params.get("aspect_ratio", "1:1"),
+                    )
+                    return {"format": r.format, "status": r.status,
+                            "slides": r.slides, "slide_count": len(r.slides), "error": r.error}
+
+                if fmt == "shorts":
+                    script = " ".join(filter(None, [
+                        params.get("hook", ""), params.get("story", ""), params.get("cta", ""),
+                    ]))
+                    r = await hf.generate_shorts(
+                        script,
+                        params.get("style", "dynamic"),
+                        params.get("vertical", "nutra"),
+                        params.get("geo", "US"),
+                    )
+                else:  # ugc
+                    r = await hf.generate_ugc(
+                        params.get("hook", ""),
+                        params.get("story", ""),
+                        params.get("cta", ""),
+                        params.get("vertical", "nutra"),
+                        params.get("geo", "US"),
+                        params.get("avatar_style", "authentic"),
+                    )
+                return {
+                    "format": r.format, "status": r.status,
+                    "video_url": r.video_url, "thumbnail_url": r.thumbnail_url,
+                    "duration_sec": r.duration_sec, "job_id": r.job_id,
+                    "prompt_used": r.prompt_used, "error": r.error,
                 }
 
             else:

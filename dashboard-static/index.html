@@ -114,6 +114,9 @@ td.mono{font-family:'IBM Plex Mono',monospace;font-size:12px;}
 .suggest-chip{display:flex;align-items:center;gap:6px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:7px;padding:5px 10px;font-size:11.5px;color:#a5b4fc;cursor:pointer;}
 .suggest-chip:hover{background:rgba(99,102,241,.22);}
 .suggest-chip .chip-icon{font-size:12px;}
+.quick-links-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+.quick-link-chip{display:inline-block;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:500;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25);color:#86efac;cursor:pointer;text-decoration:none;font-family:inherit;}
+.quick-link-chip:hover{background:rgba(74,222,128,.2);color:#4ade80;}
 </style>
 </head>
 <body>
@@ -516,13 +519,16 @@ async function sendChatMessage(){
     log.insertAdjacentHTML("beforeend", renderChatMsg({role:"assistant", content: data.reply || data.error || "Ошибка ответа"}));
 
     // Показываем подсказки агентов если оркестратор их предложил
+    const agentLabels = {
+      content_creator:"A21 content_creator", text_humanizer:"A19 text_humanizer",
+      trend_scraper:"A20 trend_scraper", ads_auditor:"A22 ads_auditor",
+      youtube_creator:"A23 youtube_creator", obsidian_brain:"A24 obsidian_brain",
+      compliance_gate:"A25 compliance_gate", publer_publisher:"A26 publer_publisher",
+      spy_analyzer:"A27 spy_analyzer", warmup_manager:"A28 warmup_manager",
+      prelanding_generator:"A29 prelanding_generator", higgsfield_agent:"A30 higgsfield",
+    };
     if(data.agent_suggestions && data.agent_suggestions.length > 0){
       const chipsHtml = data.agent_suggestions.map(s => {
-        const agentLabels = {
-          content_creator:"A21 content_creator", text_humanizer:"A19 text_humanizer",
-          trend_scraper:"A20 trend_scraper", ads_auditor:"A22 ads_auditor",
-          youtube_creator:"A23 youtube_creator", obsidian_brain:"A24 obsidian_brain",
-        };
         const label = agentLabels[s.agent] || s.agent;
         return `<div class="suggest-chip" onclick="goToLaunch('${esc(s.agent)}')">
           <span class="chip-icon">▶</span>
@@ -531,6 +537,19 @@ async function sendChatMessage(){
       }).join("");
       log.insertAdjacentHTML("beforeend",
         `<div class="agent-suggest-row">${chipsHtml}</div>`);
+    }
+    // Показываем быстрые ссылки (quick_links) если оркестратор их предложил
+    if(data.quick_links && data.quick_links.length > 0){
+      const linkChips = data.quick_links.map(ql => {
+        const isAgent = Object.keys(agentLabels).includes(ql.url.replace(/^agent:/, ""));
+        if(ql.url.startsWith("agent:")){
+          const agentId = ql.url.replace("agent:", "");
+          return `<button class="quick-link-chip" onclick="goToLaunch('${esc(agentId)}')">↗ ${esc(ql.label)}</button>`;
+        }
+        return `<a class="quick-link-chip" href="${esc(ql.url)}" target="_blank" rel="noopener">↗ ${esc(ql.label)}</a>`;
+      }).join("");
+      log.insertAdjacentHTML("beforeend",
+        `<div class="quick-links-row">${linkChips}</div>`);
     }
   }catch(e){
     log.insertAdjacentHTML("beforeend", renderChatMsg({role:"assistant", content:"⚠️ Не удалось связаться с оркестратором: "+e.message}));
@@ -552,7 +571,11 @@ function goToLaunch(agentId){
   // Скролл к карточке нужного агента
   setTimeout(() => {
     const cards = document.querySelectorAll(".agent-card");
-    const agentMap = {content_creator:0,text_humanizer:1,trend_scraper:2,ads_auditor:3,youtube_creator:4,obsidian_brain:5};
+    const agentMap = {
+      content_creator:0, text_humanizer:1, trend_scraper:2, ads_auditor:3,
+      youtube_creator:4, obsidian_brain:5, compliance_gate:6, publer_publisher:7,
+      spy_analyzer:8, warmup_manager:9, prelanding_generator:10, higgsfield_agent:11,
+    };
     const idx = agentMap[agentId] ?? 0;
     if(cards[idx]) cards[idx].scrollIntoView({behavior:"smooth", block:"center"});
   }, 100);
@@ -711,6 +734,21 @@ function renderAgents(){
           <td>${chip("готов","#4ade80")}</td>
         </tr>
       </table>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="title">Медиа-генерация (A30)</span><span class="right">${liveTag()} добавлен 30 июня</span></div>
+      <table><tr><th>ID</th><th>Файл</th><th>Роль</th><th>Статус</th></tr>
+        <tr>
+          <td class="mono" style="color:var(--faint)">A30</td>
+          <td class="primary mono">higgsfield_agent.py</td>
+          <td>UGC-видео 9:16 (TikTok/IG), Shorts 15–60с, Карусели для белых офферов. Claude Haiku планирует слайды → Higgsfield AI генерирует.</td>
+          <td><span class="chip" style="color:var(--amber);background:rgba(245,158,11,.1)">нужен HIGGSFIELD_API_KEY</span></td>
+        </tr>
+      </table>
+      <div style="margin-top:12px;font-size:12px;color:var(--faint);">
+        Пайплайн: A21 (скрипт) → A30 (медиа) → A26 Publer (публикация) · Форматы видео: seedance_2_0 · Каруселей: Higgsfield Image API
+      </div>
     </div>
 
     <div class="card">
@@ -1098,6 +1136,57 @@ function renderLaunch(){
         <div class="agent-result" id="a29-result"></div>
       </div>
 
+      <!-- A30 higgsfield_agent -->
+      <div class="agent-card">
+        <div class="agent-card-head">
+          <span class="agent-id">A30</span>
+          <span class="agent-name">higgsfield_agent</span>
+        </div>
+        <div class="agent-desc">Генерация UGC-видео 9:16, Shorts 15–60с и каруселей (белые офферы) через Higgsfield AI. Требует HIGGSFIELD_API_KEY.</div>
+        <div class="agent-form">
+          <label>Формат</label>
+          <select id="a30-format" onchange="toggleA30()">
+            <option value="ugc">UGC 9:16 (TikTok / Instagram)</option>
+            <option value="shorts">Shorts 15–60с (быстрый монтаж)</option>
+            <option value="carousel">Карусель (Facebook / Instagram, белый оффер)</option>
+          </select>
+
+          <!-- UGC / Shorts fields -->
+          <div id="a30-video-block">
+            <label>Hook (0–3 сек)</label>
+            <input id="a30-hook" placeholder="Doctors HATE this woman for discovering…">
+            <label>Story (3–22 сек)</label>
+            <textarea id="a30-story" rows="2" placeholder="Я попробовала это средство и за 30 дней…"></textarea>
+            <label>CTA (последние 5 сек)</label>
+            <input id="a30-cta" placeholder="Ссылка в bio → получи -50%">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+              <select id="a30-vertical"><option value="nutra">Nutra</option><option value="betting">Betting</option><option value="white">White offer</option></select>
+              <select id="a30-geo"><option value="US">US</option><option value="BR">BR</option><option value="MX">MX</option><option value="DE">DE</option><option value="PL">PL</option></select>
+              <select id="a30-avatar"><option value="authentic">Authentic</option><option value="professional">Professional</option><option value="friendly">Friendly</option></select>
+            </div>
+          </div>
+
+          <!-- Carousel fields -->
+          <div id="a30-carousel-block" style="display:none;">
+            <label>Название оффера</label>
+            <input id="a30-offer" placeholder="BloodSugarX / Keto Pro / …">
+            <label>Преимущества (по одному на строку)</label>
+            <textarea id="a30-carousel-benefits" rows="4" placeholder="Снижает сахар за 14 дней&#10;Натуральный состав&#10;Клинически подтверждено&#10;Без рецепта"></textarea>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+              <select id="a30-carousel-style"><option value="minimal">Minimal (белый фон)</option><option value="lifestyle">Lifestyle (фото)</option><option value="testimonial">Testimonial (до/после)</option><option value="edu">Edu (инфографика)</option></select>
+              <select id="a30-slide-count">
+                ${[3,4,5,6,7].map(n=>`<option value="${n}"${n===5?" selected":""}>${n} слайдов</option>`).join("")}
+              </select>
+              <select id="a30-aspect"><option value="1:1">1:1 (Instagram)</option><option value="4:5">4:5 (Facebook)</option></select>
+            </div>
+          </div>
+
+          <div style="font-size:11px;color:var(--faint);padding:6px 0 2px;">Требуется: HIGGSFIELD_API_KEY на сервере</div>
+          <button class="run-btn" onclick="runA30(event)" style="margin-top:6px;">▶ Генерировать</button>
+        </div>
+        <div class="agent-result" id="a30-result"></div>
+      </div>
+
     </div>
   `;
   _launchRendered = true;
@@ -1160,6 +1249,41 @@ function runA29(event){
     product_benefits: benefits,
     lander_url: v("a29-lander") || "LANDER_URL",
   }, "a29-result", event);
+}
+
+function toggleA30(){
+  const fmt = document.getElementById("a30-format")?.value;
+  const isCarousel = fmt === "carousel";
+  const vb = document.getElementById("a30-video-block");
+  const cb = document.getElementById("a30-carousel-block");
+  if(vb) vb.style.display = isCarousel ? "none" : "";
+  if(cb) cb.style.display = isCarousel ? "" : "none";
+}
+
+function runA30(event){
+  const fmt = v("a30-format");
+  if(fmt === "carousel"){
+    const benefits = v("a30-carousel-benefits").split("\n").map(s=>s.trim()).filter(Boolean);
+    runAgent("higgsfield_agent", {
+      format: "carousel",
+      offer_name: v("a30-offer") || "Product",
+      benefits,
+      carousel_style: v("a30-carousel-style"),
+      slide_count: parseInt(v("a30-slide-count")) || 5,
+      aspect_ratio: v("a30-aspect"),
+      vertical: "white",
+    }, "a30-result", event);
+  } else {
+    runAgent("higgsfield_agent", {
+      format: fmt,
+      hook: v("a30-hook"),
+      story: v("a30-story"),
+      cta: v("a30-cta"),
+      vertical: v("a30-vertical"),
+      geo: v("a30-geo"),
+      avatar_style: v("a30-avatar"),
+    }, "a30-result", event);
+  }
 }
 
 function v(id){ const el = document.getElementById(id); return el ? el.value : ""; }
@@ -1408,6 +1532,53 @@ function renderAgentResult(resultEl, agent, params, data){
         <button onclick="copyHtml(this)" style="position:absolute;top:6px;right:6px;background:var(--border);border:none;border-radius:5px;color:var(--muted);padding:3px 10px;font-size:10px;cursor:pointer;z-index:1;">Скопировать HTML</button>
         <pre style="margin:0;padding:10px;background:var(--surface2);border-radius:6px;font-size:10px;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;">${esc((data.html_content||"").substring(0, 2000))}${(data.html_content||"").length > 2000 ? "\n…(ещё " + ((data.html_content||"").length - 2000) + " символов)" : ""}</pre>
       </div>`;
+
+  } else if(agent === "higgsfield_agent"){
+    const status = data.status ?? "—";
+    const statusColor = {completed:"#4ade80", dry_run:"#6366f1", failed:"#f87171", timeout:"#f59e0b", pending:"#94a3b8", processing:"#94a3b8"}[status] || "#94a3b8";
+    const statusLabel = {completed:"✅ Готово", dry_run:"🔵 Dry Run (API ключ не задан)", failed:"❌ Ошибка", timeout:"⏱ Timeout", pending:"⏳ Ожидает", processing:"⚙️ Обрабатывается"}[status] || status;
+
+    if(data.slides && data.slides.length > 0){
+      // Carousel result
+      const okSlides = data.slides.filter(s => s.url);
+      html = `${copyBtn}
+        <div style="margin-bottom:10px;">
+          <b style="color:${statusColor}">${statusLabel}</b>
+          <span style="font-size:11px;color:var(--faint);margin-left:10px;">${okSlides.length}/${data.slides.length} слайдов создано</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:8px;">
+          ${data.slides.map(s => s.url
+            ? `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+                 <img src="${esc(s.url)}" style="width:100%;display:block;aspect-ratio:1/1;object-fit:cover;" loading="lazy" onerror="this.style.display='none'">
+                 <div style="padding:6px 8px;">
+                   <div style="font-size:10px;color:var(--faint);margin-bottom:2px;">Слайд ${s.slide_num}</div>
+                   <div style="font-size:11px;font-weight:600;color:var(--text);line-height:1.3;">${esc(s.headline||"")}</div>
+                   ${s.caption ? `<div style="font-size:10px;color:var(--muted);margin-top:2px;">${esc(s.caption)}</div>` : ""}
+                 </div>
+               </div>`
+            : `<div style="border:1px dashed var(--border);border-radius:8px;padding:12px;display:flex;align-items:center;justify-content:center;aspect-ratio:1/1;">
+                 <span style="font-size:10px;color:var(--faint);text-align:center;">Слайд ${s.slide_num}<br>❌ ошибка</span>
+               </div>`
+          ).join("")}
+        </div>`;
+    } else if(data.video_url){
+      html = `${copyBtn}
+        <div style="margin-bottom:10px;"><b style="color:${statusColor}">${statusLabel}</b></div>
+        <video src="${esc(data.video_url)}" controls style="max-width:100%;border-radius:8px;background:#000;" ${data.thumbnail_url?`poster="${esc(data.thumbnail_url)}"`:""}></video>
+        <div style="margin-top:8px;font-size:11px;color:var(--faint);">
+          ${data.duration_sec ? `Длительность: <b style="color:var(--text)">${data.duration_sec}с</b> · ` : ""}
+          ${data.job_id ? `Job ID: <span class="mono">${esc(data.job_id)}</span> · ` : ""}
+          <a href="${esc(data.video_url)}" target="_blank" style="color:var(--indigo)">Открыть видео ↗</a>
+        </div>
+        ${data.prompt_used ? `<div style="margin-top:8px;padding:8px;background:var(--surface2);border-radius:6px;font-size:10px;color:var(--faint);white-space:pre-wrap;">${esc(data.prompt_used)}</div>` : ""}`;
+    } else {
+      // Pending / dry_run / error state
+      html = `${copyBtn}
+        <div style="margin-bottom:8px;"><b style="color:${statusColor}">${statusLabel}</b></div>
+        ${data.job_id ? `<div style="font-size:11px;color:var(--faint);">Job ID: <span class="mono">${esc(data.job_id)}</span> — проверь статус позже</div>` : ""}
+        ${data.error ? `<div style="margin-top:6px;font-size:12px;color:var(--red);">${esc(data.error)}</div>` : ""}
+        ${data.prompt_used ? `<div style="margin-top:8px;padding:8px;background:var(--surface2);border-radius:6px;font-size:10px;color:var(--faint);white-space:pre-wrap;">${esc(data.prompt_used)}</div>` : ""}`;
+    }
 
   } else {
     html = `${copyBtn}<pre style="margin:0;font-size:11px;">${esc(JSON.stringify(data, null, 2))}</pre>`;

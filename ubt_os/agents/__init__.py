@@ -12,6 +12,7 @@ from .blotato_publisher     import BlatoPublisher, PubelerPublisher, PublishResu
 from .spy_analyzer          import SpyAnalyzer, SpyAnalysisResult
 from .warmup_manager        import WarmupManager, WarmupCheckResult, WarmupStatus
 from .prelanding_generator  import PrelandingGenerator, PrelandingResult
+from .higgsfield_agent      import HiggsFieldAgent, HiggsFieldResult, VideoFormat
 
 __all__ = [
     # Ядро (A12–A18)
@@ -33,4 +34,6 @@ __all__ = [
     "SpyAnalyzer", "SpyAnalysisResult",
     "WarmupManager", "WarmupCheckResult", "WarmupStatus",
     "PrelandingGenerator", "PrelandingResult",
+    # A30
+    "HiggsFieldAgent", "HiggsFieldResult", "VideoFormat",
 ]
