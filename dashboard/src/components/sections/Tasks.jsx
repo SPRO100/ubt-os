@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { runAgentAPI } from '../../api'
 
 const STATUS_META = {
   pending:    { label: 'Ожидает согласования', color: '#f59e0b', bg: '#f59e0b18', dot: 'amber' },
@@ -6,23 +7,31 @@ const STATUS_META = {
   in_progress:{ label: 'Выполняется',          color: '#22c55e', bg: '#22c55e18', dot: 'green' },
   done:       { label: 'Готово',               color: '#22c55e', bg: '#22c55e18', dot: 'green' },
   rejected:   { label: 'Отклонено',            color: '#ef4444', bg: '#ef444418', dot: 'red' },
+  failed:     { label: 'Ошибка',               color: '#ef4444', bg: '#ef444418', dot: 'red' },
 }
 
 const PIPELINE_STEPS = [
-  { id:'spy',      label:'A27 spy_analyzer',        icon:'🕵️' },
-  { id:'content',  label:'A21 content_creator',     icon:'📝' },
-  { id:'humanize', label:'A19 text_humanizer',      icon:'🧹' },
-  { id:'comply',   label:'A25 compliance_gate',     icon:'🛡️' },
-  { id:'prelanding',label:'A29 prelanding_gen',     icon:'🏗️' },
-  { id:'publish',  label:'A26 publer_publisher',    icon:'📤' },
+  { id:'spy',       label:'A27 spy_analyzer',    icon:'🕵️', agent:'spy_analyzer' },
+  { id:'content',   label:'A21 content_creator', icon:'📝', agent:'content_creator' },
+  { id:'humanize',  label:'A19 text_humanizer',  icon:'🧹', agent:'text_humanizer' },
+  { id:'comply',    label:'A25 compliance_gate', icon:'🛡️', agent:'compliance_gate' },
+  { id:'prelanding',label:'A29 prelanding_gen',  icon:'🏗️', agent:'prelanding_generator' },
+  { id:'publish',   label:'A26 publer_publisher',icon:'📤', agent:'publer_publisher' },
 ]
+
+const FORMAT_MAP = {
+  'before': 'before_after', 'before-after': 'before_after', 'before/after': 'before_after',
+  'ugc': 'ugc_reaction', 'story': 'ugc_reaction',
+  'article': 'seo_article', 'vsl': 'seo_article', 'quiz': 'seo_article',
+  'shorts': 'hook_problem', 'carousel': 'before_after',
+}
 
 function ProgressBar({ steps, currentStep }) {
   return (
     <div style={{ display:'flex', gap:4, alignItems:'center', marginTop:10 }}>
       {steps.map((s, i) => {
-        const done    = i < currentStep
-        const active  = i === currentStep
+        const done   = i < currentStep
+        const active = i === currentStep
         return (
           <div key={s.id} style={{ display:'flex', alignItems:'center', flex:1, minWidth:0 }}>
             <div style={{
@@ -35,7 +44,7 @@ function ProgressBar({ steps, currentStep }) {
                 background: done ? 'var(--green)' : active ? 'var(--indigo)' : 'var(--surface3)',
                 border: `2px solid ${done ? 'var(--green)' : active ? 'var(--indigo)' : 'var(--border2)'}`,
               }}>
-                {done ? '✓' : s.icon}
+                {done ? '✓' : active ? <span style={{ animation:'spin 1s linear infinite', display:'inline-block' }}>⏳</span> : s.icon}
               </div>
               <div style={{ fontSize:9, color:'var(--faint)', textAlign:'center', lineHeight:1.2 }}>
                 {s.label.split(' ')[0]}
@@ -99,6 +108,12 @@ function TaskCard({ task, onApprove, onReject, onDelete }) {
               ))}
             </div>
           )}
+
+          {task.status === 'failed' && task.error && (
+            <div style={{ marginTop:8, padding:'6px 10px', background:'#ef444418', borderRadius:6, fontSize:11, color:'#ef4444' }}>
+              ⚠️ {task.error}
+            </div>
+          )}
         </div>
 
         <div style={{ display:'flex', gap:6, flexShrink:0 }}>
@@ -123,7 +138,7 @@ function TaskCard({ task, onApprove, onReject, onDelete }) {
               </button>
             </>
           )}
-          {(task.status === 'done' || task.status === 'rejected') && (
+          {(task.status === 'done' || task.status === 'rejected' || task.status === 'failed') && (
             <button onClick={() => onDelete(task.id)}
               style={{ fontSize:11, padding:'4px 8px', borderRadius:6, background:'transparent',
                 border:'1px solid var(--border)', color:'var(--faint)', cursor:'pointer' }}>
@@ -155,19 +170,67 @@ export default function Tasks({ tasks = [], onUpdate }) {
     done:        tasks.filter(t => t.status === 'done').length,
   }
 
-  function approve(id) {
+  async function approve(id) {
+    const task = tasks.find(t => t.id === id)
+    if (!task) return
+
+    const vert = task.params?.vertical || 'nutra'
+    const geo  = task.params?.geo      || 'US'
+    const rawFmt = (task.params?.format || '').toLowerCase()
+    const fmt  = FORMAT_MAP[rawFmt] || 'before_after'
+
     onUpdate(id, { status: 'in_progress', step: 0, approvedAt: new Date().toISOString() })
-    // Simulate pipeline progress
-    let step = 0
-    const iv = setInterval(() => {
-      step++
-      if (step >= PIPELINE_STEPS.length) {
-        clearInterval(iv)
-        onUpdate(id, { status: 'done', step: PIPELINE_STEPS.length, doneAt: new Date().toISOString() })
-      } else {
-        onUpdate(id, { step })
-      }
-    }, 2500)
+
+    try {
+      // Step 0: Spy analyzer — gather hook patterns
+      let brief = ''
+      try {
+        const spy = await runAgentAPI('spy_analyzer', {
+          creatives: [], vertical: vert, geo, platform: 'tiktok', focus: 'all',
+        })
+        brief = spy.creative_brief || ''
+      } catch { /* spy is optional, continue if it fails */ }
+      onUpdate(id, { step: 1 })
+
+      // Step 1: Content creator
+      const contentRes = await runAgentAPI('content_creator', {
+        format: fmt, vertical: vert, geo,
+        ...(brief ? { brief } : {}),
+      })
+      const rawText = contentRes.result || contentRes.content || task.title
+      onUpdate(id, { step: 2 })
+
+      // Step 2: Text humanizer
+      const humanRes = await runAgentAPI('text_humanizer', {
+        text: rawText, geo, vertical: vert,
+      })
+      const cleanText = humanRes.result || rawText
+      onUpdate(id, { step: 3 })
+
+      // Step 3: Compliance gate
+      await runAgentAPI('compliance_gate', {
+        text: cleanText, vertical: vert, geo,
+      })
+      onUpdate(id, { step: 4 })
+
+      // Step 4: Prelanding generator
+      await runAgentAPI('prelanding_generator', {
+        offer_name: task.params?.vertical || 'Product',
+        vertical: vert, geo, billing_model: 'COD', format: 'story',
+        product_benefits: [], lander_url: 'https://example.com',
+      })
+      onUpdate(id, { step: 5 })
+
+      // Step 5: Publisher (dry run — real publish requires PUBLER_API_KEY)
+      await runAgentAPI('publer_publisher', {
+        text: cleanText, platform: 'tiktok',
+        affiliate_url: '', vertical: vert, geo, dry_run: true,
+      })
+
+      onUpdate(id, { status: 'done', step: PIPELINE_STEPS.length, doneAt: new Date().toISOString() })
+    } catch (e) {
+      onUpdate(id, { status: 'failed', error: e.message })
+    }
   }
 
   function reject(id) {
@@ -175,12 +238,12 @@ export default function Tasks({ tasks = [], onUpdate }) {
   }
 
   function remove(id) {
-    onUpdate(id, null) // null = delete
+    onUpdate(id, null)
   }
 
-  const pending     = tasks.filter(t => t.status === 'pending')
-  const active      = tasks.filter(t => t.status === 'in_progress')
-  const finished    = tasks.filter(t => t.status === 'done' || t.status === 'rejected')
+  const pending  = tasks.filter(t => t.status === 'pending')
+  const active   = tasks.filter(t => t.status === 'in_progress')
+  const finished = tasks.filter(t => t.status === 'done' || t.status === 'rejected' || t.status === 'failed')
 
   return (
     <>

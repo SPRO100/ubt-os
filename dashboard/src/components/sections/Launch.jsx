@@ -57,6 +57,25 @@ function AgentResult({ data, agent, params }) {
     </div>
   }
 
+  if (agent === 'obsidian_brain') {
+    return <div>
+      {copyBtn}
+      {data.answer && <div style={{ whiteSpace:'pre-wrap', lineHeight:1.65, marginBottom:10 }}>{data.answer}</div>}
+      {data.confidence !== undefined && (
+        <div style={{ fontSize:11, color:'var(--faint)', marginBottom:8 }}>
+          Уверенность: <b style={{ color: (data.confidence||0) > 0.7 ? 'var(--green)' : 'var(--amber)' }}>
+            {Math.round((data.confidence||0)*100)}%
+          </b>
+        </div>
+      )}
+      {(data.sources||[]).length > 0 && <div>
+        <b style={{ fontSize:11, color:'var(--indigo)' }}>ИСТОЧНИКИ</b>
+        {data.sources.map((s,i) => <div key={i} style={{ padding:'2px 0', fontSize:11, color:'var(--faint)' }}>• {s}</div>)}
+      </div>}
+      {!data.answer && <pre style={{ margin:0, fontSize:11 }}>{JSON.stringify(data, null, 2)}</pre>}
+    </div>
+  }
+
   if (agent === 'compliance_gate') {
     const risk = data.risk_level ?? '—'; const score = data.score ?? 0
     const rc = risk==='safe'?'var(--green)':risk==='warning'?'var(--amber)':'var(--red)'
@@ -553,7 +572,7 @@ function A29Card() {
   const [billing, setBilling] = useState('COD')
   const [fmt, setFmt] = useState('story')
   const [benefits, setBenefits] = useState('')
-  const [lander, setLander] = useState('LANDER_URL')
+  const [lander, setLander] = useState('')
   return (
     <AgentCard id="A29" name="prelanding_generator" desc="HTML прелендинги: quiz / story / native article / VSL · COD/Trial/SS">
       {(run, loading) => <>

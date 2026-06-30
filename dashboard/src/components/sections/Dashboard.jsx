@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
-import { countOf } from '../../api'
+import { countOf, fetchRows } from '../../api'
 
 const PRIORITIES = [
   'Получить API ключ Publer ($12/мес) → добавить PUBLER_API_KEY и PUBLER_*_PROFILE_IDS на сервер',
-  'Купить готовые aged аккаунты TikTok + Facebook → зарегистрировать в A28 (5–7 дней прогрева)',
+  'Купить готовые aged аккаунты TikTok + Instagram → зарегистрировать в A28 (5–7 дней прогрева)',
   'Зарегистрировать партнёрки (1win, Dr.Cash) → получить affiliate links для Keitaro',
   'Подключить Higgsfield API → запустить A21+A19 пайплайн → первый UGC-ролик через Publer',
   'Запустить A29 Prelanding Generator → создать HTML прелендинг → подключить воронку',
 ]
 
 const PLATFORMS = [
-  { id: 'tiktok',    name: 'TikTok',    logo: '🎵', bg: '#010101',   video: 0, accs: 0, er: '0%' },
-  { id: 'facebook',  name: 'Facebook',  logo: '📘', bg: '#1877f222', video: 0, accs: 0, er: '0%' },
-  { id: 'instagram', name: 'Instagram', logo: '📸', bg: '#e1306c22', video: 0, accs: 0, er: '0%' },
-  { id: 'pinterest', name: 'Pinterest', logo: '📌', bg: '#e6002322', video: 0, accs: 0, er: '0%' },
+  { id: 'tiktok',    name: 'TikTok',    logo: '🎵' },
+  { id: 'youtube',   name: 'YouTube',   logo: '▶️' },
+  { id: 'instagram', name: 'Instagram', logo: '📸' },
+  { id: 'telegram',  name: 'Telegram',  logo: '✈️' },
 ]
 
 const AI_AGENTS = [
@@ -41,18 +41,35 @@ function StatCard({ label, value, note, color = 'c-indigo', icon, iconBg }) {
 }
 
 export default function Dashboard({ health }) {
-  const [counts, setCounts] = useState({ accounts: 0, videos: 0, revenue: 0, knowledge: 0, strategy: 0, risk: 0 })
+  const [counts, setCounts]         = useState({ accounts: 0, videos: 0, revenue: 0, knowledge: 0, strategy: 0 })
+  const [platAccs, setPlatAccs]     = useState({ tiktok: 0, youtube: 0, instagram: 0, telegram: 0 })
+  const [revenueTotal, setRevenue]  = useState(0)
 
   useEffect(() => {
     async function load() {
-      const [accounts, videos, revenue, knowledge, strategy, risk] = await Promise.all([
+      const [accounts, videos, revenue, knowledge, strategy] = await Promise.all([
         countOf('accounts'), countOf('videos'), countOf('revenue_events'),
-        countOf('knowledge_entries'), countOf('strategy_briefs'), countOf('account_risk_profiles'),
+        countOf('knowledge_entries'), countOf('strategy_briefs'),
       ])
-      setCounts({ accounts, videos, revenue, knowledge, strategy, risk })
+      setCounts({ accounts, videos, revenue, knowledge, strategy })
+
+      const [tiktok, youtube, instagram, telegram] = await Promise.all([
+        countOf('accounts', '&platform=eq.tiktok'),
+        countOf('accounts', '&platform=eq.youtube'),
+        countOf('accounts', '&platform=eq.instagram'),
+        countOf('accounts', '&platform=eq.telegram'),
+      ])
+      setPlatAccs({ tiktok, youtube, instagram, telegram })
     }
+
+    async function loadRevenue() {
+      const rows = await fetchRows('revenue_events', 'select=net_amount&limit=10000')
+      setRevenue((rows || []).reduce((s, r) => s + (parseFloat(r.net_amount) || 0), 0))
+    }
+
     load()
-    const id = setInterval(load, 60000)
+    loadRevenue()
+    const id = setInterval(() => { load(); loadRevenue() }, 60000)
     return () => clearInterval(id)
   }, [])
 
@@ -81,15 +98,7 @@ export default function Dashboard({ health }) {
           <div className="card-body" style={{ padding: '22px 24px' }}>
             <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.08em' }}>Всего видео</div>
             <div style={{ fontSize: 48, fontWeight: 700, fontFamily: "'IBM Plex Mono',monospace", color: 'var(--text)', lineHeight: 1 }}>{counts.videos}</div>
-            <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
-              {PLATFORMS.map(p => (
-                <div key={p.id} style={{ textAlign: 'center', background: 'var(--surface2)', borderRadius: 8, padding: '8px 6px' }}>
-                  <div style={{ fontSize: 18 }}>{p.logo}</div>
-                  <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 2 }}>{p.name}</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'IBM Plex Mono',monospace", color: 'var(--text)', marginTop: 4 }}>{p.video}</div>
-                </div>
-              ))}
-            </div>
+            <div style={{ marginTop: 14, fontSize: 12, color: 'var(--faint)' }}>из таблицы videos в Supabase</div>
           </div>
         </div>
 
@@ -97,12 +106,14 @@ export default function Dashboard({ health }) {
           <div className="card-body" style={{ padding: '22px 24px' }}>
             <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.08em' }}>Всего аккаунтов</div>
             <div style={{ fontSize: 48, fontWeight: 700, fontFamily: "'IBM Plex Mono',monospace", color: 'var(--indigo)', lineHeight: 1 }}>{counts.accounts}</div>
-            <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+            <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
               {PLATFORMS.map(p => (
                 <div key={p.id} style={{ textAlign: 'center', background: 'var(--surface2)', borderRadius: 8, padding: '8px 6px' }}>
                   <div style={{ fontSize: 18 }}>{p.logo}</div>
                   <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 2 }}>{p.name}</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'IBM Plex Mono',monospace", color: 'var(--indigo)', marginTop: 4 }}>{p.accs}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'IBM Plex Mono',monospace", color: 'var(--indigo)', marginTop: 4 }}>
+                    {platAccs[p.id]}
+                  </div>
                 </div>
               ))}
             </div>
@@ -164,19 +175,10 @@ export default function Dashboard({ health }) {
           </div>
           <div className="card-body">
             <div style={{ fontSize: 36, fontWeight: 700, fontFamily: "'IBM Plex Mono',monospace", color: 'var(--text)', lineHeight: 1 }}>
-              $0.00
+              ${revenueTotal.toFixed(2)}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 6 }}>vs вчера</div>
-            <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              {[['Неделя','$0', '+0%'],['Месяц','$0','+0%']].map(([l,v,d]) => (
-                <div key={l} style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px 14px' }}>
-                  <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 4 }}>{l}</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily:"'IBM Plex Mono',monospace" }}>{v}</div>
-                  <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 2 }}>{d}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 6 }}>суммарная выручка · revenue_events</div>
+            <div style={{ marginTop: 20 }}>
               <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 8 }}>Условия партнёрок</div>
               {[['1win','RevShare до 60%, CPA $250'],['Dr.Cash','$25–100 CPA (COD)']].map(([n,v]) => (
                 <div key={n} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid var(--border)', fontSize:12 }}>

@@ -45,7 +45,7 @@ export default function Clients({ onCreateTask }) {
     setCurrent(p)
     setPendingTask(null)
     const [k, h] = await Promise.all([
-      fetchRows('knowledge_entries', `select=type,content,created_at&vertical_id=eq.${p.id}&order=created_at.desc&limit=5`),
+      fetchRows('knowledge_entries', `select=type,content,created_at&vertical=eq.${p.id}&order=created_at.desc&limit=5`),
       fetchRows('chat_messages',     `select=role,content,created_at&vertical_id=eq.${p.id}&order=created_at.asc&limit=30`),
     ])
     setKnowledge(k)

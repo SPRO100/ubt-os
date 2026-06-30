@@ -109,7 +109,7 @@ export default function App() {
       case 'agents':    return <Agents />
       case 'launch':    return <Launch goToLaunch={() => setSection('launch')} />
       case 'analytics': return <Analytics />
-      case 'infra':     return <Infra />
+      case 'infra':     return <Infra health={health} />
       case 'knowledge': return <Knowledge />
       default:          return <Dashboard health={health} />
     }
