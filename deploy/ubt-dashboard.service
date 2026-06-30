@@ -1,0 +1,15 @@
+[Unit]
+Description=UBT OS Dashboard (React/Vite)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/user/ubt-os/dashboard
+ExecStart=/opt/node22/bin/node /home/user/ubt-os/dashboard/node_modules/.bin/vite preview --port 3000 --host 127.0.0.1
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

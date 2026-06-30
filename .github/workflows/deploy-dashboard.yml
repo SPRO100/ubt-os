@@ -1,0 +1,44 @@
+name: Deploy Dashboard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "dashboard/**"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Build React app
+        working-directory: dashboard
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd /home/user/ubt-os
+            git fetch origin main
+            git checkout main
+            git pull origin main
+            cd dashboard
+            npm ci --omit=dev
+            npm run build
+            sudo systemctl restart ubt-dashboard
+            echo "Dashboard deployed OK"
