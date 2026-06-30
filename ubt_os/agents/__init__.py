@@ -13,6 +13,8 @@ from .spy_analyzer          import SpyAnalyzer, SpyAnalysisResult
 from .warmup_manager        import WarmupManager, WarmupCheckResult, WarmupStatus
 from .prelanding_generator  import PrelandingGenerator, PrelandingResult
 from .higgsfield_agent      import HiggsFieldAgent, HiggsFieldResult, VideoFormat
+from .competitor_analyst    import run_competitor_analyst
+from .transcription_agent   import run_transcription, run_batch_transcription
 
 __all__ = [
     # Ядро (A12–A18)
@@ -23,7 +25,7 @@ __all__ = [
     "TextHumanizer", "HumanizeResult",
     "TrendScraper", "TrendSignal",
     "ContentCreator", "ContentPiece", "ContentFormat", "Vertical",
-    # Новые агенты (A22–A24)
+    # Аналитика и знания (A22–A24)
     "AdsAuditor", "AuditResult",
     "YoutubeCreator", "YTContent", "YTFormat",
     "ObsidianBrain", "IngestResult", "QueryResult", "HealthReport",
@@ -36,4 +38,7 @@ __all__ = [
     "PrelandingGenerator", "PrelandingResult",
     # A30
     "HiggsFieldAgent", "HiggsFieldResult", "VideoFormat",
+    # Доп. агенты: анализ конкурентов + транскрипция
+    "run_competitor_analyst",
+    "run_transcription", "run_batch_transcription",
 ]

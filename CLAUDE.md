@@ -125,6 +125,9 @@ ubt_os/
 | A28 | `warmup_manager.py` | 14-day warmup, activity limits, infra validation |
 | A29 | `prelanding_generator.py` | HTML prelanders (quiz/story/article/vsl) |
 | A30 | `higgsfield_agent.py` | UGC video / Shorts / carousels |
+| A31 | `competitor_analyst.py` | Competitor hook analysis (complements A27) |
+| — | `transcription_agent.py` | Video transcription (Deepgram → Whisper) + hook extraction |
+| — | `pipelines/social_publisher.py` | Direct native-API publishing to 8 platforms |
 
 ### Key Architectural Patterns
 
@@ -162,6 +165,9 @@ LiteLLM spend before each call. Global daily cap via `LITELLM_DAILY_BUDGET`
 | POST | `/obsidian/write`, `/obsidian/append` | Write/append vault file |
 | POST | `/orchestrator/chat` | Chat with orchestrator (vertical context) |
 | POST | `/agents/run` | Run any A19–A30 agent directly (dashboard) |
+| POST | `/competitor/analyze`, `/hooks/top` | A31 competitor hook analysis |
+| POST | `/transcribe` | Video transcription + hook extraction |
+| POST | `/publish/direct`, `/publish/bulk` | Direct native-API publishing |
 | GET | `/health/check-all` | Supabase + Redis connectivity |
 | GET | `/metrics` | Prometheus-format counters |
 
