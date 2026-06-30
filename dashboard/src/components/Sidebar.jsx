@@ -1,4 +1,11 @@
+import { AGENTS_SERVER } from '../api'
+
 const SECTIONS = ['Работа', 'Контент', 'Система']
+
+const SERVER_HOST = (() => {
+  try { return AGENTS_SERVER ? new URL(AGENTS_SERVER).host : window.location.host }
+  catch { return AGENTS_SERVER || '—' }
+})()
 
 export default function Sidebar({ nav, active, onSelect, allOk, badges = {} }) {
   const grouped = SECTIONS.map(s => ({
@@ -50,7 +57,7 @@ export default function Sidebar({ nav, active, onSelect, allOk, badges = {} }) {
           </span>
         </div>
         <div style={{ marginTop: 8, fontSize: 10, color: 'var(--faint)', fontFamily: "'IBM Plex Mono',monospace", paddingLeft: 2 }}>
-          88.218.121.108 · v2.0
+          {SERVER_HOST} · v2.0
         </div>
       </div>
     </aside>

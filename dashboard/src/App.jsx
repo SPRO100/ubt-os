@@ -39,7 +39,7 @@ const TITLES = {
   launch:    ['Запуск агентов',    'Прямой запуск A19–A30 из браузера'],
   clients:   ['Клиенты',           'Чат с оркестратором → создание заданий в очередь'],
   content:   ['Производство',      'Архитектура пайплайна контента · A19–A30'],
-  agents:    ['Агенты',            '19 агентов A12–A30 · Publer TikTok / Facebook / Instagram / Pinterest'],
+  agents:    ['Агенты',            '22 агента A12–A31 · Publer + прямые API · TikTok / Facebook / Instagram / Pinterest'],
   analytics: ['Аналитика',         'Реальная выручка из Supabase · условия партнёрок'],
   knowledge: ['База знаний',       'Obsidian Vault · синхронизация через n8n каждый час'],
   infra:     ['Инфраструктура',    'FirstVDS Амстердам · 4 сервиса live'],

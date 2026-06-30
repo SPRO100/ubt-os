@@ -1,3 +1,10 @@
+import { AGENTS_SERVER } from '../../api'
+
+const SERVER_IP = (() => {
+  try { return AGENTS_SERVER ? new URL(AGENTS_SERVER).hostname : window.location.hostname }
+  catch { return '—' }
+})()
+
 export default function Infra({ health }) {
   const supaOk   = health?.supabase === 'ok'
   const redisOk  = health?.redis    === 'ok'
@@ -35,7 +42,7 @@ export default function Infra({ health }) {
                 ['Локация','Амстердам (EU для Claude API)'],
                 ['Конфигурация','8 CPU / 12 GB RAM / 120 GB NVMe'],
                 ['OS','Ubuntu 22.04 LTS'],
-                ['IP','88.218.121.108'],
+                ['IP',SERVER_IP],
               ].map(([k,v]) => (
                 <tr key={k}>
                   <td className="primary">{k}</td>

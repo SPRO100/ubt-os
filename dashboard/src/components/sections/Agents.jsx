@@ -39,10 +39,13 @@ const AFFILIATE_AGENTS = [
   { id:'A27', file:'spy_analyzer.py',           role:'Анализ крипов PiPiAds/AdHeart → хуки → creative brief для A21', status:'готов', color:'#22c55e' },
   { id:'A28', file:'warmup_manager.py',          role:'14-дневный прогрев. Лимиты активности, инфра-валидация.',       status:'готов', color:'#22c55e' },
   { id:'A29', file:'prelanding_generator.py',    role:'HTML прелендинги: quiz/story/article/vsl. COD/Trial/SS.',        status:'готов', color:'#22c55e' },
+  { id:'A31', file:'competitor_analyst.py',      role:'Анализ хуков конкурентов из competitor_signals → тренды (дополняет A27).', status:'готов', color:'#22c55e' },
 ]
 
 const MEDIA_AGENTS = [
-  { id:'A30', file:'higgsfield_agent.py', role:'UGC 9:16, Shorts 15–60с, Карусели через Higgsfield AI.', status:'нужен HIGGSFIELD_API_KEY', color:'#f59e0b' },
+  { id:'A30', file:'higgsfield_agent.py',     role:'UGC 9:16, Shorts 15–60с, Карусели через Higgsfield AI.', status:'нужен HIGGSFIELD_API_KEY', color:'#f59e0b' },
+  { id:'—',  file:'transcription_agent.py',  role:'Транскрипция видео (Deepgram → Whisper) + извлечение хука.', status:'готов', color:'#22c55e' },
+  { id:'—',  file:'social_publisher.py',     role:'Прямая публикация на 8 платформ через нативные API.',        status:'готов', color:'#22c55e' },
 ]
 
 const SKILLS = [

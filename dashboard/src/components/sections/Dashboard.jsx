@@ -11,9 +11,9 @@ const PRIORITIES = [
 
 const PLATFORMS = [
   { id: 'tiktok',    name: 'TikTok',    logo: '🎵' },
-  { id: 'youtube',   name: 'YouTube',   logo: '▶️' },
+  { id: 'facebook',  name: 'Facebook',  logo: '📘' },
   { id: 'instagram', name: 'Instagram', logo: '📸' },
-  { id: 'telegram',  name: 'Telegram',  logo: '✈️' },
+  { id: 'pinterest', name: 'Pinterest', logo: '📌' },
 ]
 
 const AI_AGENTS = [
@@ -42,7 +42,7 @@ function StatCard({ label, value, note, color = 'c-indigo', icon, iconBg }) {
 
 export default function Dashboard({ health }) {
   const [counts, setCounts]         = useState({ accounts: 0, videos: 0, revenue: 0, knowledge: 0, strategy: 0 })
-  const [platAccs, setPlatAccs]     = useState({ tiktok: 0, youtube: 0, instagram: 0, telegram: 0 })
+  const [platAccs, setPlatAccs]     = useState({ tiktok: 0, facebook: 0, instagram: 0, pinterest: 0 })
   const [revenueTotal, setRevenue]  = useState(0)
 
   useEffect(() => {
@@ -53,13 +53,13 @@ export default function Dashboard({ health }) {
       ])
       setCounts({ accounts, videos, revenue, knowledge, strategy })
 
-      const [tiktok, youtube, instagram, telegram] = await Promise.all([
+      const [tiktok, facebook, instagram, pinterest] = await Promise.all([
         countOf('accounts', '&platform=eq.tiktok'),
-        countOf('accounts', '&platform=eq.youtube'),
+        countOf('accounts', '&platform=eq.facebook'),
         countOf('accounts', '&platform=eq.instagram'),
-        countOf('accounts', '&platform=eq.telegram'),
+        countOf('accounts', '&platform=eq.pinterest'),
       ])
-      setPlatAccs({ tiktok, youtube, instagram, telegram })
+      setPlatAccs({ tiktok, facebook, instagram, pinterest })
     }
 
     async function loadRevenue() {
@@ -86,7 +86,7 @@ export default function Dashboard({ health }) {
         <StatCard label="Redis" value={redisOk ? 'OK' : 'ERR'} note="Upstash" color={redisOk ? 'c-cyan' : 'c-red'}
           icon="⚡" iconBg="rgba(6,182,212,.12)"
         />
-        <StatCard label="Агенты" value="19" note="A12–A30 в системе" color="c-indigo" icon="🤖" iconBg="var(--indigo-bg)" />
+        <StatCard label="Агенты" value="22" note="A12–A31 в системе" color="c-indigo" icon="🤖" iconBg="var(--indigo-bg)" />
         <StatCard label="Revenue Events" value={counts.revenue} note="net_amount events" color="c-green" icon="💰" iconBg="var(--green-bg)" />
         <StatCard label="Записи знаний" value={counts.knowledge} note="knowledge_entries" color="c-amber" icon="🧠" iconBg="var(--amber-bg)" />
         <StatCard label="Стратегий" value={counts.strategy} note="strategy_briefs" color="c-pink" icon="📊" iconBg="rgba(236,72,153,.12)" />
