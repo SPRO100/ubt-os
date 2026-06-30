@@ -6,8 +6,8 @@ export default function Analytics() {
 
   useEffect(() => {
     fetchRows('revenue_events', 'select=net_amount&limit=1000').then(rows => {
-      setTotal(rows.reduce((s, r) => s + (parseFloat(r.net_amount) || 0), 0))
-    })
+      setTotal((rows || []).reduce((s, r) => s + (parseFloat(r.net_amount) || 0), 0))
+    }).catch(() => {})
   }, [])
 
   return (

@@ -1,38 +1,52 @@
 import { useEffect, useState, useRef } from 'react'
 import { fetchRows, AGENTS_SERVER } from '../../api'
 
-function esc(s) {
-  if (s == null) return ''
-  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))
+function parseTaskFromReply(reply, verticalName) {
+  // Extract key params from orchestrator reply using simple heuristics
+  const geoMatch      = reply.match(/\b(US|BR|MX|DE|PL|UK|RU)\b/i)
+  const countMatch    = reply.match(/(\d+)\s*(видео|роликов|video)/i)
+  const formatMatch   = reply.match(/(before.?after|ugc|vsl|quiz|story|article|shorts|carousel)/i)
+  const vertMatch     = reply.match(/(betting|nutra|gambling|crypto|cod|trial)/i)
+
+  return {
+    id:          crypto.randomUUID(),
+    title:       `Контент: ${verticalName}${countMatch ? ' · ' + countMatch[1] + ' видео' : ''}`,
+    description: reply,
+    plan:        reply,
+    status:      'pending',
+    createdAt:   new Date().toISOString(),
+    params: {
+      vertical:  vertMatch?.[1] || verticalName || '',
+      geo:       geoMatch?.[1]?.toUpperCase() || '',
+      count:     countMatch?.[1] || '',
+      format:    formatMatch?.[1] || '',
+    },
+  }
 }
 
-const AGENT_LABELS = {
-  content_creator:'A21 content_creator', text_humanizer:'A19 text_humanizer',
-  trend_scraper:'A20 trend_scraper', ads_auditor:'A22 ads_auditor',
-  youtube_creator:'A23 youtube_creator', obsidian_brain:'A24 obsidian_brain',
-  compliance_gate:'A25 compliance_gate', publer_publisher:'A26 publer_publisher',
-  spy_analyzer:'A27 spy_analyzer', warmup_manager:'A28 warmup_manager',
-  prelanding_generator:'A29 prelanding_generator', higgsfield_agent:'A30 higgsfield',
-}
-
-export default function Clients({ goToLaunch }) {
+export default function Clients({ onCreateTask }) {
   const [projects,  setProjects]  = useState([])
+  const [loading,   setLoading]   = useState(true)
   const [current,   setCurrent]   = useState(null)
   const [knowledge, setKnowledge] = useState([])
   const [history,   setHistory]   = useState([])
   const [input,     setInput]     = useState('')
   const [sending,   setSending]   = useState(false)
+  const [pendingTask, setPendingTask] = useState(null) // last assistant reply to convert
   const logRef = useRef(null)
 
   useEffect(() => {
-    fetchRows('vertical_configs', 'select=id,name,category,config_yaml&order=created_at.asc').then(setProjects)
+    fetchRows('vertical_configs', 'select=id,name,category,config_yaml&order=created_at.asc')
+      .then(rows => { setProjects(rows); setLoading(false) })
+      .catch(() => setLoading(false))
   }, [])
 
   async function openProject(p) {
     setCurrent(p)
+    setPendingTask(null)
     const [k, h] = await Promise.all([
-      fetchRows('knowledge_entries', `select=type,content,created_at&vertical=eq.${p.id}&order=created_at.desc&limit=5`),
-      fetchRows('chat_messages', `select=role,content,created_at&vertical_id=eq.${p.id}&order=created_at.asc&limit=30`),
+      fetchRows('knowledge_entries', `select=type,content,created_at&vertical_id=eq.${p.id}&order=created_at.desc&limit=5`),
+      fetchRows('chat_messages',     `select=role,content,created_at&vertical_id=eq.${p.id}&order=created_at.asc&limit=30`),
     ])
     setKnowledge(k)
     setHistory(h)
@@ -48,17 +62,34 @@ export default function Clients({ goToLaunch }) {
     setHistory(h => [...h, { role:'user', content:msg }])
     setInput('')
     setSending(true)
+    setPendingTask(null)
     try {
       const res = await fetch(`${AGENTS_SERVER}/orchestrator/chat`, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ vertical_id: current.id, message: msg }),
       })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      setHistory(h => [...h, { role:'assistant', content: data.reply || data.error || 'Ошибка ответа' }])
+      const reply = data.reply || data.error || 'Ошибка ответа'
+      setHistory(h => [...h, { role:'assistant', content: reply }])
+      // Offer to create a task if reply looks like a plan
+      if (reply.length > 80) setPendingTask(reply)
     } catch(e) {
-      setHistory(h => [...h, { role:'assistant', content:'⚠️ Не удалось связаться: ' + e.message }])
+      const errMsg = '⚠️ Не удалось связаться с оркестратором: ' + e.message
+      setHistory(h => [...h, { role:'assistant', content: errMsg }])
     }
     setSending(false)
+  }
+
+  function createTask() {
+    if (!pendingTask || !onCreateTask) return
+    const task = parseTaskFromReply(pendingTask, current?.name || '')
+    onCreateTask(task)
+    setPendingTask(null)
+    setHistory(h => [...h, {
+      role: 'assistant',
+      content: `✅ Задание #${task.id.slice(-6).toUpperCase()} создано и отправлено на согласование → раздел «Задания»`,
+    }])
   }
 
   return (
@@ -69,7 +100,10 @@ export default function Clients({ goToLaunch }) {
           <span className="live-tag">live · {projects.length}</span>
         </div>
         <div style={{ padding:'14px 18px', display:'flex', gap:10, flexWrap:'wrap' }}>
-          {projects.length === 0 && <div className="note-box">Нет проектов в vertical_configs.</div>}
+          {loading && <div className="note-box">Загрузка проектов…</div>}
+          {!loading && projects.length === 0 && (
+            <div className="note-box">Нет проектов в vertical_configs.</div>
+          )}
           {projects.map(p => (
             <div key={p.id} onClick={() => openProject(p)}
               style={{
@@ -77,6 +111,7 @@ export default function Clients({ goToLaunch }) {
                 background: current?.id === p.id ? 'var(--indigo-bg)' : 'var(--surface2)',
                 border: `1px solid ${current?.id === p.id ? 'var(--indigo-bd)' : 'var(--border)'}`,
                 borderLeft: `3px solid ${current?.id === p.id ? 'var(--indigo)' : '#60a5fa'}`,
+                transition: 'all .15s',
               }}>
               <div style={{ fontWeight:600, color:'var(--text)' }}>{p.name}</div>
               <div style={{ fontSize:11, color:'var(--faint)', marginTop:5 }}>{p.category}</div>
@@ -93,7 +128,8 @@ export default function Clients({ goToLaunch }) {
               <span className="ref-tag">справка</span>
             </div>
             <div className="card-body">
-              <pre style={{ margin:0, fontSize:11, fontFamily:"'IBM Plex Mono',monospace", color:'var(--muted)', whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
+              <pre style={{ margin:0, fontSize:11, fontFamily:"'IBM Plex Mono',monospace",
+                color:'var(--muted)', whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
                 {JSON.stringify(current.config_yaml, null, 2)}
               </pre>
             </div>
@@ -110,7 +146,7 @@ export default function Clients({ goToLaunch }) {
                 : <table>
                     <thead><tr><th>Тип</th><th>Содержание</th><th>Дата</th></tr></thead>
                     <tbody>
-                      {knowledge.map((k,i)=>(
+                      {knowledge.map((k,i) => (
                         <tr key={i}>
                           <td><span className="badge badge-indigo">{k.type}</span></td>
                           <td style={{ fontSize:12 }}>{(k.content||'').slice(0,90)}…</td>
@@ -130,18 +166,52 @@ export default function Clients({ goToLaunch }) {
             </div>
             <div className="card-body">
               <div ref={logRef} className="chat-log" style={{ marginBottom:12 }}>
+                {history.length === 0 && (
+                  <div style={{ textAlign:'center', padding:'20px 0', color:'var(--faint)', fontSize:13 }}>
+                    Напиши задачу оркестратору, например:<br/>
+                    <span style={{ color:'var(--indigo)' }}>«Создай 5 видео, вертикаль betting, гео US, формат before/after»</span>
+                  </div>
+                )}
                 {history.map((m,i) => (
                   <div key={i} className={`chat-msg ${m.role === 'user' ? 'user' : 'assist'}`}>
                     {m.content}
                   </div>
                 ))}
               </div>
+
+              {/* Pending task banner */}
+              {pendingTask && (
+                <div style={{
+                  marginBottom:12, padding:'12px 14px', borderRadius:8,
+                  background:'var(--indigo-bg)', border:'1px solid var(--indigo-bd)',
+                  display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
+                }}>
+                  <div style={{ fontSize:12, color:'var(--text)' }}>
+                    📋 Оркестратор предложил план. Добавить в очередь заданий?
+                  </div>
+                  <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+                    <button onClick={createTask}
+                      style={{ fontSize:12, padding:'6px 14px', borderRadius:6,
+                        background:'var(--indigo)', border:'none', color:'#fff',
+                        cursor:'pointer', fontWeight:600, whiteSpace:'nowrap' }}>
+                      ✓ Создать задание
+                    </button>
+                    <button onClick={() => setPendingTask(null)}
+                      style={{ fontSize:12, padding:'6px 10px', borderRadius:6,
+                        background:'transparent', border:'1px solid var(--border)',
+                        color:'var(--faint)', cursor:'pointer' }}>
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div style={{ display:'flex', gap:8 }}>
-                <textarea value={input} onChange={e=>setInput(e.target.value)}
+                <textarea value={input} onChange={e => setInput(e.target.value)}
                   onKeyDown={e => e.key==='Enter' && !e.shiftKey && (e.preventDefault(), send())}
                   rows={2} placeholder="Спроси оркестратора об этом проекте…"
                   className="form-control" style={{ flex:1, resize:'vertical' }} />
-                <button onClick={send} disabled={sending}
+                <button onClick={send} disabled={sending || !input.trim()}
                   className="btn btn-primary" style={{ alignSelf:'flex-end', padding:'8px 18px' }}>
                   {sending ? '…' : 'Отправить'}
                 </button>
