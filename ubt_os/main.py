@@ -90,6 +90,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/obsidian/write":        self._run_obsidian_write,
             "/obsidian/append":       self._run_obsidian_append,
             "/orchestrator/chat":     self._run_orchestrator_chat,
+            # DOHOO-inspired: A14 + прямая публикация + транскрипция
+            "/competitor/analyze":    self._run_competitor_analyze,
+            "/publish/direct":        self._run_publish_direct,
+            "/publish/bulk":          self._run_publish_bulk,
+            "/transcribe":            self._run_transcribe,
+            "/hooks/top":             self._run_hooks_top,
         }
 
         handler = routes.get(self.path)
@@ -313,6 +319,80 @@ class WebhookHandler(BaseHTTPRequestHandler):
             logger.info(f"knowledge/synthesize ({mode}) завершён")
             return result
         return {"status": "skipped", "reason": "lock_busy"}
+
+    # ── DOHOO-inspired роуты ──────────────────────────────────
+
+    async def _run_competitor_analyze(self, body: dict):
+        """A14 COMPETITOR_ANALYST: анализ хуков конкурентов."""
+        from ubt_os.core import pipeline_lock
+        from ubt_os.agents.competitor_analyst import run_competitor_analyst
+        vertical     = body.get("vertical", "nutra")
+        lookback     = int(body.get("lookback_days", 3))
+        async with pipeline_lock(f"competitor-analyze-{vertical}", 600) as acquired:
+            if not acquired:
+                return {"status": "skipped", "reason": "lock_busy"}
+            return await run_competitor_analyst(vertical=vertical, lookback_days=lookback)
+
+    async def _run_publish_direct(self, body: dict):
+        """Прямая публикация в соцсеть без лимитов аккаунтов."""
+        from ubt_os.pipelines.social_publisher import create_and_publish
+        platform     = body.get("platform")
+        account_id   = body.get("account_id")
+        media_url    = body.get("media_url", "")
+        if not platform or not account_id:
+            return {"error": "platform и account_id обязательны"}
+        return await create_and_publish(
+            platform=platform,
+            account_id=account_id,
+            media_url=media_url,
+            caption=body.get("caption", ""),
+            hashtags=body.get("hashtags", []),
+            content_type=body.get("content_type", "video"),
+            extra=body.get("extra", {}),
+        )
+
+    async def _run_publish_bulk(self, body: dict):
+        """Массовая публикация: список джобов без ограничений."""
+        from ubt_os.pipelines.social_publisher import bulk_publish
+        jobs = body.get("jobs", [])
+        if not jobs:
+            return {"error": "jobs[] обязателен"}
+        return {"results": await bulk_publish(jobs)}
+
+    async def _run_transcribe(self, body: dict):
+        """AI-транскрипция видео + извлечение хука."""
+        from ubt_os.agents.transcription_agent import run_transcription, run_batch_transcription
+        urls = body.get("video_urls") or ([body.get("video_url")] if body.get("video_url") else [])
+        if not urls:
+            return {"error": "video_url или video_urls обязателен"}
+        kwargs = {
+            "source":   body.get("source", "competitor"),
+            "vertical": body.get("vertical", "nutra"),
+            "platform": body.get("platform", "tiktok"),
+            "geo":      body.get("geo", "RU"),
+            "language": body.get("language", "ru"),
+        }
+        if len(urls) == 1:
+            return await run_transcription(urls[0], **kwargs)
+        return {"results": await run_batch_transcription(urls, **kwargs)}
+
+    async def _run_hooks_top(self, body: dict):
+        """Возвращает топ хуков из библиотеки hook_templates."""
+        db       = _get_db()
+        vertical = body.get("vertical", "nutra")
+        platform = body.get("platform")
+        limit    = int(body.get("limit", 20))
+        q = (
+            db.table("hook_templates")
+            .select("hook_type,hook_text,visual_style,platform,geo,views_at_capture,er_at_capture,created_at")
+            .eq("vertical", vertical)
+            .eq("is_active", True)
+            .order("er_at_capture", desc=True)
+            .limit(limit)
+        )
+        if platform:
+            q = q.eq("platform", platform)
+        return {"hooks": q.execute().data}
 
     def _serve_metrics(self):
         """GET /metrics — Prometheus-совместимый текстовый формат."""
