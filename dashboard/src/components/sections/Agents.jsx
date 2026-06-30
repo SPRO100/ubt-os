@@ -1,51 +1,51 @@
 const PIPELINE_NODES = [
-  { id:'A27', name:'spy_analyzer',  color:'#ec4899', bg:'rgba(236,72,153,.08)' },
+  { id:'A27', name:'spy_analyzer',  color:'var(--pink)', bg:'rgba(236,72,153,.08)' },
   { id:'→',   name:'',             color:'',        bg:'transparent' },
-  { id:'A21', name:'content_creator', color:'#6366f1', bg:'rgba(99,102,241,.08)' },
+  { id:'A21', name:'content_creator', color:'var(--indigo)', bg:'rgba(99,102,241,.08)' },
   { id:'→',   name:'',             color:'',        bg:'transparent' },
-  { id:'A19', name:'text_humanizer',  color:'#22c55e', bg:'rgba(34,197,94,.08)' },
+  { id:'A19', name:'text_humanizer',  color:'var(--green)', bg:'rgba(34,197,94,.08)' },
   { id:'→',   name:'',             color:'',        bg:'transparent' },
-  { id:'A25', name:'compliance',    color:'#f59e0b', bg:'rgba(245,158,11,.08)' },
+  { id:'A25', name:'compliance',    color:'var(--amber)', bg:'rgba(245,158,11,.08)' },
   { id:'→',   name:'',             color:'',        bg:'transparent' },
-  { id:'A29', name:'prelanding',    color:'#8892a4', bg:'rgba(136,146,164,.08)' },
+  { id:'A29', name:'prelanding',    color:'var(--muted)', bg:'rgba(136,146,164,.08)' },
   { id:'→',   name:'',             color:'',        bg:'transparent' },
-  { id:'A26', name:'Publer',        color:'#6366f1', bg:'rgba(99,102,241,.08)' },
+  { id:'A26', name:'Publer',        color:'var(--indigo)', bg:'rgba(99,102,241,.08)' },
   { id:'→',   name:'',             color:'',        bg:'transparent' },
-  { id:'📲',  name:'TikTok/FB/IG', color:'#22c55e', bg:'rgba(34,197,94,.08)' },
+  { id:'📲',  name:'TikTok/FB/IG', color:'var(--green)', bg:'rgba(34,197,94,.08)' },
 ]
 
 const CORE_AGENTS = [
-  { id:'A14', file:'account_checker.py',      role:'Проверка здоровья аккаунтов (ER, прокси, бан)',     status:'работает', color:'#22c55e' },
-  { id:'A18', file:'knowledge_synthesizer.py',role:'Синтез знаний через Claude — ежедн. 23:45',         status:'работает', color:'#22c55e' },
-  { id:'A15', file:'strategy_engine.py',      role:'Недельная стратегия — воскресенье 20:00',           status:'работает', color:'#22c55e' },
-  { id:'A16', file:'revenue_analyst.py',      role:'Анализ выручки и атрибуции',                        status:'готов',    color:'#6366f1' },
-  { id:'A17', file:'failure_recovery.py',     role:'DLQ и восстановление после сбоев',                  status:'готов',    color:'#6366f1' },
-  { id:'A12', file:'warming_state_machine.py',role:'State machine 7-дневного прогрева',                  status:'готов',    color:'#6366f1' },
-  { id:'A13', file:'telegram_jitter.py',      role:'Случайные задержки для human-behavior',              status:'готов',    color:'#6366f1' },
+  { id:'A14', file:'account_checker.py',      role:'Проверка здоровья аккаунтов (ER, прокси, бан)',     status:'работает', color:'var(--green)' },
+  { id:'A18', file:'knowledge_synthesizer.py',role:'Синтез знаний через Claude — ежедн. 23:45',         status:'работает', color:'var(--green)' },
+  { id:'A15', file:'strategy_engine.py',      role:'Недельная стратегия — воскресенье 20:00',           status:'работает', color:'var(--green)' },
+  { id:'A16', file:'revenue_analyst.py',      role:'Анализ выручки и атрибуции',                        status:'готов',    color:'var(--indigo)' },
+  { id:'A17', file:'failure_recovery.py',     role:'DLQ и восстановление после сбоев',                  status:'готов',    color:'var(--indigo)' },
+  { id:'A12', file:'warming_state_machine.py',role:'State machine 7-дневного прогрева',                  status:'готов',    color:'var(--indigo)' },
+  { id:'A13', file:'telegram_jitter.py',      role:'Случайные задержки для human-behavior',              status:'готов',    color:'var(--indigo)' },
 ]
 
 const NEW_AGENTS = [
-  { id:'A22', file:'ads_auditor.py',         role:'250+ проверок. Health Score 0–100',        need:'claude-ads ⭐6.6k',     color:'#ec4899' },
-  { id:'A23', file:'youtube_creator.py',     role:'Shorts + Long-form. Retention-инжиниринг', need:'claude-youtube ⭐218',   color:'#ec4899' },
-  { id:'A24', file:'obsidian_brain.py',      role:'Self-organizing AI wiki. Hot cache.',       need:'claude-obsidian ⭐8.2k', color:'#ec4899' },
+  { id:'A22', file:'ads_auditor.py',         role:'250+ проверок. Health Score 0–100',        need:'claude-ads ⭐6.6k',     color:'var(--pink)' },
+  { id:'A23', file:'youtube_creator.py',     role:'Shorts + Long-form. Retention-инжиниринг', need:'claude-youtube ⭐218',   color:'var(--pink)' },
+  { id:'A24', file:'obsidian_brain.py',      role:'Self-organizing AI wiki. Hot cache.',       need:'claude-obsidian ⭐8.2k', color:'var(--pink)' },
 ]
 
 const PUBLISH_AGENTS = [
-  { id:'A25', file:'compliance_gate.py',     role:'Regex L1 + LLM L2/L3. Блокирует нарушения.',               status:'готов',              color:'#22c55e', statusC:'#22c55e' },
-  { id:'A26', file:'publer_publisher.py',    role:'TikTok/Facebook/Instagram/Pinterest через Publer ($12/мес).', status:'нужен PUBLER_API_KEY', color:'#f59e0b', statusC:'#f59e0b' },
+  { id:'A25', file:'compliance_gate.py',     role:'Regex L1 + LLM L2/L3. Блокирует нарушения.',               status:'готов',              color:'var(--green)', statusC:'var(--green)' },
+  { id:'A26', file:'publer_publisher.py',    role:'TikTok/Facebook/Instagram/Pinterest через Publer ($12/мес).', status:'нужен PUBLER_API_KEY', color:'var(--amber)', statusC:'var(--amber)' },
 ]
 
 const AFFILIATE_AGENTS = [
-  { id:'A27', file:'spy_analyzer.py',           role:'Анализ крипов PiPiAds/AdHeart → хуки → creative brief для A21', status:'готов', color:'#22c55e' },
-  { id:'A28', file:'warmup_manager.py',          role:'14-дневный прогрев. Лимиты активности, инфра-валидация.',       status:'готов', color:'#22c55e' },
-  { id:'A29', file:'prelanding_generator.py',    role:'HTML прелендинги: quiz/story/article/vsl. COD/Trial/SS.',        status:'готов', color:'#22c55e' },
-  { id:'A31', file:'competitor_analyst.py',      role:'Анализ хуков конкурентов из competitor_signals → тренды (дополняет A27).', status:'готов', color:'#22c55e' },
+  { id:'A27', file:'spy_analyzer.py',           role:'Анализ крипов PiPiAds/AdHeart → хуки → creative brief для A21', status:'готов', color:'var(--green)' },
+  { id:'A28', file:'warmup_manager.py',          role:'14-дневный прогрев. Лимиты активности, инфра-валидация.',       status:'готов', color:'var(--green)' },
+  { id:'A29', file:'prelanding_generator.py',    role:'HTML прелендинги: quiz/story/article/vsl. COD/Trial/SS.',        status:'готов', color:'var(--green)' },
+  { id:'A31', file:'competitor_analyst.py',      role:'Анализ хуков конкурентов из competitor_signals → тренды (дополняет A27).', status:'готов', color:'var(--green)' },
 ]
 
 const MEDIA_AGENTS = [
-  { id:'A30', file:'higgsfield_agent.py',     role:'UGC 9:16, Shorts 15–60с, Карусели через Higgsfield AI.', status:'нужен HIGGSFIELD_API_KEY', color:'#f59e0b' },
-  { id:'—',  file:'transcription_agent.py',  role:'Транскрипция видео (Deepgram → Whisper) + извлечение хука.', status:'готов', color:'#22c55e' },
-  { id:'—',  file:'social_publisher.py',     role:'Прямая публикация на 8 платформ через нативные API.',        status:'готов', color:'#22c55e' },
+  { id:'A30', file:'higgsfield_agent.py',     role:'UGC 9:16, Shorts 15–60с, Карусели через Higgsfield AI.', status:'нужен HIGGSFIELD_API_KEY', color:'var(--amber)' },
+  { id:'—',  file:'transcription_agent.py',  role:'Транскрипция видео (Deepgram → Whisper) + извлечение хука.', status:'готов', color:'var(--green)' },
+  { id:'—',  file:'social_publisher.py',     role:'Прямая публикация на 8 платформ через нативные API.',        status:'готов', color:'var(--green)' },
 ]
 
 const SKILLS = [

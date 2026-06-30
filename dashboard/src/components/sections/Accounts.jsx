@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { fetchRows, insertRows, AGENTS_SERVER, agentsHeaders } from '../../api'
 
 const PLATFORMS_TABS = [
-  { id: 'all',       label: 'Все',       color: '#8892a4' },
-  { id: 'tiktok',    label: 'TikTok',    color: '#ef4444' },
-  { id: 'facebook',  label: 'Facebook',  color: '#6366f1' },
-  { id: 'instagram', label: 'Instagram', color: '#ec4899' },
+  { id: 'all',       label: 'Все',       color: 'var(--muted)' },
+  { id: 'tiktok',    label: 'TikTok',    color: 'var(--red)' },
+  { id: 'facebook',  label: 'Facebook',  color: 'var(--indigo)' },
+  { id: 'instagram', label: 'Instagram', color: 'var(--pink)' },
   { id: 'pinterest', label: 'Pinterest', color: '#e60023' },
 ]
 

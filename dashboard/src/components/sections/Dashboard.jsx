@@ -17,10 +17,10 @@ const PLATFORMS = [
 ]
 
 const AI_AGENTS = [
-  { icon: '📝', name: 'content_creator',  id: 'A21', desc: 'Before/After, хуки, UGC',     status: 'ready',   color: '#6366f1', bg: '#6366f115' },
-  { icon: '🧹', name: 'text_humanizer',   id: 'A19', desc: 'Stop-Slop очистка текста',     status: 'ready',   color: '#22c55e', bg: '#22c55e15' },
-  { icon: '📤', name: 'publer_publisher', id: 'A26', desc: 'TikTok/FB/IG/Pinterest',       status: 'no_key',  color: '#f59e0b', bg: '#f59e0b15' },
-  { icon: '🎥', name: 'higgsfield_agent', id: 'A30', desc: 'UGC видео · Shorts · Карусели',status: 'no_key',  color: '#f59e0b', bg: '#f59e0b15' },
+  { icon: '📝', name: 'content_creator',  id: 'A21', desc: 'Before/After, хуки, UGC',     status: 'ready',   color: 'var(--indigo)', bg: '#6366f115' },
+  { icon: '🧹', name: 'text_humanizer',   id: 'A19', desc: 'Stop-Slop очистка текста',     status: 'ready',   color: 'var(--green)', bg: '#22c55e15' },
+  { icon: '📤', name: 'publer_publisher', id: 'A26', desc: 'TikTok/FB/IG/Pinterest',       status: 'no_key',  color: 'var(--amber)', bg: '#f59e0b15' },
+  { icon: '🎥', name: 'higgsfield_agent', id: 'A30', desc: 'UGC видео · Shorts · Карусели',status: 'no_key',  color: 'var(--amber)', bg: '#f59e0b15' },
 ]
 
 function StatCard({ label, value, note, color = 'c-indigo', icon, iconBg }) {

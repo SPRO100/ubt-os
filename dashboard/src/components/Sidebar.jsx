@@ -39,7 +39,7 @@ export default function Sidebar({ nav, active, onSelect, allOk, badges = {} }) {
                 {badges[item.id] > 0 && (
                   <span style={{
                     fontSize:10, fontWeight:700, minWidth:18, height:18,
-                    borderRadius:9, background:'#f59e0b', color:'#000',
+                    borderRadius:9, background:'var(--amber)', color:'#000',
                     display:'flex', alignItems:'center', justifyContent:'center',
                     padding:'0 4px', flexShrink:0,
                   }}>{badges[item.id]}</span>
