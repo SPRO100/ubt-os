@@ -16,31 +16,34 @@ import Knowledge from './components/sections/Knowledge'
 import { checkHealth } from './api'
 
 const NAV = [
-  { id:'dashboard', icon:'⚡', label:'Dashboard',       section:'Главное' },
-  { id:'accounts',  icon:'👤', label:'Аккаунты',        section:'Главное' },
-  { id:'content',   icon:'🎬', label:'Производство',    section:'Главное' },
-  { id:'pipeline',  icon:'🔄', label:'Пайплайн (n8n)',  section:'Главное' },
-  { id:'clients',   icon:'🤝', label:'Клиенты',         section:'Агенты' },
-  { id:'tasks',     icon:'📋', label:'Задания',         section:'Агенты' },
-  { id:'agents',    icon:'🧩', label:'Агенты',          section:'Агенты' },
-  { id:'launch',    icon:'🚀', label:'Запуск агентов',  section:'Агенты' },
-  { id:'analytics', icon:'📊', label:'Аналитика',       section:'Данные' },
-  { id:'infra',     icon:'🖥️', label:'Инфраструктура',  section:'Данные' },
-  { id:'knowledge', icon:'🧠', label:'База знаний',     section:'Данные' },
+  // ── Ежедневная работа ──────────────────────────────
+  { id:'dashboard', icon:'⚡', label:'Dashboard',       section:'Работа' },
+  { id:'tasks',     icon:'📋', label:'Задания',         section:'Работа' },
+  { id:'accounts',  icon:'👤', label:'Аккаунты',        section:'Работа' },
+  { id:'launch',    icon:'🚀', label:'Запуск агентов',  section:'Работа' },
+  // ── Контент и агенты ───────────────────────────────
+  { id:'clients',   icon:'🤝', label:'Клиенты',         section:'Контент' },
+  { id:'content',   icon:'🎬', label:'Производство',    section:'Контент' },
+  { id:'agents',    icon:'🧩', label:'Агенты',          section:'Контент' },
+  // ── Система и данные ───────────────────────────────
+  { id:'analytics', icon:'📊', label:'Аналитика',       section:'Система' },
+  { id:'knowledge', icon:'🧠', label:'База знаний',     section:'Система' },
+  { id:'infra',     icon:'🖥️', label:'Инфраструктура',  section:'Система' },
+  { id:'pipeline',  icon:'🔄', label:'Пайплайн (n8n)', section:'Система' },
 ]
 
 const TITLES = {
   dashboard: ['Dashboard',         'Реальное состояние системы прямо сейчас'],
-  accounts:  ['Аккаунты',          'TikTok / Facebook / Instagram / Pinterest · прогрев A28'],
-  content:   ['Производство',      'Архитектура пайплайна контента · A19–A30'],
-  pipeline:  ['Пайплайн (n8n)',    '6 воркфлоу реально развёрнуты и опубликованы'],
-  clients:   ['Клиенты',           'Чат с оркестратором → создание заданий в очередь'],
   tasks:     ['Задания',           'Очередь заданий · согласование → пайплайн A27→A26'],
-  agents:    ['Агенты',            '19 агентов A12–A30 · Publer TikTok / Facebook / Instagram / Pinterest'],
+  accounts:  ['Аккаунты',          'TikTok / Facebook / Instagram / Pinterest · прогрев A28'],
   launch:    ['Запуск агентов',    'Прямой запуск A19–A30 из браузера'],
+  clients:   ['Клиенты',           'Чат с оркестратором → создание заданий в очередь'],
+  content:   ['Производство',      'Архитектура пайплайна контента · A19–A30'],
+  agents:    ['Агенты',            '19 агентов A12–A30 · Publer TikTok / Facebook / Instagram / Pinterest'],
   analytics: ['Аналитика',         'Реальная выручка из Supabase · условия партнёрок'],
-  infra:     ['Инфраструктура',    'FirstVDS Амстердам · 4 сервиса live'],
   knowledge: ['База знаний',       'Obsidian Vault · синхронизация через n8n каждый час'],
+  infra:     ['Инфраструктура',    'FirstVDS Амстердам · 4 сервиса live'],
+  pipeline:  ['Пайплайн (n8n)',    'Живые статусы воркфлоу · запуск и остановка из браузера'],
 }
 
 function loadTasks() {

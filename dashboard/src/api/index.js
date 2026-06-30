@@ -1,6 +1,9 @@
 export const SUPABASE_URL = "https://ricuoztdelapexfpqsux.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_f_z6goLZoPN68j2N71wX6g_r6jNjrJt";
 export const AGENTS_SERVER = "http://88.218.121.108:8080";
+export const N8N_URL = "http://88.218.121.108:5678";
+// Set N8N_API_KEY in localStorage: localStorage.setItem('n8n_api_key', 'your-key')
+export const getN8nApiKey = () => localStorage.getItem('n8n_api_key') || '';
 
 const headers = {
   apikey: SUPABASE_ANON_KEY,
@@ -52,6 +55,35 @@ export async function runAgentAPI(agent, params) {
     const text = await res.text().catch(() => `HTTP ${res.status}`);
     throw new Error(text || `HTTP ${res.status}`);
   }
+  return res.json();
+}
+
+export async function fetchN8nWorkflows() {
+  const key = getN8nApiKey();
+  if (!key) return { error: 'no_key', workflows: [] };
+  try {
+    const res = await fetchWithTimeout(
+      `${N8N_URL}/api/v1/workflows`,
+      { headers: { 'X-N8N-API-KEY': key } },
+      8000
+    );
+    if (!res.ok) return { error: `HTTP ${res.status}`, workflows: [] };
+    const data = await res.json();
+    return { error: null, workflows: data.data || [] };
+  } catch (e) {
+    return { error: e.message, workflows: [] };
+  }
+}
+
+export async function toggleN8nWorkflow(id, active) {
+  const key = getN8nApiKey();
+  if (!key) throw new Error('no_key');
+  const res = await fetchWithTimeout(
+    `${N8N_URL}/api/v1/workflows/${id}/${active ? 'activate' : 'deactivate'}`,
+    { method: 'POST', headers: { 'X-N8N-API-KEY': key } },
+    8000
+  );
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 

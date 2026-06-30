@@ -1,4 +1,4 @@
-const SECTIONS = ['Главное', 'Агенты', 'Данные']
+const SECTIONS = ['Работа', 'Контент', 'Система']
 
 export default function Sidebar({ nav, active, onSelect, allOk, badges = {} }) {
   const grouped = SECTIONS.map(s => ({
