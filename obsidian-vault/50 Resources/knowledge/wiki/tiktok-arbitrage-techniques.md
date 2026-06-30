@@ -185,7 +185,7 @@ TikTok link in bio → Keitaro redirect → Cloak проверка
 A21 content_creator → Сценарий (storytelling, no medical claims)
 A19 text_humanizer → Убрать AI-маркеры
 A25 compliance_gate → Проверить на TikTok нарушения
-A26 blotato_publisher → Публикация (с warmup check)
+A26 publer_publisher → Публикация (с warmup check)
 Keitaro → Трекинг кликов
 Прелендинг → Лендинг → Партнёрка
 ```

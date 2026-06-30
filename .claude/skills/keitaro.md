@@ -69,12 +69,12 @@ Campaign: betting_US_tiktok_organic
 ```
 Генерирует: `https://keitaro.yourdomain.com/postback?status=lead&clickid={click_id}&payout={payout}`
 
-## Интеграция с A26 (BlatoPublisher)
+## Интеграция с A26 (PubelerPublisher)
 
 A26 автоматически добавляет базовый UTM через `_build_utm()`.
 Для расширенного трекинга используй:
 ```python
-from ubt_os.agents.blotato_publisher import _build_utm
+from ubt_os.agents.publer_publisher import _build_utm
 url = _build_utm(base_url, vertical="betting", geo="US", platform="tiktok")
 ```
 

@@ -1,7 +1,7 @@
 # UBT OS — Multi-Agent AI System for Organic Traffic
 
 > Мульти-агентная AI-система для генерации органического трафика на партнёрские офферы.
-> **19 агентов (A12–A30) · 3 платформы (TikTok / Facebook / Instagram) · 2 вертикали (Nutra + Betting)**
+> **19 агентов (A12–A30) · TikTok · Facebook · Instagram · YouTube Shorts · UGC Карусели**
 
 ---
 
@@ -74,7 +74,7 @@
 | ID | Файл | Роль |
 |----|------|------|
 | A25 | `compliance_gate.py` | Проверка контента: Regex L1 → Claude Haiku L2/L3 |
-| A26 | `blotato_publisher.py` | Publer API — TikTok / Facebook / Instagram + UTM |
+| A26 | `publer_publisher.py` | Publer API — TikTok / Facebook / Instagram + UTM |
 
 ### Affiliate Intelligence (A27–A29)
 
@@ -132,7 +132,7 @@ ubt-os/
 │   │   ├── youtube_creator.py
 │   │   ├── obsidian_brain.py
 │   │   ├── compliance_gate.py
-│   │   ├── blotato_publisher.py  # A26, Publer API
+│   │   ├── publer_publisher.py   # A26, Publer API
 │   │   ├── spy_analyzer.py
 │   │   ├── warmup_manager.py     # state → ~/.ubt_os/warmup_state.json
 │   │   ├── prelanding_generator.py

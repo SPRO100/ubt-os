@@ -155,7 +155,7 @@ LAYER 2: Контент (UBT OS агенты)
   - A25 compliance_gate: проверка TikTok/Meta правил
   
 LAYER 3: Публикация
-  - A26 blotato_publisher: Blotato + UTM + compliance check
+  - A26 publer_publisher: Publer + UTM + compliance check
   - A13 HumanJitter: 4+ часа между постами
   
 LAYER 4: Трекинг

@@ -109,19 +109,19 @@ class HealthChecker:
         except Exception as e:
             return ComponentHealth("elevenlabs", HealthStatus.UNHEALTHY, 0, str(e))
 
-    async def check_blotato(self) -> ComponentHealth:
-        url     = "https://api.blotato.com/v1/health"
-        api_key = os.environ.get("BLOTATO_API_KEY", "")
+    async def check_publer(self) -> ComponentHealth:
+        url     = "https://app.publer.io/api/v1/user"
+        api_key = os.environ.get("PUBLER_API_KEY", "")
         t = time.monotonic()
         try:
             r  = await (await self._http()).get(url, headers={"Authorization": f"Bearer {api_key}"})
             ms = (time.monotonic() - t) * 1000
             ok = r.status_code == 200
-            return ComponentHealth("blotato",
+            return ComponentHealth("publer",
                 HealthStatus.HEALTHY if ok else HealthStatus.DEGRADED, ms,
                 None if ok else f"HTTP {r.status_code}")
         except Exception as e:
-            return ComponentHealth("blotato", HealthStatus.UNHEALTHY, 0, str(e))
+            return ComponentHealth("publer", HealthStatus.UNHEALTHY, 0, str(e))
 
     async def check_supabase(self) -> ComponentHealth:
         url = os.environ.get("SUPABASE_URL", "")
@@ -190,7 +190,7 @@ class HealthChecker:
             self.check_anthropic(),
             self.check_higgsfield(),
             self.check_elevenlabs(),
-            self.check_blotato(),
+            self.check_publer(),
             self.check_supabase(),
             self.check_redis(),
             self.check_keitaro(),
@@ -198,7 +198,7 @@ class HealthChecker:
             return_exceptions=True,
         )
         names = ["litellm","anthropic","higgsfield","elevenlabs",
-                 "blotato","supabase","redis","keitaro","tiktok_uploader"]
+                 "publer","supabase","redis","keitaro","tiktok_uploader"]
         out = {}
         for name, res in zip(names, results):
             if isinstance(res, Exception):
@@ -216,8 +216,8 @@ class FallbackManager:
     FALLBACKS: dict[str, list[str]] = {
         "higgsfield":      ["short_video_maker", "cached_template"],
         "elevenlabs":      ["edge_tts", "no_voice"],
-        "blotato":         ["tiktok_uploader", "upload_post", "dlq"],
-        "tiktok_uploader": ["blotato"],
+        "publer":          ["tiktok_uploader", "upload_post", "dlq"],
+        "tiktok_uploader": ["publer"],
         "keitaro":         ["supabase_utm_direct"],
         "litellm":         ["anthropic_direct"],
         "anthropic":       ["cached_script"],
