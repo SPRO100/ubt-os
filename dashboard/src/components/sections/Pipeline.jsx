@@ -114,7 +114,7 @@ export default function Pipeline() {
               <button className="btn btn-primary" onClick={saveKey} disabled={!keyInput.trim()}>
                 Сохранить
               </button>
-              <a href={`${N8N_URL}/settings/api`} target="_blank" rel="noopener"
+              <a href={`${N8N_URL}/settings/api`} target="_blank" rel="noopener noreferrer"
                 className="btn btn-outline">
                 Открыть n8n →
               </a>
@@ -163,7 +163,7 @@ export default function Pipeline() {
                     border:'1px solid var(--border)', color:'var(--muted)', cursor:'pointer' }}>
                   ↻ Обновить
                 </button>
-                <a href={`${N8N_URL}/workflows`} target="_blank" rel="noopener"
+                <a href={`${N8N_URL}/workflows`} target="_blank" rel="noopener noreferrer"
                   style={{ fontSize:11, padding:'3px 10px', borderRadius:6, background:'var(--indigo-bg)',
                     border:'1px solid var(--indigo-bd)', color:'var(--indigo)', textDecoration:'none' }}>
                   Открыть n8n →

@@ -1,4 +1,11 @@
+import { AGENTS_SERVER } from '../api'
+
 const SECTIONS = ['Работа', 'Контент', 'Система']
+
+const SERVER_HOST = (() => {
+  try { return AGENTS_SERVER ? new URL(AGENTS_SERVER).host : window.location.host }
+  catch { return AGENTS_SERVER || '—' }
+})()
 
 export default function Sidebar({ nav, active, onSelect, allOk, badges = {} }) {
   const grouped = SECTIONS.map(s => ({
@@ -16,7 +23,7 @@ export default function Sidebar({ nav, active, onSelect, allOk, badges = {} }) {
         </div>
       </div>
 
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" aria-label="Основная навигация">
         {grouped.map(g => (
           <div key={g.label}>
             <div className="nav-section">{g.label}</div>
@@ -25,13 +32,14 @@ export default function Sidebar({ nav, active, onSelect, allOk, badges = {} }) {
                 key={item.id}
                 className={`nav-item${active === item.id ? ' active' : ''}`}
                 onClick={() => onSelect(item.id)}
+                aria-current={active === item.id ? 'page' : undefined}
               >
-                <span className="nav-icon">{item.icon}</span>
+                <span className="nav-icon" aria-hidden="true">{item.icon}</span>
                 <span style={{ flex:1 }}>{item.label}</span>
                 {badges[item.id] > 0 && (
                   <span style={{
                     fontSize:10, fontWeight:700, minWidth:18, height:18,
-                    borderRadius:9, background:'#f59e0b', color:'#000',
+                    borderRadius:9, background:'var(--amber)', color:'#000',
                     display:'flex', alignItems:'center', justifyContent:'center',
                     padding:'0 4px', flexShrink:0,
                   }}>{badges[item.id]}</span>
@@ -50,7 +58,7 @@ export default function Sidebar({ nav, active, onSelect, allOk, badges = {} }) {
           </span>
         </div>
         <div style={{ marginTop: 8, fontSize: 10, color: 'var(--faint)', fontFamily: "'IBM Plex Mono',monospace", paddingLeft: 2 }}>
-          88.218.121.108 · v2.0
+          {SERVER_HOST} · v2.0
         </div>
       </div>
     </aside>

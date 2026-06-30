@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { runAgentAPI } from '../../api'
 
 const STATUS_META = {
-  pending:    { label: 'Ожидает согласования', color: '#f59e0b', bg: '#f59e0b18', dot: 'amber' },
-  approved:   { label: 'Согласовано',          color: '#6366f1', bg: '#6366f118', dot: 'indigo' },
-  in_progress:{ label: 'Выполняется',          color: '#22c55e', bg: '#22c55e18', dot: 'green' },
-  done:       { label: 'Готово',               color: '#22c55e', bg: '#22c55e18', dot: 'green' },
-  rejected:   { label: 'Отклонено',            color: '#ef4444', bg: '#ef444418', dot: 'red' },
-  failed:     { label: 'Ошибка',               color: '#ef4444', bg: '#ef444418', dot: 'red' },
+  pending:    { label: 'Ожидает согласования', color: 'var(--amber)', bg: '#f59e0b18', dot: 'amber' },
+  approved:   { label: 'Согласовано',          color: 'var(--indigo)', bg: '#6366f118', dot: 'indigo' },
+  in_progress:{ label: 'Выполняется',          color: 'var(--green)', bg: '#22c55e18', dot: 'green' },
+  done:       { label: 'Готово',               color: 'var(--green)', bg: '#22c55e18', dot: 'green' },
+  rejected:   { label: 'Отклонено',            color: 'var(--red)', bg: '#ef444418', dot: 'red' },
+  failed:     { label: 'Ошибка',               color: 'var(--red)', bg: '#ef444418', dot: 'red' },
 }
 
 const PIPELINE_STEPS = [
@@ -110,7 +110,7 @@ function TaskCard({ task, onApprove, onReject, onDelete }) {
           )}
 
           {task.status === 'failed' && task.error && (
-            <div style={{ marginTop:8, padding:'6px 10px', background:'#ef444418', borderRadius:6, fontSize:11, color:'#ef4444' }}>
+            <div style={{ marginTop:8, padding:'6px 10px', background:'#ef444418', borderRadius:6, fontSize:11, color:'var(--red)' }}>
               ⚠️ {task.error}
             </div>
           )}
@@ -133,7 +133,7 @@ function TaskCard({ task, onApprove, onReject, onDelete }) {
               <button onClick={() => onReject(task.id)}
                 style={{ fontSize:11, padding:'4px 10px', borderRadius:6,
                   background:'var(--surface2)', border:'1px solid #ef444444',
-                  color:'#ef4444', cursor:'pointer' }}>
+                  color:'var(--red)', cursor:'pointer' }}>
                 ✕
               </button>
             </>
@@ -250,9 +250,9 @@ export default function Tasks({ tasks = [], onUpdate }) {
       {/* Stats */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:4 }}>
         {[
-          { label:'Ожидают',  val: counts.pending,     color:'#f59e0b' },
-          { label:'В работе', val: counts.in_progress, color:'#6366f1' },
-          { label:'Готово',   val: counts.done,        color:'#22c55e' },
+          { label:'Ожидают',  val: counts.pending,     color:'var(--amber)' },
+          { label:'В работе', val: counts.in_progress, color:'var(--indigo)' },
+          { label:'Готово',   val: counts.done,        color:'var(--green)' },
         ].map(s => (
           <div key={s.label} style={{
             background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10,
@@ -287,7 +287,7 @@ export default function Tasks({ tasks = [], onUpdate }) {
           <div className="card-header">
             <div className="card-title">⏳ Ожидают согласования</div>
             <span style={{ fontSize:12, padding:'3px 10px', borderRadius:20,
-              background:'#f59e0b18', color:'#f59e0b', fontWeight:600 }}>
+              background:'#f59e0b18', color:'var(--amber)', fontWeight:600 }}>
               {pending.length}
             </span>
           </div>

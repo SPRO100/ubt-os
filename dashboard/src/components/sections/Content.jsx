@@ -2,16 +2,16 @@ import { useEffect, useState } from 'react'
 import { countOf } from '../../api'
 
 const PIPELINE = [
-  { step:'Spy-анализ крипов',      tool:'A27 spy_analyzer.py (PiPiAds/AdHeart)', plat:'TikTok/FB',     status:'готов',         color:'#22c55e' },
-  { step:'Тренды / конкуренты',    tool:'A20 trend_scraper.py (Firecrawl)',       plat:'Все',           status:'нужен FIRECRAWL_API_KEY', color:'#f59e0b' },
-  { step:'Контент-план',           tool:'A21 content_creator.py',                 plat:'Все',           status:'готов',         color:'#22c55e' },
-  { step:'Очистка AI-маркеров',    tool:'A19 text_humanizer.py (Stop-Slop)',      plat:'Все',           status:'готов',         color:'#22c55e' },
-  { step:'Видеогенерация',         tool:'A30 higgsfield_agent.py',                plat:'TikTok/IG',     status:'нужен API ключ',color:'#f59e0b' },
-  { step:'Озвучка',                tool:'edge-tts (установлен)',                  plat:'Все',           status:'готов',         color:'#22c55e' },
-  { step:'Прелендинг',             tool:'A29 prelanding_generator.py',            plat:'Все воронки',   status:'готов',         color:'#22c55e' },
-  { step:'Compliance Gate',        tool:'A25 compliance_gate.py (regex + LLM)',   plat:'Все',           status:'готов',         color:'#22c55e' },
-  { step:'Keitaro UTM',            tool:'_build_utm() в A26',                     plat:'Все',           status:'готов',         color:'#22c55e' },
-  { step:'Публикация',             tool:'A26 publer_publisher.py ($12/мес)',       plat:'TikTok/FB/IG/Pinterest', status:'нужен PUBLER_API_KEY', color:'#f59e0b' },
+  { step:'Spy-анализ крипов',      tool:'A27 spy_analyzer.py (PiPiAds/AdHeart)', plat:'TikTok/FB',     status:'готов',         color:'var(--green)' },
+  { step:'Тренды / конкуренты',    tool:'A20 trend_scraper.py (Firecrawl)',       plat:'Все',           status:'нужен FIRECRAWL_API_KEY', color:'var(--amber)' },
+  { step:'Контент-план',           tool:'A21 content_creator.py',                 plat:'Все',           status:'готов',         color:'var(--green)' },
+  { step:'Очистка AI-маркеров',    tool:'A19 text_humanizer.py (Stop-Slop)',      plat:'Все',           status:'готов',         color:'var(--green)' },
+  { step:'Видеогенерация',         tool:'A30 higgsfield_agent.py',                plat:'TikTok/IG',     status:'нужен API ключ',color:'var(--amber)' },
+  { step:'Озвучка',                tool:'edge-tts (установлен)',                  plat:'Все',           status:'готов',         color:'var(--green)' },
+  { step:'Прелендинг',             tool:'A29 prelanding_generator.py',            plat:'Все воронки',   status:'готов',         color:'var(--green)' },
+  { step:'Compliance Gate',        tool:'A25 compliance_gate.py (regex + LLM)',   plat:'Все',           status:'готов',         color:'var(--green)' },
+  { step:'Keitaro UTM',            tool:'_build_utm() в A26',                     plat:'Все',           status:'готов',         color:'var(--green)' },
+  { step:'Публикация',             tool:'A26 publer_publisher.py ($12/мес)',       plat:'TikTok/FB/IG/Pinterest', status:'нужен PUBLER_API_KEY', color:'var(--amber)' },
 ]
 
 export default function Content() {

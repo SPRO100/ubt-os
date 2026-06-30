@@ -1,7 +1,13 @@
-export const SUPABASE_URL = "https://ricuoztdelapexfpqsux.supabase.co";
-export const SUPABASE_ANON_KEY = "sb_publishable_f_z6goLZoPN68j2N71wX6g_r6jNjrJt";
-export const AGENTS_SERVER = "http://88.218.121.108:8080";
-export const N8N_URL = "http://88.218.121.108:5678";
+// Конфигурация через Vite env (VITE_*) с дефолтами на текущий сервер.
+// Переопредели в dashboard/.env (см. .env.example). Для работы за nginx без
+// порта задай VITE_AGENTS_SERVER="" — тогда запросы пойдут на тот же origin.
+const env = import.meta.env;
+const stripSlash = (u) => (u || "").replace(/\/+$/, "");
+
+export const SUPABASE_URL = stripSlash(env.VITE_SUPABASE_URL || "https://ricuoztdelapexfpqsux.supabase.co");
+export const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY || "sb_publishable_f_z6goLZoPN68j2N71wX6g_r6jNjrJt";
+export const AGENTS_SERVER = env.VITE_AGENTS_SERVER !== undefined ? stripSlash(env.VITE_AGENTS_SERVER) : "http://88.218.121.108:8080";
+export const N8N_URL = env.VITE_N8N_URL !== undefined ? stripSlash(env.VITE_N8N_URL) : "http://88.218.121.108:5678";
 // Set N8N_API_KEY in localStorage: localStorage.setItem('n8n_api_key', 'your-key')
 export const getN8nApiKey = () => localStorage.getItem('n8n_api_key') || '';
 
@@ -26,6 +32,15 @@ function fetchWithTimeout(url, options = {}, ms = 8000) {
   return fetch(url, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(id));
 }
 
+// Сигнализирует UI об ошибке запроса (App показывает баннер). Не ломает поток —
+// функции по-прежнему возвращают безопасные дефолты.
+export function notifyApiError(source, err) {
+  const message = err?.name === 'AbortError' ? 'таймаут запроса' : (err?.message || String(err));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('ubt:api-error', { detail: { source, message } }));
+  }
+}
+
 export async function countOf(table, filter = "") {
   try {
     const res = await fetchWithTimeout(
@@ -34,14 +49,33 @@ export async function countOf(table, filter = "") {
     );
     const range = res.headers.get("content-range");
     return range ? parseInt(range.split("/")[1] || "0", 10) : 0;
-  } catch { return 0; }
+  } catch (e) { notifyApiError(`count:${table}`, e); return 0; }
 }
 
 export async function fetchRows(table, query) {
   try {
     const res = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/${table}?${query}`, { headers });
     return res.ok ? await res.json() : [];
-  } catch { return []; }
+  } catch (e) { notifyApiError(`fetch:${table}`, e); return []; }
+}
+
+// Сумма по столбцу через серверный aggregate PostgREST с fallback на клиентский
+// подсчёт (если агрегаты не включены в проекте Supabase).
+export async function sumColumn(table, column, filter = "") {
+  try {
+    const res = await fetchWithTimeout(
+      `${SUPABASE_URL}/rest/v1/${table}?select=total:${column}.sum()${filter}`,
+      { headers }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const total = data?.[0]?.total;
+      if (total !== undefined && total !== null) return parseFloat(total) || 0;
+    }
+  } catch (e) { notifyApiError(`sum:${table}`, e); }
+  // Fallback: тянем столбец и суммируем на клиенте (ограничено 10k)
+  const rows = await fetchRows(table, `select=${column}&limit=10000${filter}`);
+  return (rows || []).reduce((s, r) => s + (parseFloat(r[column]) || 0), 0);
 }
 
 export async function checkHealth() {

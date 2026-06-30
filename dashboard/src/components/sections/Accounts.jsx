@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { fetchRows, insertRows, AGENTS_SERVER, agentsHeaders } from '../../api'
 
 const PLATFORMS_TABS = [
-  { id: 'all',       label: 'Все',       color: '#8892a4' },
-  { id: 'tiktok',    label: 'TikTok',    color: '#ef4444' },
-  { id: 'facebook',  label: 'Facebook',  color: '#6366f1' },
-  { id: 'instagram', label: 'Instagram', color: '#ec4899' },
+  { id: 'all',       label: 'Все',       color: 'var(--muted)' },
+  { id: 'tiktok',    label: 'TikTok',    color: 'var(--red)' },
+  { id: 'facebook',  label: 'Facebook',  color: 'var(--indigo)' },
+  { id: 'instagram', label: 'Instagram', color: 'var(--pink)' },
   { id: 'pinterest', label: 'Pinterest', color: '#e60023' },
 ]
 
@@ -208,17 +208,17 @@ export default function Accounts() {
             <>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
                 {[
-                  ['ID аккаунта', <input className="form-control" value={acctId} onChange={e=>setAcctId(e.target.value)} placeholder="tiktok_us_001" />],
-                  ['Платформа', <select className="form-control" value={platform} onChange={e=>setPlatform(e.target.value)}>
+                  ['ID аккаунта', <input key="acctId" className="form-control" value={acctId} onChange={e=>setAcctId(e.target.value)} placeholder="tiktok_us_001" />],
+                  ['Платформа', <select key="platform" className="form-control" value={platform} onChange={e=>setPlatform(e.target.value)}>
                     <option value="tiktok">TikTok</option><option value="facebook">Facebook</option>
                     <option value="instagram">Instagram</option><option value="pinterest">Pinterest</option>
                   </select>],
-                  ['Прокси', <input className="form-control" value={proxy} onChange={e=>setProxy(e.target.value)} placeholder="mobile:iproyal:us-pool" />],
-                  ['Publer Profile ID', <input className="form-control" value={publer} onChange={e=>setPubler(e.target.value)} placeholder="123456789" />],
-                  ['GEO', <select className="form-control" value={geo} onChange={e=>setGeo(e.target.value)}>
+                  ['Прокси', <input key="proxy" className="form-control" value={proxy} onChange={e=>setProxy(e.target.value)} placeholder="mobile:iproyal:us-pool" />],
+                  ['Publer Profile ID', <input key="publer" className="form-control" value={publer} onChange={e=>setPubler(e.target.value)} placeholder="123456789" />],
+                  ['GEO', <select key="geo" className="form-control" value={geo} onChange={e=>setGeo(e.target.value)}>
                     {['US','BR','MX','DE','PL'].map(g=><option key={g}>{g}</option>)}
                   </select>],
-                  ['Тип аккаунта', <select className="form-control" value={acctType} onChange={e=>setAcctType(e.target.value)}>
+                  ['Тип аккаунта', <select key="acctType" className="form-control" value={acctType} onChange={e=>setAcctType(e.target.value)}>
                     <option value="aged">Aged (купленный)</option><option value="new">Новый</option>
                   </select>],
                 ].map(([label, ctrl]) => (

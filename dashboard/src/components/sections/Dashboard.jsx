@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { countOf, fetchRows } from '../../api'
+import { countOf, sumColumn } from '../../api'
 
 const PRIORITIES = [
   'Получить API ключ Publer ($12/мес) → добавить PUBLER_API_KEY и PUBLER_*_PROFILE_IDS на сервер',
@@ -11,16 +11,16 @@ const PRIORITIES = [
 
 const PLATFORMS = [
   { id: 'tiktok',    name: 'TikTok',    logo: '🎵' },
-  { id: 'youtube',   name: 'YouTube',   logo: '▶️' },
+  { id: 'facebook',  name: 'Facebook',  logo: '📘' },
   { id: 'instagram', name: 'Instagram', logo: '📸' },
-  { id: 'telegram',  name: 'Telegram',  logo: '✈️' },
+  { id: 'pinterest', name: 'Pinterest', logo: '📌' },
 ]
 
 const AI_AGENTS = [
-  { icon: '📝', name: 'content_creator',  id: 'A21', desc: 'Before/After, хуки, UGC',     status: 'ready',   color: '#6366f1', bg: '#6366f115' },
-  { icon: '🧹', name: 'text_humanizer',   id: 'A19', desc: 'Stop-Slop очистка текста',     status: 'ready',   color: '#22c55e', bg: '#22c55e15' },
-  { icon: '📤', name: 'publer_publisher', id: 'A26', desc: 'TikTok/FB/IG/Pinterest',       status: 'no_key',  color: '#f59e0b', bg: '#f59e0b15' },
-  { icon: '🎥', name: 'higgsfield_agent', id: 'A30', desc: 'UGC видео · Shorts · Карусели',status: 'no_key',  color: '#f59e0b', bg: '#f59e0b15' },
+  { icon: '📝', name: 'content_creator',  id: 'A21', desc: 'Before/After, хуки, UGC',     status: 'ready',   color: 'var(--indigo)', bg: '#6366f115' },
+  { icon: '🧹', name: 'text_humanizer',   id: 'A19', desc: 'Stop-Slop очистка текста',     status: 'ready',   color: 'var(--green)', bg: '#22c55e15' },
+  { icon: '📤', name: 'publer_publisher', id: 'A26', desc: 'TikTok/FB/IG/Pinterest',       status: 'no_key',  color: 'var(--amber)', bg: '#f59e0b15' },
+  { icon: '🎥', name: 'higgsfield_agent', id: 'A30', desc: 'UGC видео · Shorts · Карусели',status: 'no_key',  color: 'var(--amber)', bg: '#f59e0b15' },
 ]
 
 function StatCard({ label, value, note, color = 'c-indigo', icon, iconBg }) {
@@ -42,7 +42,7 @@ function StatCard({ label, value, note, color = 'c-indigo', icon, iconBg }) {
 
 export default function Dashboard({ health }) {
   const [counts, setCounts]         = useState({ accounts: 0, videos: 0, revenue: 0, knowledge: 0, strategy: 0 })
-  const [platAccs, setPlatAccs]     = useState({ tiktok: 0, youtube: 0, instagram: 0, telegram: 0 })
+  const [platAccs, setPlatAccs]     = useState({ tiktok: 0, facebook: 0, instagram: 0, pinterest: 0 })
   const [revenueTotal, setRevenue]  = useState(0)
 
   useEffect(() => {
@@ -53,18 +53,17 @@ export default function Dashboard({ health }) {
       ])
       setCounts({ accounts, videos, revenue, knowledge, strategy })
 
-      const [tiktok, youtube, instagram, telegram] = await Promise.all([
+      const [tiktok, facebook, instagram, pinterest] = await Promise.all([
         countOf('accounts', '&platform=eq.tiktok'),
-        countOf('accounts', '&platform=eq.youtube'),
+        countOf('accounts', '&platform=eq.facebook'),
         countOf('accounts', '&platform=eq.instagram'),
-        countOf('accounts', '&platform=eq.telegram'),
+        countOf('accounts', '&platform=eq.pinterest'),
       ])
-      setPlatAccs({ tiktok, youtube, instagram, telegram })
+      setPlatAccs({ tiktok, facebook, instagram, pinterest })
     }
 
     async function loadRevenue() {
-      const rows = await fetchRows('revenue_events', 'select=net_amount&limit=10000')
-      setRevenue((rows || []).reduce((s, r) => s + (parseFloat(r.net_amount) || 0), 0))
+      setRevenue(await sumColumn('revenue_events', 'net_amount'))
     }
 
     load()
@@ -86,7 +85,7 @@ export default function Dashboard({ health }) {
         <StatCard label="Redis" value={redisOk ? 'OK' : 'ERR'} note="Upstash" color={redisOk ? 'c-cyan' : 'c-red'}
           icon="⚡" iconBg="rgba(6,182,212,.12)"
         />
-        <StatCard label="Агенты" value="19" note="A12–A30 в системе" color="c-indigo" icon="🤖" iconBg="var(--indigo-bg)" />
+        <StatCard label="Агенты" value="22" note="A12–A31 в системе" color="c-indigo" icon="🤖" iconBg="var(--indigo-bg)" />
         <StatCard label="Revenue Events" value={counts.revenue} note="net_amount events" color="c-green" icon="💰" iconBg="var(--green-bg)" />
         <StatCard label="Записи знаний" value={counts.knowledge} note="knowledge_entries" color="c-amber" icon="🧠" iconBg="var(--amber-bg)" />
         <StatCard label="Стратегий" value={counts.strategy} note="strategy_briefs" color="c-pink" icon="📊" iconBg="rgba(236,72,153,.12)" />

@@ -1,12 +1,7 @@
 import { useState } from 'react'
 import { runAgentAPI } from '../../api'
 
-function esc(s) {
-  if (s == null) return ''
-  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
-}
-
-function AgentResult({ data, agent, params }) {
+function AgentResult({ data, agent }) {
   if (!data) return null
   if (data.error) return <div style={{ color:'var(--red)' }}>Ошибка: {data.error}</div>
 
@@ -90,7 +85,7 @@ function AgentResult({ data, agent, params }) {
         <b style={{ fontSize:11, color:'var(--red)' }}>НАРУШЕНИЯ</b><br/>
         {data.violations.map((v,i)=><div key={i} style={{ padding:'3px 0', borderBottom:'1px solid var(--border)', fontSize:12 }}>
           <span style={{ color:v.severity==='hard'?'var(--red)':'var(--amber)' }}>[{v.severity}]</span>{' '}
-          <b>{v.rule}</b>: "{v.text}"
+          <b>{v.rule}</b>: «{v.text}»
         </div>)}
       </div> : null}
       {data.clean_version ? <div>
@@ -110,7 +105,7 @@ function AgentResult({ data, agent, params }) {
       <div style={{ fontSize:11, color:'var(--faint)' }}>
         Платформа: <b style={{ color:'var(--text)' }}>{data.platform||'—'}</b><br/>
         Compliance: <b style={{ color:'var(--green)' }}>{data.compliance_score??'—'}/100</b><br/>
-        {data.url && <>URL: <a href={data.url} target="_blank" rel="noopener">{data.url}</a><br/></>}
+        {data.url && <>URL: <a href={data.url} target="_blank" rel="noopener noreferrer">{data.url}</a><br/></>}
         {data.error && <span style={{ color:'var(--red)' }}>{data.error}</span>}
       </div>
     </div>
@@ -169,7 +164,7 @@ function AgentResult({ data, agent, params }) {
   }
 
   if (agent === 'spy_analyzer') {
-    const hooks=(data.hook_patterns||[]); const phrases=(data.key_phrases||[]); const formats=(data.winning_formats||[])
+    const hooks=(data.hook_patterns||[])
     return <div>
       {copyBtn}
       <div style={{ fontSize:11, color:'var(--faint)', marginBottom:10 }}>Проанализировано крипов: <b style={{ color:'var(--text)' }}>{data.creatives_analyzed||0}</b></div>
@@ -177,7 +172,7 @@ function AgentResult({ data, agent, params }) {
         <b style={{ fontSize:11, color:'var(--green)' }}>ПАТТЕРНЫ ХУКОВ</b>
         {hooks.map((h,i)=><div key={i} style={{ padding:'4px 0', borderBottom:'1px solid var(--border)', fontSize:12 }}>
           <span style={{ color:'var(--text)' }}>{h.pattern||''}</span>
-          {h.example && <><br/><span style={{ color:'var(--faint)', fontStyle:'italic' }}>"{h.example}"</span></>}
+          {h.example && <><br/><span style={{ color:'var(--faint)', fontStyle:'italic' }}>«{h.example}»</span></>}
         </div>)}
       </div> : null}
       {data.creative_brief && <div style={{ marginTop:8, padding:10, background:'var(--surface2)', borderRadius:6, fontSize:12, whiteSpace:'pre-wrap', lineHeight:1.6 }}>
@@ -195,7 +190,7 @@ function AgentResult({ data, agent, params }) {
       <div style={{ marginBottom:10 }}><b style={{ color:sc }}>{sl}</b></div>
       <video src={data.video_url} controls style={{ maxWidth:'100%', borderRadius:8, background:'#000' }} />
       <div style={{ marginTop:8, fontSize:11, color:'var(--faint)' }}>
-        <a href={data.video_url} target="_blank" rel="noopener" style={{ color:'var(--indigo)' }}>Открыть видео ↗</a>
+        <a href={data.video_url} target="_blank" rel="noopener noreferrer" style={{ color:'var(--indigo)' }}>Открыть видео ↗</a>
       </div>
     </div>
     return <div>
@@ -209,7 +204,7 @@ function AgentResult({ data, agent, params }) {
   return <div>{copyBtn}<pre style={{ margin:0, fontSize:11 }}>{JSON.stringify(data, null, 2)}</pre></div>
 }
 
-function AgentCard({ id, name, desc, children, resultKey }) {
+function AgentCard({ id, name, desc, children }) {
   const [result,  setResult]  = useState(null)
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState(null)
@@ -624,7 +619,7 @@ function A30Card() {
   const [carouselBenefits, setCarouselBenefits] = useState('')
   const [carouselStyle, setCarouselStyle] = useState('minimal')
   const [slideCount, setSlideCount] = useState(5)
-  const [carouselAspect, setCarouselAspect] = useState('1:1')
+  const carouselAspect = '1:1'
 
   function runA30(run) {
     if (fmt === 'carousel') {
