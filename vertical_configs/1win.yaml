@@ -1,0 +1,89 @@
+# ─────────────────────────────────────────────────────────
+# vertical_configs/1win.yaml
+# Betting оффер — 1win партнёрская программа
+# ─────────────────────────────────────────────────────────
+vertical:
+  id: 1win_betting
+  name: "1win — Ставки и Казино"
+  category: betting
+  status: active
+  partner_network: "1win Partners"
+  partner_url: "https://1winpartners.com"
+
+audience:
+  geo: ["BR", "MX", "TR", "IN", "NG"]
+  language: ["pt", "es", "tr", "en"]
+  age_range: "18-34"
+  gender: male
+  pain_points:
+    - "хочет дополнительный доход"
+    - "любит спорт и азарт"
+    - "ищет развлечения"
+  interests: ["football", "UFC", "esports", "casino slots"]
+
+content:
+  tone: "азартный, дружелюбный, чувство победы — без обещаний дохода"
+  first_15_sec_rule: "выигрыш/момент удачи — не 'зарабатывай', а 'выиграй'"
+  cta_style: "бонус на первый депозит — создаёт срочность"
+  forbidden_words:
+    - "гарантированный выигрыш"
+    - "100% победа"
+    - "заработок"
+    - "финансовая свобода"
+    - "стратегия без проигрышей"
+  hook_patterns:
+    - "Я поставил $10 и вот что вышло…"
+    - "1win дал мне бонус €500. Вот как я его использовал"
+    - "PSG vs Real. Кто выиграл? Я угадал"
+    - "Casino slot hit — не ожидал такого от 1win"
+
+formats:
+  primary:
+    - name: ugc_win_reaction
+      duration_sec: 30
+      visual_style: ugc
+      aspect_ratio: "9:16"
+      hook_type: outcome_reveal
+    - name: shorts_bet_reveal
+      duration_sec: 45
+      visual_style: dynamic
+      aspect_ratio: "9:16"
+  secondary:
+    - name: carousel_bonus
+      slide_count: 5
+      style: minimal
+      aspect_ratio: "1:1"
+
+platforms:
+  allowed: ["tiktok", "instagram", "facebook"]
+  primary: tiktok
+  tiktok_sensitivity: high      # gambling — режется без осторожности
+  instagram_sensitivity: medium
+  facebook_sensitivity: low     # FB Ads для беттинга — нужен белый прелендинг
+
+compliance:
+  level: strict
+  required_disclaimer: "18+. Играйте ответственно. Азартные игры могут вызвать зависимость."
+  white_prelanding_required: true   # прелендинг обязателен для FB/IG
+  prelanding_template: "sport_news"  # стилизация под спортную новость
+
+monetization:
+  model: cpa_revshare
+  funnel_type: prelanding
+  affiliate:
+    cpa: 25           # USD за первый депозит (FTD)
+    revshare: 0.40    # 40% от проигрышей игрока (пожизненно)
+    cookie_days: 30
+    event: "first_deposit"
+    min_deposit: 10   # USD
+  keitaro:
+    campaign_id: ""   # заполни после создания кампании
+    utm_source: "tiktok"
+    utm_medium: "organic"
+    utm_campaign: "1win_betting_br"
+    utm_content: "ugc_win_reaction"
+
+seo:
+  seed_keywords: ["1win", "apostas esportivas", "bônus cassino", "1win aposta"]
+  hashtags_tiktok: ["#1win", "#apostas", "#cassino", "#futebol"]
+  hashtags_instagram: ["#1win", "#bet", "#football", "#winbig"]

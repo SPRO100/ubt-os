@@ -1,0 +1,130 @@
+# ─────────────────────────────────────────────────────────
+# vertical_configs/dr_cash.yaml
+# Nutra оффер — Dr.Cash партнёрская сеть (COD)
+# ─────────────────────────────────────────────────────────
+vertical:
+  id: dr_cash_nutra
+  name: "Dr.Cash — Нутрицевтика (COD)"
+  category: nutra
+  status: active
+  partner_network: "Dr.Cash"
+  partner_url: "https://dr.cash"
+
+audience:
+  geo: ["US", "BR", "MX", "DE", "PL"]
+  language: ["en", "pt", "es", "de", "pl"]
+  age_range: "35-60"
+  gender: female      # 65% женщины для нутры
+  pain_points:
+    - "лишний вес, не помогают диеты"
+    - "высокий сахар / давление"
+    - "суставные боли"
+    - "усталость и низкая энергия"
+  interests: ["health", "wellness", "weight_loss", "nutrition"]
+
+content:
+  tone: "доверительный, как подруга которая нашла решение — без медицинских гарантий"
+  first_15_sec_rule: "боль/проблема пользователя — не продукт, не цена"
+  cta_style: "заказ наложенным платежом — 0 предоплаты, оплата при получении"
+  forbidden_words:
+    - "лечит"
+    - "гарантирует выздоровление"
+    - "клинически доказано" # без ссылки на исследование
+    - "100% результат"
+    - "без побочных эффектов"
+    - "одобрено FDA"
+  allowed_soft_claims:
+    - "помогает поддерживать нормальный уровень сахара"
+    - "способствует снижению веса"
+    - "тысячи довольных клиентов"
+    - "натуральный состав"
+  hook_patterns:
+    - "Я похудела на 12 кг за 30 дней. Вот что я делала"
+    - "Врачи не хотят чтобы ты знала об этом…"
+    - "Эта женщина снизила сахар без лекарств. Её метод"
+    - "После 50 лет вес уходит по-другому. Вот почему"
+
+formats:
+  primary:
+    - name: ugc_testimonial
+      duration_sec: 35
+      visual_style: ugc
+      aspect_ratio: "9:16"
+      hook_type: before_after
+    - name: ugc_doctor_style
+      duration_sec: 40
+      visual_style: professional
+      aspect_ratio: "9:16"
+  secondary:
+    - name: carousel_benefits
+      slide_count: 5
+      style: lifestyle
+      aspect_ratio: "1:1"
+      offer_examples:
+        - "Снижение сахара за 14 дней"
+        - "Натуральный состав — без химии"
+        - "Уже 50,000+ покупателей"
+    - name: native_article
+      prelanding_template: story
+      word_count: 500
+
+platforms:
+  allowed: ["tiktok", "facebook", "instagram"]
+  primary: tiktok
+  tiktok_sensitivity: medium    # нутра — осторожно с медицинскими клеймами
+  facebook_sensitivity: low     # FB хорошо конвертит нутру через прелендинг
+  instagram_sensitivity: medium
+
+compliance:
+  level: moderate
+  white_prelanding_required: true
+  prelanding_template: "native_article"   # стиль здоровьевой статьи
+  disclaimer: "Результаты индивидуальны. Не является медицинским советом."
+
+monetization:
+  model: cpa_cod
+  funnel_type: prelanding
+  affiliate:
+    cpa_range:
+      US: 35      # USD за подтверждённый заказ
+      BR: 8       # USD
+      MX: 10      # USD
+      DE: 25      # EUR
+      PL: 18      # EUR
+    cookie_days: 30
+    event: "confirmed_cod_order"
+    billing_model: COD
+  keitaro:
+    campaign_id: ""   # заполни после создания кампании
+    utm_source: "tiktok"
+    utm_medium: "organic"
+    utm_campaign: "nutra_weightloss_us"
+    utm_content: "ugc_testimonial"
+
+offers:
+  # Топ-офферы Dr.Cash для наших GEO
+  - name: "Reduslim"
+    category: weight_loss
+    geo: ["DE", "AT", "CH", "PL"]
+    cpa: 22
+    lander_url: ""   # получи в ЛК Dr.Cash
+  - name: "Matcha Slim"
+    category: weight_loss
+    geo: ["US", "BR", "MX"]
+    cpa: 30
+    lander_url: ""
+  - name: "Diabenol"
+    category: blood_sugar
+    geo: ["PL", "CZ", "RO"]
+    cpa: 20
+    lander_url: ""
+  - name: "Cardione"
+    category: cardiovascular
+    geo: ["DE", "PL", "US"]
+    cpa: 25
+    lander_url: ""
+
+seo:
+  seed_keywords: ["weight loss supplement", "blood sugar support", "natural diet pills"]
+  hashtags_tiktok: ["#weightloss", "#health", "#naturalremedies", "#wellness"]
+  hashtags_instagram: ["#weightlossjourney", "#healthylifestyle", "#wellness"]

@@ -84,10 +84,11 @@ class HiggsFieldAgent:
         vertical: str = "nutra",
         geo: str = "US",
         avatar_style: str = "authentic",
+        aspect_ratio: str = "9:16",
     ) -> HiggsFieldResult:
-        """UGC-видео 9:16 для TikTok/Instagram. Подходит для nutra и betting."""
-        prompt = self._ugc_prompt(hook, story, cta, vertical, geo, avatar_style)
-        return await self._submit_and_poll(prompt, _UGC_MODEL, VideoFormat.UGC, "9:16")
+        """UGC-видео для TikTok/Instagram (9:16) или YouTube/горизонтальный формат (16:9)."""
+        prompt = self._ugc_prompt(hook, story, cta, vertical, geo, avatar_style, aspect_ratio)
+        return await self._submit_and_poll(prompt, _UGC_MODEL, VideoFormat.UGC, aspect_ratio)
 
     async def generate_shorts(
         self,
@@ -95,17 +96,19 @@ class HiggsFieldAgent:
         style: str = "dynamic",
         vertical: str = "nutra",
         geo: str = "US",
+        aspect_ratio: str = "9:16",
     ) -> HiggsFieldResult:
-        """Short 15–60с с быстрым монтажом."""
+        """Short 15–60с с быстрым монтажом. 9:16 для TikTok/IG, 16:9 для YouTube Shorts."""
         voice = _VOICE_MAP.get(geo, _VOICE_MAP["US"])
+        orient = "vertical" if aspect_ratio == "9:16" else "horizontal widescreen"
         prompt = (
             f"[SHORTS {style.upper()} {vertical.upper()} {geo}] "
             f"Voice: {voice}. "
             f"Script: {script} "
             f"Editing: fast cuts, trending sound, pattern interrupt every 3 seconds. "
-            f"Aspect ratio 9:16. Duration 15–45 seconds."
+            f"Aspect ratio {aspect_ratio} ({orient}). Duration 15–45 seconds."
         )
-        return await self._submit_and_poll(prompt, _UGC_MODEL, VideoFormat.SHORTS, "9:16")
+        return await self._submit_and_poll(prompt, _UGC_MODEL, VideoFormat.SHORTS, aspect_ratio)
 
     async def generate_carousel(
         self,
@@ -193,8 +196,10 @@ class HiggsFieldAgent:
     def _ugc_prompt(
         self, hook: str, story: str, cta: str,
         vertical: str, geo: str, avatar_style: str,
+        aspect_ratio: str = "9:16",
     ) -> str:
         voice = _VOICE_MAP.get(geo, _VOICE_MAP["US"])
+        orient = "vertical mobile" if aspect_ratio == "9:16" else "horizontal widescreen"
         return (
             f"[UGC {vertical.upper()} {geo}] "
             f"Avatar: {avatar_style}, {voice}. "
@@ -202,7 +207,7 @@ class HiggsFieldAgent:
             f"STORY (3–22s): {story} "
             f"CTA (last 5s): {cta} "
             f"Style: authentic handheld feel, no green screen, natural lighting. "
-            f"Aspect ratio 9:16. Duration 25–40 seconds."
+            f"Aspect ratio {aspect_ratio} ({orient}). Duration 25–40 seconds."
         )
 
     async def _submit_and_poll(

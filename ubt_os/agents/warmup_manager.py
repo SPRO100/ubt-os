@@ -14,7 +14,7 @@ from pathlib import Path
 
 logger = logging.getLogger("ubt_os.warmup_manager")
 
-_STATE_FILE = Path(os.environ.get("WARMUP_STATE_FILE", "/tmp/ubt_warmup_state.json"))
+_STATE_FILE = Path(os.environ.get("WARMUP_STATE_FILE", str(Path.home() / ".ubt_os" / "warmup_state.json")))
 
 # Лимиты активности по дням (new account, 14 days)
 _DAILY_LIMITS_NEW = {

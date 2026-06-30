@@ -363,12 +363,120 @@ async function renderAccounts(){
         <tr><td class="primary">Proxy timeout</td><td>Автосмена прокси (IPRoyal — pay per GB)</td></tr>
       </table>
     </div>
+
+    <!-- Add Account Form -->
+    <div class="card">
+      <div class="card-head"><span class="title">Добавить аккаунт</span><span class="right">→ Supabase accounts</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">ID аккаунта</label>
+          <input id="add-acct-id" placeholder="tiktok_us_001" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">Платформа</label>
+          <select id="add-acct-platform" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
+            <option value="tiktok">TikTok</option>
+            <option value="facebook">Facebook Page</option>
+            <option value="instagram">Instagram</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">Прокси</label>
+          <input id="add-acct-proxy" placeholder="mobile:iproyal:us-pool" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">Publer Profile ID</label>
+          <input id="add-acct-publer" placeholder="123456789" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">GEO</label>
+          <select id="add-acct-geo" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
+            <option value="US">US</option><option value="BR">BR</option><option value="MX">MX</option><option value="DE">DE</option><option value="PL">PL</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">Тип аккаунта</label>
+          <select id="add-acct-type" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
+            <option value="aged">Aged (купленный)</option>
+            <option value="new">Новый (самозарег.)</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
+        <button onclick="addAccount()" style="padding:8px 18px;background:var(--indigo);border:none;border-radius:7px;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;">+ Добавить аккаунт</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;">
+          <input type="checkbox" id="add-acct-warmup" checked> Запустить прогрев A28 сразу
+        </label>
+        <span id="add-acct-msg" style="font-size:12px;"></span>
+      </div>
+    </div>
   `;
 }
 
 function filterAccts(platform){
   _acctFilter = platform;
   renderAccounts();
+}
+
+async function addAccount(){
+  const id       = document.getElementById("add-acct-id")?.value?.trim();
+  const platform = document.getElementById("add-acct-platform")?.value;
+  const proxy    = document.getElementById("add-acct-proxy")?.value?.trim() || null;
+  const publer   = document.getElementById("add-acct-publer")?.value?.trim() || null;
+  const geo      = document.getElementById("add-acct-geo")?.value;
+  const acctType = document.getElementById("add-acct-type")?.value;
+  const doWarmup = document.getElementById("add-acct-warmup")?.checked;
+  const msgEl    = document.getElementById("add-acct-msg");
+
+  if(!id){ if(msgEl) msgEl.innerHTML = `<span style="color:var(--red)">Укажи ID аккаунта</span>`; return; }
+
+  if(msgEl) msgEl.innerHTML = `<span style="color:var(--faint)">Сохраняю…</span>`;
+
+  try{
+    const res = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/accounts`, {
+      method: "POST",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal",
+      },
+      body: JSON.stringify({
+        id, platform, status: "new",
+        proxy: proxy || null,
+        publer_profile_id: publer || null,
+      }),
+    }, 10000);
+
+    if(!res.ok){
+      const err = await res.text();
+      throw new Error(err);
+    }
+
+    if(msgEl) msgEl.innerHTML = `<span style="color:var(--green)">✅ Добавлен</span>`;
+
+    // Запуск прогрева A28
+    if(doWarmup){
+      if(msgEl) msgEl.innerHTML = `<span style="color:var(--faint)">Регистрирую в A28…</span>`;
+      await fetchWithTimeout(`${AGENTS_SERVER}/agents/run`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({agent:"warmup_manager", params:{
+          action:"register", account_id:id,
+          geo, account_type:acctType, platform,
+          proxy_type: proxy ? proxy.split(":")[0] : "none",
+        }}),
+      }, 15000);
+      if(msgEl) msgEl.innerHTML = `<span style="color:var(--green)">✅ Добавлен + прогрев запущен</span>`;
+    }
+
+    // Очищаем поля и перезагружаем таблицу
+    ["add-acct-id","add-acct-proxy","add-acct-publer"].forEach(fid=>{
+      const el = document.getElementById(fid); if(el) el.value="";
+    });
+    await renderAccounts();
+  }catch(e){
+    if(msgEl) msgEl.innerHTML = `<span style="color:var(--red)">Ошибка: ${esc(e.message)}</span>`;
+  }
 }
 
 /* ============================================================
@@ -1163,6 +1271,10 @@ function renderLaunch(){
               <select id="a30-vertical"><option value="nutra">Nutra</option><option value="betting">Betting</option><option value="white">White offer</option></select>
               <select id="a30-geo"><option value="US">US</option><option value="BR">BR</option><option value="MX">MX</option><option value="DE">DE</option><option value="PL">PL</option></select>
               <select id="a30-avatar"><option value="authentic">Authentic</option><option value="professional">Professional</option><option value="friendly">Friendly</option></select>
+              <select id="a30-aspect-video" title="Ориентация видео">
+                <option value="9:16">9:16 Вертикальное (TikTok / IG Reels)</option>
+                <option value="16:9">16:9 Горизонтальное (YouTube / FB)</option>
+              </select>
             </div>
           </div>
 
@@ -1282,6 +1394,7 @@ function runA30(event){
       vertical: v("a30-vertical"),
       geo: v("a30-geo"),
       avatar_style: v("a30-avatar"),
+      aspect_ratio: v("a30-aspect-video") || "9:16",
     }, "a30-result", event);
   }
 }

@@ -594,6 +594,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                         params.get("style", "dynamic"),
                         params.get("vertical", "nutra"),
                         params.get("geo", "US"),
+                        params.get("aspect_ratio", "9:16"),
                     )
                 else:  # ugc
                     r = await hf.generate_ugc(
@@ -603,6 +604,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                         params.get("vertical", "nutra"),
                         params.get("geo", "US"),
                         params.get("avatar_style", "authentic"),
+                        params.get("aspect_ratio", "9:16"),
                     )
                 return {
                     "format": r.format, "status": r.status,
