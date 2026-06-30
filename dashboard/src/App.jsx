@@ -53,10 +53,37 @@ function saveTasks(tasks) {
   localStorage.setItem('ubt_tasks', JSON.stringify(tasks))
 }
 
+const VALID_SECTIONS = new Set(NAV.map(n => n.id))
+function sectionFromHash() {
+  const h = window.location.hash.replace(/^#\/?/, '')
+  return VALID_SECTIONS.has(h) ? h : 'dashboard'
+}
+
 export default function App() {
-  const [section, setSection] = useState('dashboard')
+  const [section, setSection] = useState(sectionFromHash)
   const [health,  setHealth]  = useState(null)
   const [tasks,   setTasks]   = useState(loadTasks)
+  const [apiError, setApiError] = useState(null)
+
+  // Hash-роутинг: секция отражается в URL (#/tasks) — работает deep-link и кнопка «назад».
+  function navigate(id) { window.location.hash = `/${id}` }
+  useEffect(() => {
+    const onHash = () => setSection(sectionFromHash())
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
+  // Баннер ошибок API (Supabase/agents недоступны) — авто-скрытие через 6с.
+  useEffect(() => {
+    let timer
+    const onErr = (e) => {
+      setApiError(e.detail?.message || 'ошибка запроса')
+      clearTimeout(timer)
+      timer = setTimeout(() => setApiError(null), 6000)
+    }
+    window.addEventListener('ubt:api-error', onErr)
+    return () => { window.removeEventListener('ubt:api-error', onErr); clearTimeout(timer) }
+  }, [])
 
   const fetchHealth = useCallback(async () => {
     try {
@@ -79,7 +106,7 @@ export default function App() {
       saveTasks(next)
       return next
     })
-    setSection('tasks') // navigate to tasks after creation
+    navigate('tasks') // navigate to tasks after creation
   }
 
   function handleUpdateTask(id, patch) {
@@ -107,7 +134,7 @@ export default function App() {
       case 'clients':   return <Clients onCreateTask={handleCreateTask} />
       case 'tasks':     return <Tasks tasks={tasks} onUpdate={handleUpdateTask} />
       case 'agents':    return <Agents />
-      case 'launch':    return <Launch goToLaunch={() => setSection('launch')} />
+      case 'launch':    return <Launch goToLaunch={() => navigate('launch')} />
       case 'analytics': return <Analytics />
       case 'infra':     return <Infra health={health} />
       case 'knowledge': return <Knowledge />
@@ -122,12 +149,18 @@ export default function App() {
       <Sidebar
         nav={NAV}
         active={section}
-        onSelect={setSection}
+        onSelect={navigate}
         allOk={allOk}
         badges={{ tasks: pendingCount }}
       />
       <div className="main">
         <Topbar title={title} sub={sub} supaOk={supaOk} redisOk={redisOk} />
+        {apiError && (
+          <div className="api-error-banner" role="alert">
+            <span>⚠️ Проблема со связью: {apiError}</span>
+            <button onClick={() => setApiError(null)} aria-label="Закрыть уведомление">✕</button>
+          </div>
+        )}
         <div className="content">
           <ErrorBoundary key={section}>
             {renderSection()}

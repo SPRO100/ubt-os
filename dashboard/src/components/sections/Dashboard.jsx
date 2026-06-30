@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { countOf, fetchRows } from '../../api'
+import { countOf, sumColumn } from '../../api'
 
 const PRIORITIES = [
   'Получить API ключ Publer ($12/мес) → добавить PUBLER_API_KEY и PUBLER_*_PROFILE_IDS на сервер',
@@ -63,8 +63,7 @@ export default function Dashboard({ health }) {
     }
 
     async function loadRevenue() {
-      const rows = await fetchRows('revenue_events', 'select=net_amount&limit=10000')
-      setRevenue((rows || []).reduce((s, r) => s + (parseFloat(r.net_amount) || 0), 0))
+      setRevenue(await sumColumn('revenue_events', 'net_amount'))
     }
 
     load()

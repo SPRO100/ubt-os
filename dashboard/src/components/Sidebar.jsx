@@ -23,7 +23,7 @@ export default function Sidebar({ nav, active, onSelect, allOk, badges = {} }) {
         </div>
       </div>
 
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" aria-label="Основная навигация">
         {grouped.map(g => (
           <div key={g.label}>
             <div className="nav-section">{g.label}</div>
@@ -32,8 +32,9 @@ export default function Sidebar({ nav, active, onSelect, allOk, badges = {} }) {
                 key={item.id}
                 className={`nav-item${active === item.id ? ' active' : ''}`}
                 onClick={() => onSelect(item.id)}
+                aria-current={active === item.id ? 'page' : undefined}
               >
-                <span className="nav-icon">{item.icon}</span>
+                <span className="nav-icon" aria-hidden="true">{item.icon}</span>
                 <span style={{ flex:1 }}>{item.label}</span>
                 {badges[item.id] > 0 && (
                   <span style={{
