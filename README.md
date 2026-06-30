@@ -202,15 +202,28 @@ Keitaro postback (UTM → конверсии)
 - Устойчивый парсинг JSON из ответов LLM (даже с текстом вокруг).
 - Все `datetime.utcnow()` → timezone-aware.
 
-**✅ CI стал зелёным**
+**🖥 Dashboard (React 18 + Vite)**
+- Конфигурация через `VITE_*` env — деплой на любой сервер; `VITE_AGENTS_SERVER=""` → same-origin (**работает за nginx без порта**).
+- Баннер ошибок API вместо молчаливых нулей; revenue считается серверным aggregate с fallback.
+- Hash-роутинг (deep-link секций, кнопка «назад», сохранение при refresh).
+- Доступность: `aria-current` / `aria-label` / `aria-hidden`.
+- Актуализированы данные: 22 агента (A12–A31), платформы TikTok/Facebook/Instagram/Pinterest.
+- ESLint + **9 Vitest-тестов**; пофикшены реальные баги (missing keys, `target=_blank`, кавычки).
+
+**🗄 База данных и прямая публикация**
+- `make db-init` применяет все **12 схем** (включая таблицы новых агентов: `hook_templates`, `competitor_signals`, `transcriptions`, `direct_publish_*`).
+- Креды платформ для прямой публикации — per-account в таблице `direct_publish_accounts`.
+
+**✅ CI стал зелёным (5 джобов)**
 - `ruff` — 0 ошибок (было 80), добавлен конфиг под стиль проекта.
 - `mypy` — 0 ошибок (было 130).
 - `pytest` — 58 тестов (compliance regex, JSON-парсинг, dual-auth и др.).
 - `bandit` — 0 предупреждений.
+- `dashboard` — eslint + vitest + build на каждый push/PR.
 
 **📚 Документация**
-- Добавлены `.env.template`, `CLAUDE.md`, `pyproject.toml`.
-- Полностью переоформлён README.
+- Добавлены `.env.template`, `dashboard/.env.example`, `CLAUDE.md`, `pyproject.toml`.
+- Полностью переоформлён README, changelog поддерживается в актуальном состоянии.
 
 ---
 
