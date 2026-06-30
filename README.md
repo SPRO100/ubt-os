@@ -1,7 +1,7 @@
 # UBT OS — Multi-Agent AI System for Organic Traffic
 
 > Мульти-агентная AI-система для генерации органического трафика на партнёрские офферы.
-> **19 агентов (A12–A30) · TikTok · Facebook · Instagram · YouTube Shorts · UGC Карусели**
+> **19 агентов (A12–A30) · TikTok · Facebook · Instagram · Pinterest · YouTube Shorts · UGC Карусели**
 
 ---
 
@@ -74,7 +74,7 @@
 | ID | Файл | Роль |
 |----|------|------|
 | A25 | `compliance_gate.py` | Проверка контента: Regex L1 → Claude Haiku L2/L3 |
-| A26 | `publer_publisher.py` | Publer API — TikTok / Facebook / Instagram + UTM |
+| A26 | `publer_publisher.py` | Publer API — TikTok / Facebook / Instagram / Pinterest + UTM |
 
 ### Affiliate Intelligence (A27–A29)
 
@@ -202,6 +202,8 @@ PUBLER_API_KEY=...
 PUBLER_TIKTOK_PROFILE_IDS=id1,id2
 PUBLER_FACEBOOK_PROFILE_IDS=id1,id2
 PUBLER_INSTAGRAM_PROFILE_IDS=id1,id2
+PUBLER_PINTEREST_PROFILE_IDS=id1,id2   # Pinterest (опционально)
+PUBLER_PINTEREST_BOARD_IDS=board1,board2  # Pinterest доски (опционально)
 
 # Медиа-генерация (A30 Higgsfield)
 HIGGSFIELD_API_KEY=...

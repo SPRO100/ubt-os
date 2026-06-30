@@ -1,6 +1,6 @@
 """
 A26 — PUBLER_PUBLISHER
-Публикация готового контента в TikTok / Facebook / Instagram через Publer API.
+Публикация готового контента в TikTok / Facebook / Instagram / Pinterest через Publer API.
 Автоматически прогоняет текст через ComplianceGate (A25) перед отправкой.
 Добавляет Keitaro UTM-параметры к ссылкам.
 
@@ -9,6 +9,8 @@ A26 — PUBLER_PUBLISHER
   PUBLER_TIKTOK_PROFILE_IDS          — ID профилей TikTok через запятую
   PUBLER_FACEBOOK_PROFILE_IDS        — ID профилей Facebook Pages через запятую
   PUBLER_INSTAGRAM_PROFILE_IDS       — ID профилей Instagram через запятую
+  PUBLER_PINTEREST_PROFILE_IDS       — ID профилей Pinterest через запятую
+  PUBLER_PINTEREST_BOARD_IDS         — ID досок Pinterest (опционально, одна на профиль)
 """
 from __future__ import annotations
 import asyncio, logging, os
@@ -29,6 +31,7 @@ class PublishPlatform(str, Enum):
     TIKTOK    = "tiktok"
     FACEBOOK  = "facebook"
     INSTAGRAM = "instagram"
+    PINTEREST = "pinterest"
 
 
 @dataclass
@@ -61,8 +64,15 @@ def _get_profile_ids(platform: str) -> list[str]:
         "tiktok":    "PUBLER_TIKTOK_PROFILE_IDS",
         "facebook":  "PUBLER_FACEBOOK_PROFILE_IDS",
         "instagram": "PUBLER_INSTAGRAM_PROFILE_IDS",
+        "pinterest": "PUBLER_PINTEREST_PROFILE_IDS",
     }
     raw = os.environ.get(env_map.get(platform, ""), "")
+    return [x.strip() for x in raw.split(",") if x.strip()]
+
+
+def _get_pinterest_board_ids() -> list[str]:
+    """Получает board_ids для Pinterest (опционально)."""
+    raw = os.environ.get("PUBLER_PINTEREST_BOARD_IDS", "")
     return [x.strip() for x in raw.split(",") if x.strip()]
 
 
@@ -127,6 +137,10 @@ class PubelerPublisher:
             payload["media_urls"] = [media_url]
         if final_url:
             payload["link"] = final_url
+        if platform == PublishPlatform.PINTEREST:
+            board_ids = _get_pinterest_board_ids()
+            if board_ids:
+                payload["board_ids"] = board_ids
 
         try:
             async with httpx.AsyncClient(timeout=30) as client:

@@ -502,7 +502,7 @@ async function renderContent(){
         <tr><td class="primary">Прелендинг</td><td>A29 prelanding_generator.py (quiz/story/vsl)</td><td>Все воронки</td><td>${chip("готов","#4ade80")}</td></tr>
         <tr><td class="primary">Compliance Gate</td><td>A25 compliance_gate.py (regex L1 + LLM L2/L3)</td><td>Все</td><td>${chip("готов","#4ade80")}</td></tr>
         <tr><td class="primary">Keitaro UTM</td><td>_build_utm() в A26 + /keitaro skill</td><td>Все</td><td>${chip("готов","#4ade80")}</td></tr>
-        <tr><td class="primary">Публикация</td><td>A26 publer_publisher.py (Publer $12/мес)</td><td>TikTok / Facebook / IG</td><td>${chip("нужен PUBLER_API_KEY","#f59e0b")}</td></tr>
+        <tr><td class="primary">Публикация</td><td>A26 publer_publisher.py (Publer $12/мес)</td><td>TikTok / Facebook / IG / Pinterest</td><td>${chip("нужен PUBLER_API_KEY","#f59e0b")}</td></tr>
       </table>
     </div>
   `;
@@ -814,7 +814,7 @@ function renderAgents(){
         <tr>
           <td class="mono" style="color:var(--faint)">A26</td>
           <td class="primary mono">publer_publisher.py</td>
-          <td>Публикация TikTok/Facebook/Instagram через Publer API ($12/мес). Auto UTM. Compliance Gate.</td>
+          <td>Публикация TikTok/Facebook/Instagram/Pinterest через Publer API ($12/мес). Auto UTM. Compliance Gate.</td>
           <td><span class="chip" style="color:var(--amber);background:rgba(245,158,11,.1)">нужен PUBLER_API_KEY</span></td>
         </tr>
       </table>
@@ -1144,7 +1144,7 @@ function renderLaunch(){
           <span class="agent-id">A26</span>
           <span class="agent-name">publer_publisher</span>
         </div>
-        <div class="agent-desc">Публикация в TikTok / Facebook / Instagram через Publer API. Compliance Gate + Keitaro UTM автоматически</div>
+        <div class="agent-desc">Публикация в TikTok / Facebook / Instagram / Pinterest через Publer API. Compliance Gate + Keitaro UTM автоматически</div>
         <div class="agent-form">
           <label>Текст поста</label>
           <textarea id="a26-text" placeholder="Готовый текст для публикации…" style="min-height:60px;"></textarea>
@@ -1153,6 +1153,7 @@ function renderLaunch(){
             <option value="tiktok">TikTok</option>
             <option value="facebook">Facebook</option>
             <option value="instagram">Instagram</option>
+            <option value="pinterest">Pinterest</option>
           </select>
           <label>Affiliate URL (необязательно)</label>
           <input type="text" id="a26-url" placeholder="https://1win.com/promo/…">
