@@ -10,10 +10,10 @@ const PRIORITIES = [
 ]
 
 const PLATFORMS = [
-  { id: 'tiktok',    name: 'TikTok',     logo: '🎵', color: '#fff',     bg: '#010101', rev: '$0',  delta: '+0%', up: true,  video: 0, accs: 0, er: '0%' },
-  { id: 'facebook',  name: 'Facebook',   logo: '📘', color: '#1877f2',  bg: '#1877f222', rev: '$0', delta: '+0%', up: true, video: 0, accs: 0, er: '0%' },
-  { id: 'instagram', name: 'Instagram',  logo: '📸', color: '#e1306c',  bg: '#e1306c22', rev: '$0', delta: '+0%', up: true, video: 0, accs: 0, er: '0%' },
-  { id: 'pinterest', name: 'Pinterest',  logo: '📌', color: '#e60023',  bg: '#e6002322', rev: '$0', delta: '+0%', up: true, video: 0, accs: 0, er: '0%' },
+  { id: 'tiktok',    name: 'TikTok',    logo: '🎵', bg: '#010101',   video: 0, accs: 0, er: '0%' },
+  { id: 'facebook',  name: 'Facebook',  logo: '📘', bg: '#1877f222', video: 0, accs: 0, er: '0%' },
+  { id: 'instagram', name: 'Instagram', logo: '📸', bg: '#e1306c22', video: 0, accs: 0, er: '0%' },
+  { id: 'pinterest', name: 'Pinterest', logo: '📌', bg: '#e6002322', video: 0, accs: 0, er: '0%' },
 ]
 
 const AI_AGENTS = [
@@ -63,54 +63,49 @@ export default function Dashboard({ health }) {
     <>
       {/* ── STAT ROW ── */}
       <div className="stat-grid">
-        <StatCard label="Supabase" value={supaOk ? 'OK' : 'ERR'} note="База данных" color="c-green"
+        <StatCard label="Supabase" value={supaOk ? 'OK' : 'ERR'} note="База данных" color={supaOk ? 'c-green' : 'c-red'}
           icon="🗄️" iconBg={supaOk ? 'rgba(34,197,94,.12)' : 'rgba(239,68,68,.12)'}
         />
-        <StatCard label="Redis" value={redisOk ? 'OK' : 'ERR'} note="Upstash" color="c-cyan"
+        <StatCard label="Redis" value={redisOk ? 'OK' : 'ERR'} note="Upstash" color={redisOk ? 'c-cyan' : 'c-red'}
           icon="⚡" iconBg="rgba(6,182,212,.12)"
         />
-        <StatCard label="Аккаунты" value={counts.accounts} note="всего в системе" color="c-indigo" icon="👤" iconBg="var(--indigo-bg)" />
-        <StatCard label="Видео" value={counts.videos} note="опубликовано" color="c-pink" icon="🎬" iconBg="rgba(236,72,153,.12)" />
+        <StatCard label="Агенты" value="19" note="A12–A30 в системе" color="c-indigo" icon="🤖" iconBg="var(--indigo-bg)" />
         <StatCard label="Revenue Events" value={counts.revenue} note="net_amount events" color="c-green" icon="💰" iconBg="var(--green-bg)" />
         <StatCard label="Записи знаний" value={counts.knowledge} note="knowledge_entries" color="c-amber" icon="🧠" iconBg="var(--amber-bg)" />
+        <StatCard label="Стратегий" value={counts.strategy} note="strategy_briefs" color="c-pink" icon="📊" iconBg="rgba(236,72,153,.12)" />
       </div>
 
-      {/* ── PLATFORMS ── */}
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">📡 Источники трафика</div>
-          <span className="live-tag">live</span>
+      {/* ── TOTALS ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div className="card" style={{ marginBottom: 0 }}>
+          <div className="card-body" style={{ padding: '22px 24px' }}>
+            <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.08em' }}>Всего видео</div>
+            <div style={{ fontSize: 48, fontWeight: 700, fontFamily: "'IBM Plex Mono',monospace", color: 'var(--text)', lineHeight: 1 }}>{counts.videos}</div>
+            <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+              {PLATFORMS.map(p => (
+                <div key={p.id} style={{ textAlign: 'center', background: 'var(--surface2)', borderRadius: 8, padding: '8px 6px' }}>
+                  <div style={{ fontSize: 18 }}>{p.logo}</div>
+                  <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 2 }}>{p.name}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'IBM Plex Mono',monospace", color: 'var(--text)', marginTop: 4 }}>{p.video}</div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-        <div style={{ padding: '14px 18px' }}>
-          <div className="platform-grid">
-            {PLATFORMS.map(p => (
-              <div key={p.id} className="platform-card">
-                <div className="platform-head">
-                  <div className="platform-logo" style={{ background: p.bg }}>
-                    {p.logo}
-                  </div>
-                  <div className="platform-name">{p.name}</div>
+
+        <div className="card" style={{ marginBottom: 0 }}>
+          <div className="card-body" style={{ padding: '22px 24px' }}>
+            <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.08em' }}>Всего аккаунтов</div>
+            <div style={{ fontSize: 48, fontWeight: 700, fontFamily: "'IBM Plex Mono',monospace", color: 'var(--indigo)', lineHeight: 1 }}>{counts.accounts}</div>
+            <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+              {PLATFORMS.map(p => (
+                <div key={p.id} style={{ textAlign: 'center', background: 'var(--surface2)', borderRadius: 8, padding: '8px 6px' }}>
+                  <div style={{ fontSize: 18 }}>{p.logo}</div>
+                  <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 2 }}>{p.name}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'IBM Plex Mono',monospace", color: 'var(--indigo)', marginTop: 4 }}>{p.accs}</div>
                 </div>
-                <div className="platform-revenue">{p.rev}</div>
-                <div className={`platform-delta ${p.up ? 'up' : 'down'}`}>
-                  {p.up ? '↑' : '↓'} {p.delta} vs вчера
-                </div>
-                <div className="platform-stats">
-                  <div>
-                    <div className="platform-stat-label">Видео</div>
-                    <div className="platform-stat-value">{p.video}</div>
-                  </div>
-                  <div>
-                    <div className="platform-stat-label">Аккаунты</div>
-                    <div className="platform-stat-value">{p.accs}</div>
-                  </div>
-                  <div>
-                    <div className="platform-stat-label">ER</div>
-                    <div className="platform-stat-value">{p.er}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>
