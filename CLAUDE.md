@@ -129,6 +129,31 @@ ubt_os/
 | — | `transcription_agent.py` | Video transcription (Deepgram → Whisper) + hook extraction |
 | — | `pipelines/social_publisher.py` | Direct native-API publishing to 8 platforms |
 
+### Competitor analysis: A27 vs A31 (NOT duplicates)
+
+Two competitor agents exist on purpose — they are **complementary**, не merge them:
+
+- **A27 `spy_analyzer`** — *reactive, on-demand.* You feed it crips manually
+  (PiPiAds/AdHeart text or URLs); it returns a creative brief +
+  `a21_prompt_extension` that drives A21 `content_creator`.
+- **A31 `competitor_analyst`** — *proactive, scheduled.* Pulls scraped videos
+  from the `competitor_signals` table, classifies hooks (Claude Vision when a
+  thumbnail is present), writes to `competitor_patterns` / `hook_templates`, and
+  builds weekly aggregate hook-trend reports.
+
+A27 = "analyse these specific crips now", A31 = "monitor the competitive field
+over time". Keep both.
+
+### Direct publishing credentials (`social_publisher.py`)
+
+Per-account platform tokens (`access_token`, `page_id`, `ig_user_id`,
+`board_id`, `threads_user_id`) live in the **`direct_publish_accounts`** table —
+not in env vars (multi-account by design). `create_and_publish(platform,
+account_id, …)` looks them up by `account_id`. To onboard an account, insert its
+row into `direct_publish_accounts`. Only `MEDIA_BUCKET` (Supabase Storage) is
+env-configured. All DB tables are created by `make db-init`
+(`deploy/dohoo_features_schema.sql`).
+
 ### Key Architectural Patterns
 
 **Single Source of Truth (`agent_api_layer.py`):** Agents never write directly
