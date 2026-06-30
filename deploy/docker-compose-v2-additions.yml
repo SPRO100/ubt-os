@@ -38,7 +38,7 @@
       ANTHROPIC_API_KEY:        ${ANTHROPIC_API_KEY}
       HIGGSFIELD_API_KEY:       ${HIGGSFIELD_API_KEY}
       ELEVENLABS_API_KEY:       ${ELEVENLABS_API_KEY}
-      BLOTATO_API_KEY:          ${BLOTATO_API_KEY}
+      PUBLER_API_KEY:           ${PUBLER_API_KEY}
       KEITARO_DOMAIN:           ${KEITARO_DOMAIN}
       KEITARO_API_KEY:          ${KEITARO_API_KEY}
       TIKTOK_UPLOADER_URL:      http://tiktok_uploader:8080
