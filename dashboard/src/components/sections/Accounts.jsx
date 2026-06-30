@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchRows, insertRows, AGENTS_SERVER } from '../../api'
+import { fetchRows, insertRows, AGENTS_SERVER, agentsHeaders } from '../../api'
 
 const PLATFORMS_TABS = [
   { id: 'all',       label: 'Все',       color: '#8892a4' },
@@ -56,7 +56,7 @@ export default function Accounts() {
         setMsg('Регистрирую в A28…')
         try {
           const wr = await fetch(`${AGENTS_SERVER}/agents/run`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
+            method:'POST', headers: agentsHeaders({'Content-Type':'application/json'}),
             body: JSON.stringify({ agent:'warmup_manager', params:{ action:'register', account_id:acctId, geo, account_type:acctType, platform, proxy_type: proxy ? proxy.split(':')[0] : 'none' } }),
           })
           if (!wr.ok) throw new Error(`HTTP ${wr.status}`)
@@ -96,7 +96,7 @@ export default function Accounts() {
         let done = 0
         for (const r of records) {
           try {
-            const wr = await fetch(`${AGENTS_SERVER}/agents/run`, { method:'POST', headers:{'Content-Type':'application/json'},
+            const wr = await fetch(`${AGENTS_SERVER}/agents/run`, { method:'POST', headers: agentsHeaders({'Content-Type':'application/json'}),
               body: JSON.stringify({ agent:'warmup_manager', params:{ action:'register', account_id:r.id, geo:r.geo, account_type:r.account_type, platform:r.platform, proxy_type: r.proxy ? r.proxy.split(':')[0] : 'none' } }) })
             if (!wr.ok) throw new Error(`HTTP ${wr.status}`)
           } catch(we) { setBulkProg(p => p + ` (A28 err: ${we.message})`) }

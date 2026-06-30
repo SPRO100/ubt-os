@@ -18,12 +18,16 @@ import signal
 import sys
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 import json
 
 from ubt_os.core.logging_config import setup_logging, set_request_id
 
 setup_logging()
 logger = logging.getLogger("ubt_os.main")
+
+# Origin, которому разрешён CORS. По умолчанию "*" (dev), в проде задать домен dashboard.
+CORS_ALLOW_ORIGIN = os.getenv("CORS_ALLOW_ORIGIN", "*")
 
 # Простые in-memory счётчики для Prometheus-совместимого /metrics
 _METRICS: dict[str, int] = {
@@ -47,14 +51,41 @@ def _get_db():
 class WebhookHandler(BaseHTTPRequestHandler):
     """Принимает POST-запросы от n8n и запускает нужный пайплайн."""
 
-    def _verify_signature(self, raw_body: bytes) -> bool:
-        """HMAC-SHA256 проверка подписи вебхука. Пропускает если секрет не задан."""
+    def _authorized(self, raw_body: bytes) -> bool:
+        """Двойная аутентификация POST-запросов:
+
+        - n8n / серверные вызовы → HMAC-SHA256 подпись (заголовок X-Webhook-Signature, ключ WEBHOOK_SECRET)
+        - dashboard / браузер     → Bearer-токен (заголовок Authorization, ключ AGENTS_API_TOKEN)
+
+        Достаточно пройти любой из путей. Если ни WEBHOOK_SECRET, ни
+        AGENTS_API_TOKEN не заданы — пропускаем (dev-режим) с предупреждением.
+        """
         secret = os.getenv("WEBHOOK_SECRET")
-        if not secret:
+        token  = os.getenv("AGENTS_API_TOKEN")
+
+        if not secret and not token:
+            logger.warning(
+                "ВНИМАНИЕ: ни WEBHOOK_SECRET, ни AGENTS_API_TOKEN не заданы — "
+                "сервер принимает запросы без аутентификации (dev-режим)."
+            )
             return True
-        sig_header = self.headers.get("X-Webhook-Signature", "")
-        expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
-        return hmac.compare_digest(sig_header, expected)
+
+        # Путь 1 — HMAC-подпись (n8n)
+        if secret:
+            sig_header = self.headers.get("X-Webhook-Signature", "")
+            if sig_header:
+                expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
+                if hmac.compare_digest(sig_header, expected):
+                    return True
+
+        # Путь 2 — Bearer-токен (dashboard)
+        if token:
+            auth = self.headers.get("Authorization", "")
+            if auth.startswith("Bearer "):
+                if hmac.compare_digest(auth[7:], token):
+                    return True
+
+        return False
 
     def do_POST(self):
         length   = int(self.headers.get("Content-Length", 0))
@@ -62,10 +93,10 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
         _METRICS["webhook_requests_total"] += 1
 
-        if not self._verify_signature(raw_body):
+        if not self._authorized(raw_body):
             _METRICS["webhook_requests_unauthorized"] += 1
-            self._respond(403, {"error": "invalid signature"})
-            logger.warning("Webhook: отклонён — неверная подпись", extra={"path": self.path})
+            self._respond(403, {"error": "unauthorized"})
+            logger.warning("Webhook: отклонён — провал аутентификации", extra={"path": self.path})
             return
 
         # Correlation ID: берём из заголовка n8n или генерируем
@@ -115,7 +146,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
     def _respond(self, code: int, data: dict):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", CORS_ALLOW_ORIGIN)
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
 
@@ -125,9 +156,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         """PATCH: CORS preflight для POST-запросов с Content-Type: application/json."""
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", CORS_ALLOW_ORIGIN)
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Webhook-Signature")
         self.end_headers()
 
     # ── Обработчики пайплайнов ────────────────────────────
@@ -275,9 +306,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
             model="claude-sonnet-4-6",
             max_tokens=1024,
             system=system_prompt,
-            messages=messages,
+            messages=messages,  # type: ignore[arg-type]  # роли валидируются на стороне БД
         )
-        raw_reply = resp.content[0].text
+        raw_reply = getattr(resp.content[0], "text", "")
 
         import re as _re
         suggestions = []
@@ -329,6 +360,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
         """POST /agents/run — запуск A19–A24 напрямую из браузера."""
         agent  = body.get("agent", "")
         params = body.get("params", {})
+
+        # Диспетчер возвращает разнородные dataclass-результаты — типы динамические.
+        result:  Any
+        r:       Any
+        creator: Any
+        fmt:     Any
 
         try:
             if agent == "content_creator":
@@ -505,7 +542,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     )
                 else:
                     result = mgr.check(account_id)
-                from dataclasses import asdict
                 return {
                     "account_id": result.account_id,
                     "status": result.status,
@@ -564,7 +600,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 }
 
             elif agent == "higgsfield_agent":
-                from ubt_os.agents import HiggsFieldAgent, VideoFormat
+                from ubt_os.agents import HiggsFieldAgent
                 hf     = HiggsFieldAgent()
                 fmt    = params.get("format", "ugc")
 
@@ -626,7 +662,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
         async with pipeline_lock("daily-report", 120) as acquired:
             if not acquired:
                 return
-            await DeadLetterQueueManager.daily_report()
+            db = _get_db()
+            await DeadLetterQueueManager(db).daily_report()
 
     # ── FIX #1: новые обработчики ──────────────────────────
 
@@ -710,8 +747,11 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
 def main():
     port = int(os.getenv("AGENTS_PORT", "8080"))
-    logger.info(f"UBT OS запущен на порту {port}")
-    server = ThreadingHTTPServer(("0.0.0.0", port), WebhookHandler)
+    # По умолчанию слушаем все интерфейсы (нужно в контейнере за nginx).
+    # В проде за reverse-proxy можно ограничить до 127.0.0.1 через AGENTS_HOST.
+    host = os.getenv("AGENTS_HOST", "0.0.0.0")  # nosec B104 — доступ ограничен nginx + firewall + auth
+    logger.info(f"UBT OS запущен на {host}:{port}")
+    server = ThreadingHTTPServer((host, port), WebhookHandler)
 
     def _shutdown(signum, frame):
         logger.info("UBT OS: получен сигнал завершения, останавливаем сервер...")

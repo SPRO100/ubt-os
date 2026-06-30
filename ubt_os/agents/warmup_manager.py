@@ -7,8 +7,8 @@ A28 — WARMUP_MANAGER
 """
 from __future__ import annotations
 import json, logging, os
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, date
+from dataclasses import dataclass, asdict
+from datetime import date
 from enum import Enum
 from pathlib import Path
 
@@ -117,7 +117,7 @@ class WarmupCheckResult:
     today_limits: dict
     content_split: dict
     bio_link_allowed: bool
-    infra_issues: list[InfraIssue]
+    infra_issues: list[dict]   # сериализованные InfraIssue (asdict) — для JSON-ответа
     ready_to_publish: bool
     next_action: str
     message: str

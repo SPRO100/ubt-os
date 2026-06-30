@@ -1,57 +1,75 @@
-"""Unit-тесты для HMAC-аутентификации вебхуков."""
+"""Unit-тесты аутентификации вебхуков: HMAC (n8n) + Bearer-токен (dashboard)."""
 import hashlib
 import hmac
-import json
-import os
-from io import BytesIO
-from unittest.mock import MagicMock, patch
-import pytest
 
-# Импортируем только функцию верификации — без подъёма всего сервера
 from ubt_os.main import WebhookHandler
 
 
-def _make_handler(secret: str | None, body: bytes, sig: str = "") -> WebhookHandler:
-    """Создаёт WebhookHandler с замоканными headers и env."""
-    handler = WebhookHandler.__new__(WebhookHandler)
-    handler.headers = {"X-Webhook-Signature": sig}
-    with patch.dict(os.environ, {"WEBHOOK_SECRET": secret} if secret else {}, clear=False):
-        return handler
+def _handler(headers: dict) -> WebhookHandler:
+    h = WebhookHandler.__new__(WebhookHandler)
+    h.headers = headers
+    return h
 
 
 def _sign(secret: str, body: bytes) -> str:
     return hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
 
 
-def test_no_secret_always_passes():
-    handler = _make_handler(None, b'{"action":"test"}')
-    with patch.dict(os.environ, {}, clear=False):
-        # Удаляем WEBHOOK_SECRET если он есть
-        os.environ.pop("WEBHOOK_SECRET", None)
-        assert handler._verify_signature(b'{"action":"test"}') is True
+# ── dev-режим: ни секрета, ни токена → пропускаем ───────────────────
+
+def test_no_secret_no_token_passes(monkeypatch):
+    monkeypatch.delenv("WEBHOOK_SECRET", raising=False)
+    monkeypatch.delenv("AGENTS_API_TOKEN", raising=False)
+    assert _handler({})._authorized(b'{"action":"test"}') is True
 
 
-def test_valid_signature_passes():
-    body = b'{"action":"run"}'
-    secret = "my-secret"
-    sig = _sign(secret, body)
-    handler = WebhookHandler.__new__(WebhookHandler)
-    handler.headers = {"X-Webhook-Signature": sig}
-    with patch.dict(os.environ, {"WEBHOOK_SECRET": secret}):
-        assert handler._verify_signature(body) is True
+# ── HMAC-путь (n8n) ─────────────────────────────────────────────────
+
+def test_valid_signature_passes(monkeypatch):
+    body, secret = b'{"action":"run"}', "my-secret"
+    monkeypatch.setenv("WEBHOOK_SECRET", secret)
+    monkeypatch.delenv("AGENTS_API_TOKEN", raising=False)
+    assert _handler({"X-Webhook-Signature": _sign(secret, body)})._authorized(body) is True
 
 
-def test_invalid_signature_blocked():
-    body = b'{"action":"run"}'
-    handler = WebhookHandler.__new__(WebhookHandler)
-    handler.headers = {"X-Webhook-Signature": "wrong"}
-    with patch.dict(os.environ, {"WEBHOOK_SECRET": "my-secret"}):
-        assert handler._verify_signature(body) is False
+def test_invalid_signature_blocked(monkeypatch):
+    monkeypatch.setenv("WEBHOOK_SECRET", "my-secret")
+    monkeypatch.delenv("AGENTS_API_TOKEN", raising=False)
+    assert _handler({"X-Webhook-Signature": "wrong"})._authorized(b'{"action":"run"}') is False
 
 
-def test_missing_signature_header_blocked():
-    body = b'{"action":"run"}'
-    handler = WebhookHandler.__new__(WebhookHandler)
-    handler.headers = {}
-    with patch.dict(os.environ, {"WEBHOOK_SECRET": "my-secret"}):
-        assert handler._verify_signature(body) is False
+def test_missing_signature_header_blocked(monkeypatch):
+    monkeypatch.setenv("WEBHOOK_SECRET", "my-secret")
+    monkeypatch.delenv("AGENTS_API_TOKEN", raising=False)
+    assert _handler({})._authorized(b'{"action":"run"}') is False
+
+
+# ── Bearer-путь (dashboard) ─────────────────────────────────────────
+
+def test_valid_bearer_token_passes(monkeypatch):
+    monkeypatch.delenv("WEBHOOK_SECRET", raising=False)
+    monkeypatch.setenv("AGENTS_API_TOKEN", "dash-token")
+    assert _handler({"Authorization": "Bearer dash-token"})._authorized(b"{}") is True
+
+
+def test_invalid_bearer_token_blocked(monkeypatch):
+    monkeypatch.delenv("WEBHOOK_SECRET", raising=False)
+    monkeypatch.setenv("AGENTS_API_TOKEN", "dash-token")
+    assert _handler({"Authorization": "Bearer nope"})._authorized(b"{}") is False
+
+
+def test_missing_auth_header_blocked_when_token_set(monkeypatch):
+    monkeypatch.delenv("WEBHOOK_SECRET", raising=False)
+    monkeypatch.setenv("AGENTS_API_TOKEN", "dash-token")
+    assert _handler({})._authorized(b"{}") is False
+
+
+# ── оба механизма заданы: любой валидный проходит ───────────────────
+
+def test_either_mechanism_accepted(monkeypatch):
+    body = b'{"action":"x"}'
+    monkeypatch.setenv("WEBHOOK_SECRET", "s")
+    monkeypatch.setenv("AGENTS_API_TOKEN", "t")
+    assert _handler({"Authorization": "Bearer t"})._authorized(body) is True
+    assert _handler({"X-Webhook-Signature": _sign("s", body)})._authorized(body) is True
+    assert _handler({})._authorized(body) is False

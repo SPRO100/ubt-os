@@ -12,11 +12,9 @@ FIX #11: Blotato — Dead Letter Queue + Retry
 """
 
 from __future__ import annotations
-import asyncio
 import logging
 import os
 from datetime import datetime, timezone, timedelta
-from typing import Optional
 import httpx
 
 logger = logging.getLogger("publishing.dlq")

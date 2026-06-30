@@ -181,7 +181,7 @@ class FallbackMode:
         Берём последние approved планы из Supabase.
         PUBLISHING использует их без ORCHESTRATOR.
         """
-        from fix_01_sot.agent_api_layer import ContentPlanReader
+        from ubt_os.core.agent_api_layer import ContentPlanReader
         plans = ContentPlanReader.get_approved()
         logger.info(
             f"[FallbackMode] Загружено {len(plans)} планов "

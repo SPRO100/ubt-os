@@ -5,7 +5,6 @@ Vertical Config Loader + AI Generator
 from __future__ import annotations
 import json, logging, os
 from pathlib import Path
-from typing import Any
 import yaml
 from supabase import create_client, Client
 from anthropic import AsyncAnthropic

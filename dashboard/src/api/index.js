@@ -5,6 +5,16 @@ export const N8N_URL = "http://88.218.121.108:5678";
 // Set N8N_API_KEY in localStorage: localStorage.setItem('n8n_api_key', 'your-key')
 export const getN8nApiKey = () => localStorage.getItem('n8n_api_key') || '';
 
+// Bearer-токен для защищённого UBT Agents API (совпадает с AGENTS_API_TOKEN на сервере).
+// Задать: localStorage.setItem('agents_api_token', 'your-token')
+export const getAgentsToken = () => localStorage.getItem('agents_api_token') || '';
+
+// Заголовки авторизации для вызовов UBT Agents API.
+export function agentsHeaders(extra = {}) {
+  const token = getAgentsToken();
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra };
+}
+
 const headers = {
   apikey: SUPABASE_ANON_KEY,
   Authorization: "Bearer " + SUPABASE_ANON_KEY,
@@ -46,7 +56,7 @@ export async function runAgentAPI(agent, params) {
     `${AGENTS_SERVER}/agents/run`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: agentsHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ agent, params }),
     },
     120000

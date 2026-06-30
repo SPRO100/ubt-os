@@ -5,9 +5,9 @@ A20 — TREND_SCRAPER
 Результаты → Supabase (trend_signals) + Obsidian vault.
 """
 from __future__ import annotations
-import asyncio, json, logging, os
+import asyncio, logging, os
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 import httpx
 from anthropic import AsyncAnthropic
@@ -49,7 +49,7 @@ class TrendSignal:
     cta_patterns: list[str]
     trend_score: int
     action_items: list[str]
-    scraped_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    scraped_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class FirecrawlClient:

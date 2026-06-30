@@ -6,7 +6,7 @@ A27 — SPY_ANALYZER
 """
 from __future__ import annotations
 import logging, os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from anthropic import AsyncAnthropic
 
 from ubt_os.utils.llm_utils import extract_json as _extract_json
@@ -118,9 +118,9 @@ GEO: {geo}
             system=_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_msg}],
         )
-        raw = resp.content[0].text
+        raw = getattr(resp.content[0], "text", "")
 
-        fallback = {
+        fallback: dict = {
             "hook_patterns": [],
             "content_structures": [],
             "key_phrases": [],
@@ -181,4 +181,4 @@ JSON формат:
   "winner_reason": "..."
 }}"""}],
         )
-        return _extract_json(resp.content[0].text, {"rankings": [], "winner": hooks[0] if hooks else "", "winner_reason": "Нет данных"})
+        return _extract_json(getattr(resp.content[0], "text", ""), {"rankings": [], "winner": hooks[0] if hooks else "", "winner_reason": "Нет данных"})

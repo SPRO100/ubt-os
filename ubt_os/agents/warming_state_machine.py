@@ -14,8 +14,7 @@ FIX #4: Прогрев аккаунтов — State Machine
 
 from __future__ import annotations
 import logging
-import os
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 from dataclasses import dataclass
