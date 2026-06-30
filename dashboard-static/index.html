@@ -366,48 +366,80 @@ async function renderAccounts(){
 
     <!-- Add Account Form -->
     <div class="card">
-      <div class="card-head"><span class="title">Добавить аккаунт</span><span class="right">→ Supabase accounts</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div>
-          <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">ID аккаунта</label>
-          <input id="add-acct-id" placeholder="tiktok_us_001" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
+      <div class="card-head"><span class="title">Добавить аккаунты</span><span class="right">→ Supabase accounts</span></div>
+      <div style="display:flex;gap:6px;margin-bottom:12px;">
+        <button id="acct-tab-single" onclick="switchAcctTab('single')" style="padding:5px 14px;border-radius:6px;border:1px solid var(--indigo);background:var(--indigo);color:#fff;font-size:12px;cursor:pointer;font-family:inherit;">Одиночный</button>
+        <button id="acct-tab-bulk" onclick="switchAcctTab('bulk')" style="padding:5px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;font-family:inherit;">Массовый CSV</button>
+      </div>
+
+      <!-- Single form -->
+      <div id="acct-form-single">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">ID аккаунта</label>
+            <input id="add-acct-id" placeholder="tiktok_us_001" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">Платформа</label>
+            <select id="add-acct-platform" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
+              <option value="tiktok">TikTok</option>
+              <option value="facebook">Facebook Page</option>
+              <option value="instagram">Instagram</option>
+              <option value="pinterest">Pinterest</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">Прокси</label>
+            <input id="add-acct-proxy" placeholder="mobile:iproyal:us-pool" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">Publer Profile ID</label>
+            <input id="add-acct-publer" placeholder="123456789" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">GEO</label>
+            <select id="add-acct-geo" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
+              <option value="US">US</option><option value="BR">BR</option><option value="MX">MX</option><option value="DE">DE</option><option value="PL">PL</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">Тип аккаунта</label>
+            <select id="add-acct-type" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
+              <option value="aged">Aged (купленный)</option>
+              <option value="new">Новый (самозарег.)</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">Платформа</label>
-          <select id="add-acct-platform" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
-            <option value="tiktok">TikTok</option>
-            <option value="facebook">Facebook Page</option>
-            <option value="instagram">Instagram</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">Прокси</label>
-          <input id="add-acct-proxy" placeholder="mobile:iproyal:us-pool" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
-        </div>
-        <div>
-          <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">Publer Profile ID</label>
-          <input id="add-acct-publer" placeholder="123456789" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
-        </div>
-        <div>
-          <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">GEO</label>
-          <select id="add-acct-geo" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
-            <option value="US">US</option><option value="BR">BR</option><option value="MX">MX</option><option value="DE">DE</option><option value="PL">PL</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-size:11px;color:var(--faint);display:block;margin-bottom:4px;">Тип аккаунта</label>
-          <select id="add-acct-type" style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;font-family:inherit;">
-            <option value="aged">Aged (купленный)</option>
-            <option value="new">Новый (самозарег.)</option>
-          </select>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
+          <button onclick="addAccount()" style="padding:8px 18px;background:var(--indigo);border:none;border-radius:7px;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;">+ Добавить аккаунт</button>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;">
+            <input type="checkbox" id="add-acct-warmup" checked> Запустить прогрев A28 сразу
+          </label>
+          <span id="add-acct-msg" style="font-size:12px;"></span>
         </div>
       </div>
-      <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
-        <button onclick="addAccount()" style="padding:8px 18px;background:var(--indigo);border:none;border-radius:7px;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;">+ Добавить аккаунт</button>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;">
-          <input type="checkbox" id="add-acct-warmup" checked> Запустить прогрев A28 сразу
-        </label>
-        <span id="add-acct-msg" style="font-size:12px;"></span>
+
+      <!-- Bulk CSV form -->
+      <div id="acct-form-bulk" style="display:none;">
+        <div style="font-size:11px;color:var(--faint);margin-bottom:6px;">
+          Формат: <code style="background:var(--surface2);padding:1px 5px;border-radius:3px;">id,platform,geo,proxy,publer_id,type</code><br>
+          Платформы: tiktok / facebook / instagram / pinterest &nbsp;|&nbsp; GEO: US BR MX DE PL &nbsp;|&nbsp; Тип: aged / new<br>
+          Proxy и publer_id — необязательны (можно оставить пустыми).
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:8px;font-size:11px;color:var(--muted);font-family:monospace;">
+          tiktok_br_001,tiktok,BR,mobile:iproyal:br-pool,111111,aged<br>
+          fb_us_002,facebook,US,,222222,aged<br>
+          ig_de_003,instagram,DE,,,new
+        </div>
+        <textarea id="bulk-csv" placeholder="Вставь аккаунты (по одному в строке)…" style="width:100%;min-height:140px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-family:monospace;resize:vertical;box-sizing:border-box;"></textarea>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button onclick="bulkImportAccounts()" style="padding:8px 18px;background:var(--indigo);border:none;border-radius:7px;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;">⬆ Импортировать всё</button>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;">
+            <input type="checkbox" id="bulk-warmup" checked> Запустить прогрев A28 для всех
+          </label>
+          <span id="bulk-msg" style="font-size:12px;"></span>
+        </div>
+        <div id="bulk-progress" style="margin-top:8px;"></div>
       </div>
     </div>
   `;
@@ -473,6 +505,107 @@ async function addAccount(){
     ["add-acct-id","add-acct-proxy","add-acct-publer"].forEach(fid=>{
       const el = document.getElementById(fid); if(el) el.value="";
     });
+    await renderAccounts();
+  }catch(e){
+    if(msgEl) msgEl.innerHTML = `<span style="color:var(--red)">Ошибка: ${esc(e.message)}</span>`;
+  }
+}
+
+function switchAcctTab(tab){
+  const isSingle = tab === "single";
+  document.getElementById("acct-form-single").style.display = isSingle ? "" : "none";
+  document.getElementById("acct-form-bulk").style.display   = isSingle ? "none" : "";
+  const btnSingle = document.getElementById("acct-tab-single");
+  const btnBulk   = document.getElementById("acct-tab-bulk");
+  if(btnSingle && btnBulk){
+    btnSingle.style.background = isSingle ? "var(--indigo)" : "transparent";
+    btnSingle.style.color      = isSingle ? "#fff" : "var(--muted)";
+    btnSingle.style.border     = isSingle ? "1px solid var(--indigo)" : "1px solid var(--border)";
+    btnBulk.style.background   = isSingle ? "transparent" : "var(--indigo)";
+    btnBulk.style.color        = isSingle ? "var(--muted)" : "#fff";
+    btnBulk.style.border       = isSingle ? "1px solid var(--border)" : "1px solid var(--indigo)";
+  }
+}
+
+async function bulkImportAccounts(){
+  const raw     = (document.getElementById("bulk-csv")?.value || "").trim();
+  const doWarmup = document.getElementById("bulk-warmup")?.checked;
+  const msgEl   = document.getElementById("bulk-msg");
+  const progEl  = document.getElementById("bulk-progress");
+
+  const VALID_PLATFORMS = ["tiktok","facebook","instagram","pinterest"];
+  const VALID_GEOS      = ["US","BR","MX","DE","PL","TR","IN","NG"];
+
+  if(!raw){ if(msgEl) msgEl.innerHTML = `<span style="color:var(--red)">Вставь данные в поле</span>`; return; }
+
+  const lines = raw.split("\n").map(l=>l.trim()).filter(l=>l && !l.startsWith("#"));
+  const records = [];
+  const errors  = [];
+
+  for(let i=0;i<lines.length;i++){
+    const parts = lines[i].split(",").map(p=>p.trim());
+    const [id="",platform="",geo="US",proxy="",publer_id="",type="aged"] = parts;
+    if(!id){ errors.push(`Строка ${i+1}: пустой ID`); continue; }
+    if(!VALID_PLATFORMS.includes(platform.toLowerCase())){ errors.push(`Строка ${i+1}: неверная платформа "${platform}"`); continue; }
+    records.push({
+      id,
+      platform: platform.toLowerCase(),
+      geo: (VALID_GEOS.includes(geo.toUpperCase()) ? geo.toUpperCase() : "US"),
+      proxy: proxy || null,
+      publer_profile_id: publer_id || null,
+      account_type: type || "aged",
+      status: "new",
+    });
+  }
+
+  if(errors.length){
+    if(progEl) progEl.innerHTML = errors.map(e=>`<div style="color:var(--red);font-size:11px;">${esc(e)}</div>`).join("");
+  }
+  if(!records.length){ if(msgEl) msgEl.innerHTML = `<span style="color:var(--red)">Нет корректных строк</span>`; return; }
+
+  if(msgEl) msgEl.innerHTML = `<span style="color:var(--faint)">Загружаю ${records.length} аккаунтов…</span>`;
+  if(progEl && !errors.length) progEl.innerHTML = "";
+
+  try{
+    // Batch insert в Supabase
+    const res = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/accounts`, {
+      method: "POST",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal,resolution=ignore-duplicates",
+      },
+      body: JSON.stringify(records),
+    }, 20000);
+
+    if(!res.ok){ const err = await res.text(); throw new Error(err); }
+
+    if(msgEl) msgEl.innerHTML = `<span style="color:var(--green)">✅ Загружено ${records.length} аккаунтов</span>`;
+
+    // Warmup A28 для каждого аккаунта
+    if(doWarmup){
+      if(progEl) progEl.innerHTML = `<div style="font-size:11px;color:var(--faint);">Регистрирую в A28 (0/${records.length})…</div>`;
+      let done = 0;
+      for(const r of records){
+        try{
+          await fetchWithTimeout(`${AGENTS_SERVER}/agents/run`, {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({agent:"warmup_manager", params:{
+              action:"register", account_id:r.id,
+              geo:r.geo, account_type:r.account_type, platform:r.platform,
+              proxy_type: r.proxy ? r.proxy.split(":")[0] : "none",
+            }}),
+          }, 15000);
+        }catch(_){}
+        done++;
+        if(progEl) progEl.innerHTML = `<div style="font-size:11px;color:var(--faint);">A28 прогрев: ${done}/${records.length}</div>`;
+      }
+      if(msgEl) msgEl.innerHTML = `<span style="color:var(--green)">✅ ${records.length} аккаунтов + прогрев A28 запущен</span>`;
+      if(progEl) progEl.innerHTML = "";
+    }
+
+    document.getElementById("bulk-csv").value = "";
     await renderAccounts();
   }catch(e){
     if(msgEl) msgEl.innerHTML = `<span style="color:var(--red)">Ошибка: ${esc(e.message)}</span>`;
