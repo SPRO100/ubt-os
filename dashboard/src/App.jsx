@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
+import ErrorBoundary from './components/ErrorBoundary'
 import Dashboard from './components/sections/Dashboard'
 import Accounts from './components/sections/Accounts'
 import Content from './components/sections/Content'
@@ -125,7 +126,9 @@ export default function App() {
       <div className="main">
         <Topbar title={title} sub={sub} supaOk={supaOk} redisOk={redisOk} />
         <div className="content">
-          {renderSection()}
+          <ErrorBoundary key={section}>
+            {renderSection()}
+          </ErrorBoundary>
         </div>
       </div>
     </div>

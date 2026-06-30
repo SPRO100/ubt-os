@@ -54,11 +54,16 @@ export default function Accounts() {
       await insertRows('accounts', { id: acctId, platform, status: 'new', proxy: proxy || null, publer_profile_id: publer || null })
       if (doWarmup) {
         setMsg('Регистрирую в A28…')
-        await fetch(`${AGENTS_SERVER}/agents/run`, {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ agent:'warmup_manager', params:{ action:'register', account_id:acctId, geo, account_type:acctType, platform, proxy_type: proxy ? proxy.split(':')[0] : 'none' } }),
-        }).catch(() => {})
-        setMsg('✅ Добавлен + прогрев A28 запущен')
+        try {
+          const wr = await fetch(`${AGENTS_SERVER}/agents/run`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ agent:'warmup_manager', params:{ action:'register', account_id:acctId, geo, account_type:acctType, platform, proxy_type: proxy ? proxy.split(':')[0] : 'none' } }),
+          })
+          if (!wr.ok) throw new Error(`HTTP ${wr.status}`)
+          setMsg('✅ Добавлен + прогрев A28 запущен')
+        } catch(we) {
+          setMsg(`✅ Добавлен (A28 недоступен: ${we.message})`)
+        }
       } else {
         setMsg('✅ Добавлен')
       }
@@ -91,9 +96,10 @@ export default function Accounts() {
         let done = 0
         for (const r of records) {
           try {
-            await fetch(`${AGENTS_SERVER}/agents/run`, { method:'POST', headers:{'Content-Type':'application/json'},
+            const wr = await fetch(`${AGENTS_SERVER}/agents/run`, { method:'POST', headers:{'Content-Type':'application/json'},
               body: JSON.stringify({ agent:'warmup_manager', params:{ action:'register', account_id:r.id, geo:r.geo, account_type:r.account_type, platform:r.platform, proxy_type: r.proxy ? r.proxy.split(':')[0] : 'none' } }) })
-          } catch(_) {}
+            if (!wr.ok) throw new Error(`HTTP ${wr.status}`)
+          } catch(we) { setBulkProg(p => p + ` (A28 err: ${we.message})`) }
           done++
           setBulkProg(`A28 прогрев: ${done}/${records.length}`)
         }

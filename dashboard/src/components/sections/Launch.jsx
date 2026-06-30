@@ -273,8 +273,8 @@ function A19Card() {
           placeholder="Вставь текст — получишь очищенную версию…" rows={3} style={{ marginBottom:6 }} />
         <label className="form-label">GEO</label><GEO value={geo} onChange={setGeo} />
         <label className="form-label">Вертикаль</label><Vertical value={vert} onChange={setVert} />
-        <button className="btn btn-primary btn-block" disabled={loading} style={{ marginTop:2 }}
-          onClick={() => run('text_humanizer', { text, geo, vertical:vert })}>
+        <button className="btn btn-primary btn-block" disabled={loading || !text.trim()} style={{ marginTop:2 }}
+          onClick={() => { if (!text.trim()) return; run('text_humanizer', { text, geo, vertical:vert }) }}>
           {loading ? '⏳ Работает…' : '▶ Запустить'}
         </button>
       </>}
@@ -345,8 +345,8 @@ function A23Card() {
           placeholder="Похудение за 30 дней…" style={{ marginBottom:6 }} />
         <label className="form-label">Вертикаль</label><Vertical value={vert} onChange={setVert} />
         <label className="form-label">GEO</label><GEO value={geo} onChange={setGeo} />
-        <button className="btn btn-primary btn-block" disabled={loading} style={{ marginTop:2 }}
-          onClick={() => run('youtube_creator', { format:fmt, topic, vertical:vert, geo })}>
+        <button className="btn btn-primary btn-block" disabled={loading || !topic.trim()} style={{ marginTop:2 }}
+          onClick={() => { if (!topic.trim()) return; run('youtube_creator', { format:fmt, topic, vertical:vert, geo }) }}>
           {loading ? '⏳ Работает…' : '▶ Создать'}
         </button>
       </>}
@@ -604,7 +604,7 @@ function A30Card() {
   const [offerName, setOfferName] = useState('')
   const [carouselBenefits, setCarouselBenefits] = useState('')
   const [carouselStyle, setCarouselStyle] = useState('minimal')
-  const [slideCount, setSlideCount] = useState('5')
+  const [slideCount, setSlideCount] = useState(5)
   const [carouselAspect, setCarouselAspect] = useState('1:1')
 
   function runA30(run) {
@@ -612,7 +612,7 @@ function A30Card() {
       run('higgsfield_agent', {
         format:'carousel', offer_name: offerName||'Product',
         benefits: carouselBenefits.split('\n').map(s=>s.trim()).filter(Boolean),
-        carousel_style: carouselStyle, slide_count: parseInt(slideCount)||5,
+        carousel_style: carouselStyle, slide_count: slideCount,
         aspect_ratio: carouselAspect, vertical:'white',
       })
     } else {

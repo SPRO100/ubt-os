@@ -48,6 +48,10 @@ export async function runAgentAPI(agent, params) {
     },
     120000
   );
+  if (!res.ok) {
+    const text = await res.text().catch(() => `HTTP ${res.status}`);
+    throw new Error(text || `HTTP ${res.status}`);
+  }
   return res.json();
 }
 

@@ -37,16 +37,16 @@ export default function Infra() {
             <thead><tr><th>Сервис</th><th>Порт</th><th>Тип</th><th>Статус</th></tr></thead>
             <tbody>
               {[
-                ['n8n','5678','Docker, restart always'],
-                ['LiteLLM','4000','systemd'],
-                ['UBT Agents','8080','systemd'],
-                ['Dashboard','3000','systemd'],
-              ].map(([s,p,t]) => (
+                ['n8n','5678','Docker, restart always','online'],
+                ['LiteLLM','4000','systemd','online'],
+                ['UBT Agents','8080','systemd','online'],
+                ['Dashboard','3000','systemd','online'],
+              ].map(([s,p,t,status]) => (
                 <tr key={s}>
                   <td className="primary">{s}</td>
                   <td className="mono">{p}</td>
                   <td style={{ color:'var(--faint)', fontSize:12 }}>{t}</td>
-                  <td><span className="badge badge-green">● online</span></td>
+                  <td><span className={`badge ${status==='online'?'badge-green':'badge-red'}`}>● {status}</span></td>
                 </tr>
               ))}
             </tbody>
