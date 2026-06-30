@@ -1,7 +1,118 @@
-# UBT OS v2 — Multi-Agent AI System for Organic Traffic
+# UBT OS — Multi-Agent AI System for Organic Traffic
 
 > Мульти-агентная AI-система для генерации органического трафика на партнёрские офферы.
-> 19 агентов · 2 вертикали · 4 платформы · самовосстанавливающаяся архитектура
+> **19 агентов (A12–A30) · 3 платформы (TikTok / Facebook / Instagram) · 2 вертикали (Nutra + Betting)**
+
+---
+
+## Состояние на 30 июня 2026
+
+### Готово и работает
+
+| Компонент | Статус |
+|-----------|--------|
+| Сервер FirstVDS Amsterdam, 8 CPU / 12 GB / Ubuntu 22.04 | ✅ Развёрнут |
+| n8n (5678), LiteLLM (4000), UBT Agents (8080), Dashboard (3000) | ✅ 4 сервиса live |
+| Supabase — 25+ таблиц, Redis (Upstash) | ✅ Подключены |
+| 6 n8n-воркфлоу (контент, аккаунты, стратегия, риски, здоровье, знания) | ✅ Активны |
+| Dashboard → `http://88.218.121.108:3000` (live данные из Supabase) | ✅ Работает |
+| Все 19 агентов A12–A30 написаны и протестированы | ✅ Готовы |
+| Публикация через Publer API (TikTok + Facebook + Instagram) | ✅ A26 готов |
+| Compliance Gate 3-уровневый (regex L1 + LLM L2/L3) | ✅ A25 готов |
+| Spy-анализ крипов конкурентов (PiPiAds/AdHeart) | ✅ A27 готов |
+| 14-дневный прогрев аккаунтов с валидацией инфраструктуры | ✅ A28 готов |
+| HTML прелендинги (quiz/story/article/vsl) — COD/Trial/SS | ✅ A29 готов |
+| UGC-видео 9:16/16:9, Shorts, Карусели через Higgsfield AI | ✅ A30 написан |
+| Vertical configs: 1win (betting), Dr.Cash (nutra COD) | ✅ Готовы |
+| Claude Code Skills: `/publer`, `/prelanding`, `/higgsfield` и 9 других | ✅ 11 скиллов |
+
+### Требует ключей / регистрации
+
+| Что | Где взять |
+|-----|-----------|
+| `HIGGSFIELD_API_KEY` | [higgsfield.ai](https://higgsfield.ai) — нужен для A30 видео/каруселей |
+| `PUBLER_API_KEY` + Profile IDs | [app.publer.io](https://app.publer.io) — $12/мес |
+| 1win Partners аккаунт | [1winpartners.com](https://1winpartners.com) |
+| Dr.Cash аккаунт | [dr.cash](https://dr.cash) |
+| TikTok/Facebook/Instagram аккаунты | Покупать Aged аккаунты → прогрев A28 |
+| `FIRECRAWL_API_KEY` | [firecrawl.dev](https://firecrawl.dev) — нужен для A20 trend_scraper |
+
+---
+
+## Архитектура агентов
+
+### Ядро (A12–A18)
+
+| ID | Файл | Роль |
+|----|------|------|
+| A12 | `warming_state_machine.py` | FSM прогрева аккаунтов, фазы активности |
+| A13 | `telegram_jitter.py` | Случайные задержки, human-behavior |
+| A14 | `account_checker.py` | Здоровье аккаунта, ER, прокси, бан |
+| A15 | `strategy_engine.py` | Недельный стратегический бриф (воскр. 20:00) |
+| A16 | `revenue_analyst.py` | Attribution, утечки воронки |
+| A17 | `failure_recovery.py` | DLQ, Health check 60s, fallback |
+| A18 | `knowledge_synthesizer.py` | Синтез знаний (ежедн. 23:45) |
+
+### Контент-пайплайн (A19–A21)
+
+| ID | Файл | Роль |
+|----|------|------|
+| A19 | `text_humanizer.py` | Stop-Slop: очистка AI-маркеров, оценка 0–50 |
+| A20 | `trend_scraper.py` | Тренды и хуки конкурентов через Firecrawl |
+| A21 | `content_creator.py` | Before/After, хуки, UGC по Brand Voice (5 GEO) |
+
+### Аналитика и база знаний (A22–A24)
+
+| ID | Файл | Роль |
+|----|------|------|
+| A22 | `ads_auditor.py` | Аудит TikTok/Meta, Health Score 0–100 |
+| A23 | `youtube_creator.py` | Shorts/Long-form, retention-инжиниринг |
+| A24 | `obsidian_brain.py` | Self-organizing AI wiki (Obsidian Vault) |
+
+### Публикация (A25–A26)
+
+| ID | Файл | Роль |
+|----|------|------|
+| A25 | `compliance_gate.py` | Проверка контента: Regex L1 → Claude Haiku L2/L3 |
+| A26 | `blotato_publisher.py` | Publer API — TikTok / Facebook / Instagram + UTM |
+
+### Affiliate Intelligence (A27–A29)
+
+| ID | Файл | Роль |
+|----|------|------|
+| A27 | `spy_analyzer.py` | Анализ крипов PiPiAds/AdHeart → creative brief для A21 |
+| A28 | `warmup_manager.py` | 14-дневный прогрев, лимиты активности, инфра-валидация |
+| A29 | `prelanding_generator.py` | HTML прелендинги (quiz/story/article/vsl), мультиязычный |
+
+### Медиа-генерация (A30)
+
+| ID | Файл | Роль |
+|----|------|------|
+| A30 | `higgsfield_agent.py` | UGC 9:16/16:9 · Shorts · Карусели для белых офферов |
+
+---
+
+## Полный пайплайн
+
+```
+A27 spy_analyzer (PiPiAds/AdHeart крипы)
+    ↓
+A21 content_creator (хуки, before/after, UGC)
+    ↓
+A19 text_humanizer (Stop-Slop очистка)
+    ↓
+A25 compliance_gate (проверка клеймов)
+    ↓
+A30 higgsfield_agent (UGC видео / Shorts / Карусель)
+    ↓
+A29 prelanding_generator (HTML прелендинг)
+    ↓
+A26 publer_publisher (TikTok / Facebook / Instagram)
+    ↓
+Keitaro postback (UTM трекинг → конверсии)
+```
+
+**Параллельно:** A20 trend_scraper (06:00 ежедн.) → A24 Obsidian Brain → A15 Strategy Engine (воскр.)
 
 ---
 
@@ -9,93 +120,53 @@
 
 ```
 ubt-os/
-├── ubt_os/                    # Python пакет
-│   ├── core/                  # Ядро системы
-│   │   ├── pipeline_lock.py   # FIX #3 — Redis distributed lock
-│   │   ├── circuit_breaker.py # FIX #2 — Circuit breaker
-│   │   ├── budget_guard.py    # FIX #6 — LiteLLM cost cap
-│   │   ├── agent_api_layer.py # FIX #1 — Single source of truth
-│   │   ├── knowledge_base.py  # FIX #9 — Immutable versioning
-│   │   ├── creative_vault.py  # Блок 2 — Creative scoring
-│   │   ├── risk_engine.py     # Блок 4 — Risk scoring
-│   │   └── vertical_loader.py # Универсальность — Vertical configs
-│   ├── agents/                # Агенты системы
-│   │   ├── strategy_engine.py     # A15 — недельный бриф
-│   │   ├── revenue_analyst.py     # A16 — attribution и доход
-│   │   ├── failure_recovery.py    # A17 — health checks
-│   │   ├── knowledge_synthesizer.py # A18 — синтез знаний
-│   │   ├── warming_state_machine.py # FIX #4 — прогрев FSM
-│   │   ├── account_checker.py     # FIX #5 — чекер по фазам
-│   │   └── telegram_jitter.py     # FIX #8 — human delay
-│   ├── pipelines/             # Пайплайны
-│   │   ├── higgsfield_queue.py    # FIX #7 — priority queue
-│   │   ├── blotato_dlq.py         # FIX #11 — DLQ retry
-│   │   └── higgsfield_worker.py   # Worker сервис
-│   ├── utils/                 # Утилиты
-│   │   ├── obsidian_git_sync.py   # FIX #10 — git sync
-│   │   ├── attribution.py         # FIX #12 — attribution windows
-│   │   └── obsidian_cron.py       # Hourly cron
-│   └── main.py                # HTTP сервер (webhook от n8n)
+├── ubt_os/
+│   ├── agents/              # A12–A30 агенты
+│   │   ├── warming_state_machine.py
+│   │   ├── account_checker.py
+│   │   ├── telegram_jitter.py
+│   │   ├── text_humanizer.py
+│   │   ├── trend_scraper.py
+│   │   ├── content_creator.py
+│   │   ├── ads_auditor.py
+│   │   ├── youtube_creator.py
+│   │   ├── obsidian_brain.py
+│   │   ├── compliance_gate.py
+│   │   ├── blotato_publisher.py  # A26, Publer API
+│   │   ├── spy_analyzer.py
+│   │   ├── warmup_manager.py     # state → ~/.ubt_os/warmup_state.json
+│   │   ├── prelanding_generator.py
+│   │   └── higgsfield_agent.py   # A30, UGC+Shorts+Carousel
+│   ├── core/                # Circuit breaker, budget guard, pipeline lock
+│   ├── pipelines/           # Higgsfield queue/worker, DLQ
+│   ├── utils/               # Attribution, Obsidian git sync
+│   └── main.py              # HTTP сервер :8080, webhook от n8n
 │
-├── deploy/                    # Деплой
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   ├── litellm_config.yaml        # FIX #6 — LiteLLM config
-│   ├── 01_schema_sot.sql          # FIX #1 — базовая схема
-│   ├── strategy_schema.sql        # Блок 1 — STRATEGY_ENGINE
-│   ├── creative_vault_schema.sql  # Блок 2 — CREATIVE VAULT
-│   ├── revenue_schema.sql         # Блок 3 — REVENUE_ANALYST
-│   ├── risk_schema.sql            # Блок 4 — RISK ENGINE
-│   ├── recovery_schema.sql        # Блок 5 — FAILURE_RECOVERY
-│   ├── vertical_schema.sql        # Вертикали — конфиги
-│   └── docker-compose-v2-additions.yml
+├── dashboard-static/
+│   └── index.html           # SPA: дашборд, чат с оркестратором, запуск агентов
 │
-├── n8n/workflows/             # n8n воркфлоу
-│   ├── video-pipeline-nutra.json  # FIX #3
-│   ├── account-checker.json       # FIX #3 + #5
-│   ├── strategy-engine-weekly.json # Блок 1
-│   ├── risk-engine-monitor.json   # Блок 4
-│   ├── health-monitor.json        # Блок 5
-│   └── knowledge-synthesizer.json # Блок 6
+├── vertical_configs/
+│   ├── 1win.yaml            # Betting: 1win Partners, GEO BR/MX/TR, CPA $25
+│   ├── dr_cash.yaml         # Nutra COD: Dr.Cash, GEO US/BR/MX/DE/PL
+│   └── sample_configs.yaml  # Авто, инфопродукты, недвижимость, крипто
 │
-├── vertical_configs/          # Конфиги вертикалей
-│   └── sample_configs.yaml    # Авто, инфо, недвига, крипто
+├── .claude/skills/          # Claude Code скиллы (11 штук)
+│   ├── publer.md            # /publer — управление публикациями
+│   ├── prelanding.md        # /prelanding — генерация прелендингов
+│   ├── higgsfield.md        # /higgsfield — видеогенерация
+│   ├── keitaro.md           # /keitaro — трекинг и UTM
+│   ├── stop-slop.md         # /stop-slop — очистка AI-текста
+│   ├── marketing.md         # /marketing — промпты для контента
+│   ├── brand-voice.md       # /brand-voice — голос бренда по GEO
+│   ├── seo-machine.md       # /seo-article — SEO статьи
+│   ├── firecrawl-scraper.md # /firecrawl-audit — аудит конкурентов
+│   ├── arcads.md            # /arcads — AI видео-реклама
+│   └── market-research.md   # /market-report — конкурентный анализ
 │
-├── obsidian-vault/            # База знаний (Obsidian)
-│   ├── 50 Resources/          # SOPs, архитектура, стратегия
-│   │   ├── MOC — Мастер Проект.md
-│   │   ├── Архитектура Агентов.md
-│   │   ├── SOPs/              # Документация агентов + код фиксов
-│   │   └── ...
-│   └── 60 Daily/              # Ежедневные отчёты (авто)
-│
-├── docker-compose.yml         # Полный стек
-├── Makefile                   # make setup / make up / make deploy-railway
-└── .env.template              # Все переменные окружения
-```
-
----
-
-## Быстрый старт
-
-```bash
-# 1. Клонировать
-git clone https://github.com/YOUR_USERNAME/ubt-os.git
-cd ubt-os
-
-# 2. Настроить окружение
-cp .env.template .env
-# Заполни .env своими API ключами
-
-# 3. Применить схему БД
-make db-init
-
-# 4. Запустить систему
-make up
-
-# 5. Проверить
-make test-lock
-make test-budget
+├── obsidian-vault/          # База знаний (11 wiki-страниц)
+├── deploy/                  # Dockerfile, SQL схемы, LiteLLM config
+├── n8n/workflows/           # 6 воркфлоу (JSON)
+└── .env.template            # Все переменные окружения
 ```
 
 ---
@@ -104,54 +175,102 @@ make test-budget
 
 | Слой | Технология |
 |------|-----------|
-| AI Brain | Claude Sonnet 4.6 + Haiku 4.5 → LiteLLM Router |
-| Video | Higgsfield.ai MCP + short-video-maker + ElevenLabs |
-| Publishing | Blotato API + TikTokAutoUploader + YT Imperial |
-| Automation | n8n self-hosted (Railway) |
-| Database | Supabase + PostgreSQL + Redis |
-| Tracking | Keitaro UTM + Postback |
-| Anti-detect | GoLogin + Residential Proxies |
-| Memory | Obsidian Vault + GitHub sync |
-| Dashboard | Next.js 14 + Vercel |
-
----
-
-## Агенты (A0–A18)
-
-| ID | Агент | Модель | Роль |
-|----|-------|--------|------|
-| A0 | ORCHESTRATOR | Sonnet | CEO, протокол одобрений |
-| A1–A13 | Core Agents | Sonnet/Haiku | Контент, публикация, аналитика |
-| A14 | COMPETITOR_ANALYST | Sonnet | Мониторинг конкурентов |
-| A15 | STRATEGY_ENGINE | Sonnet | Недельный стратегический бриф |
-| A16 | REVENUE_ANALYST | Sonnet | Attribution, утечки воронки |
-| A17 | FAILURE_RECOVERY | Service | Health checks 60s, fallback |
-| A18 | KNOWLEDGE_SYNTHESIZER | Sonnet | Ежедневный синтез знаний |
+| AI | Claude Sonnet 4.6 (оркестратор) + Claude Haiku 4.5 (рутинные задачи) |
+| Видео | Higgsfield AI API (seedance_2_0, image gen) |
+| Публикация | Publer API $12/мес — TikTok ✅ + Facebook + Instagram |
+| Автоматизация | n8n self-hosted |
+| База данных | Supabase (PostgreSQL, 25+ таблиц) + Redis (Upstash) |
+| Трекинг | Keitaro UTM + Postback |
+| Прокси | IPRoyal (mobile, pay per GB) + Airalo eSIM |
+| Браузеры | Dolphin Anty (multi-account, anti-detect) |
+| Память | Obsidian Vault + GitHub sync |
+| Dashboard | Ванильный JS SPA на :3000 (без фреймворков) |
 
 ---
 
 ## Переменные окружения
 
-Все необходимые переменные в `.env.template`.
-Обязательные для старта: `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `REDIS_URL`.
+```bash
+# Обязательны для старта
+ANTHROPIC_API_KEY=...          # Claude API
+SUPABASE_URL=...               # Supabase project URL
+SUPABASE_SERVICE_KEY=...       # Supabase service role key
+REDIS_URL=...                  # Upstash Redis
+
+# Публикация (A26 Publer)
+PUBLER_API_KEY=...
+PUBLER_TIKTOK_PROFILE_IDS=id1,id2
+PUBLER_FACEBOOK_PROFILE_IDS=id1,id2
+PUBLER_INSTAGRAM_PROFILE_IDS=id1,id2
+
+# Медиа-генерация (A30 Higgsfield)
+HIGGSFIELD_API_KEY=...
+
+# Тренды (A20)
+FIRECRAWL_API_KEY=...
+
+# A28 — состояние прогрева (по умолчанию ~/.ubt_os/warmup_state.json)
+WARMUP_STATE_FILE=/var/lib/ubt_os/warmup_state.json
+
+# Безопасность webhook
+WEBHOOK_SECRET=...
+```
 
 ---
 
-## Статус: инфраструктура развёрнута и протестирована (22 июня 2026)
+## Dashboard
 
-✅ Сервер развёрнут — FirstVDS, Амстердам, Ubuntu 22.04
-✅ 4 постоянных сервиса работают (n8n, LiteLLM, UBT Agents, Dashboard)
-✅ Supabase подключён — 25+ таблиц
-✅ Redis подключён (Upstash)
-✅ 6/6 n8n-воркфлоу опубликованы и протестированы end-to-end
-✅ Telegram-алерты работают
-✅ Dashboard на http://88.218.121.108:3000 с реальными данными
-✅ 10+ багов найдено и исправлено в коде
+URL: `http://88.218.121.108:3000`
 
-❌ Higgsfield API не подключён — видео не генерируются
-❌ Партнёрские программы (1win, Dr.Cash) не зарегистрированы
-❌ Аккаунты не созданы — таблица accounts пуста
-❌ Реальная выручка: $0
+Разделы:
+- **Дашборд** — приоритеты, статистика из Supabase в реальном времени
+- **Чат с оркестратором** — Claude Sonnet 4.6 в контексте проекта, предлагает агентов, показывает quick_links на внешние сервисы
+- **Аккаунты** — TikTok / Facebook / Instagram, форма добавления + запуск A28 прогрева
+- **Контент** — производственный пайплайн, история публикаций
+- **Запуск агентов** — веб-интерфейс для всех A19–A30 (без кода)
+- **Агенты** — инвентарь, статусы, схема пайплайна
+- **Аналитика** — выручка, партнёрские условия
+- **Инфраструктура** — сервер, сервисы, Supabase
+
+---
+
+## Быстрый старт
+
+```bash
+# 1. Клонировать
+git clone https://github.com/spro100/ubt-os.git
+cd ubt-os
+
+# 2. Окружение
+cp .env.template .env
+# Заполни ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
+
+# 3. Установить зависимости
+pip install -r deploy/requirements.txt
+
+# 4. Запустить агентский сервер
+python -m ubt_os.main
+
+# 5. Dashboard (в отдельном терминале)
+python -m http.server 3000 --directory dashboard-static
+```
+
+Или через Docker:
+```bash
+docker compose up -d
+```
+
+---
+
+## GEO и вертикали
+
+| GEO | Часовой пояс | TikTok лучшее время | Facebook лучшее время |
+|-----|-------------|--------------------|-----------------------|
+| US | ET (UTC-5) | 07:00, 12:00, 19:00 | 09:00, 13:00, 20:00 |
+| BR | BRT (UTC-3) | 08:00, 13:00, 21:00 | 10:00, 14:00, 21:00 |
+| MX | CST (UTC-6) | 07:00, 14:00, 20:00 | 09:00, 13:00, 19:00 |
+| DE | CET (UTC+1) | 06:00, 12:00, 18:00 | 08:00, 12:00, 18:00 |
+| PL | CET (UTC+1) | 07:00, 13:00, 20:00 | 09:00, 13:00, 19:00 |
 
 ---
 
