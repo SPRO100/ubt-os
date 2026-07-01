@@ -132,6 +132,7 @@ ubt_os/
 | A35 | `tts_agent.py` | Voiceover: self-hosted TTS → ElevenLabs → Supabase Storage |
 | — | `transcription_agent.py` | Video transcription (Deepgram → Whisper) + hook extraction |
 | — | `pipelines/social_publisher.py` | Direct native-API publishing to 8 platforms |
+| A36 | `post_analytics_agent.py` | Native per-post metrics (impressions/reach/likes/comments/shares) → `post_metrics` |
 
 ### Competitor analysis: A27 vs A31 (NOT duplicates)
 
@@ -157,6 +158,17 @@ account_id, …)` looks them up by `account_id`. To onboard an account, insert i
 row into `direct_publish_accounts`. Only `MEDIA_BUCKET` (Supabase Storage) is
 env-configured. All DB tables are created by `make db-init`
 (`deploy/dohoo_features_schema.sql`).
+
+### Post analytics (`post_analytics_agent.py`, `deploy/06_patch_post_metrics.sql`)
+
+A36 pulls native per-post engagement (impressions/reach/views/likes/comments/
+shares/saves) directly from each platform's API for every `direct_publish_jobs`
+row with `status = 'published'`, using the same `direct_publish_accounts`
+credentials as the publisher. Writes time-series snapshots to `post_metrics`
+(one row per sync — lets you track growth over time, not just a point-in-time
+count). `v_post_metrics_latest` and `v_platform_engagement` views give the
+dashboard the latest snapshot and per-platform aggregates without re-deriving
+DISTINCT ON logic client-side.
 
 ### Key Architectural Patterns
 
@@ -201,6 +213,7 @@ LiteLLM spend before each call. Global daily cap via `LITELLM_DAILY_BUDGET`
 | POST | `/tts` | A35 voiceover (self-hosted TTS → ElevenLabs) |
 | POST | `/transcribe` | Video transcription + hook extraction |
 | POST | `/publish/direct`, `/publish/bulk` | Direct native-API publishing |
+| POST | `/analytics/sync` | A36 sync native post metrics (impressions/reach/likes/comments/shares) |
 | GET | `/health/check-all` | Supabase + Redis connectivity |
 | GET | `/metrics` | Prometheus-format counters |
 

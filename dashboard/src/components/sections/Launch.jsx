@@ -201,6 +201,30 @@ function AgentResult({ data, agent }) {
     </div>
   }
 
+  if (agent === 'post_analytics') {
+    return <div>
+      {copyBtn}
+      <div style={{ display:'flex', gap:16, marginBottom:10, fontSize:12 }}>
+        <span>Синхронизировано: <b style={{ color:'var(--green)' }}>{data.synced ?? 0}</b></span>
+        <span>Ошибок: <b style={{ color:'var(--red)' }}>{data.failed ?? 0}</b></span>
+        <span>Пропущено: <b style={{ color:'var(--faint)' }}>{data.skipped ?? 0}</b></span>
+        <span>Всего: <b style={{ color:'var(--text)' }}>{data.total ?? 0}</b></span>
+      </div>
+      {(data.details || []).length > 0 && (
+        <div>
+          {data.details.map((d, i) => (
+            <div key={i} style={{ padding:'4px 0', borderBottom:'1px solid var(--border)', fontSize:11 }}>
+              <span style={{ color:'var(--text)' }}>{d.platform}</span>{' '}
+              {d.error
+                ? <span style={{ color:'var(--red)' }}>{d.error}</span>
+                : <span style={{ color:'var(--green)' }}>ER {d.engagement_rate}%</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  }
+
   return <div>{copyBtn}<pre style={{ margin:0, fontSize:11 }}>{JSON.stringify(data, null, 2)}</pre></div>
 }
 
@@ -806,6 +830,29 @@ function A35Card() {
   )
 }
 
+function A36Card() {
+  const [platform, setPlatform] = useState('')
+  const [limit, setLimit] = useState(100)
+  return (
+    <AgentCard id="A36" name="post_analytics_agent" desc="Синхронизирует нативные метрики (impressions/reach/likes/comments/shares) с площадок для опубликованных постов">
+      {(run, loading) => <>
+        <label className="form-label">Платформа (пусто = все)</label>
+        <Sel value={platform} onChange={setPlatform}>
+          <option value="">Все платформы</option>
+          {['tiktok','youtube','instagram','facebook','pinterest','threads','twitter','linkedin'].map(p => <option key={p}>{p}</option>)}
+        </Sel>
+        <label className="form-label">Лимит постов</label>
+        <input className="form-control" type="number" value={limit} onChange={e => setLimit(Number(e.target.value) || 100)}
+          style={{ marginBottom: 6 }} />
+        <button className="btn btn-primary btn-block" disabled={loading}
+          onClick={() => run('post_analytics', { platform: platform || undefined, limit })}>
+          {loading ? '⏳ Синхронизирует…' : '↻ Синхронизировать метрики'}
+        </button>
+      </>}
+    </AgentCard>
+  )
+}
+
 export default function Launch() {
   return (
     <div className="agent-grid">
@@ -826,6 +873,7 @@ export default function Launch() {
       <A33Card />
       <A34Card />
       <A35Card />
+      <A36Card />
     </div>
   )
 }

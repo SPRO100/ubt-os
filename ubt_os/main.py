@@ -134,6 +134,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
             # A34/A35: субтитры + озвучка
             "/caption":               self._run_caption,
             "/tts":                   self._run_tts,
+            # A36: синхронизация нативных метрик постов
+            "/analytics/sync":        self._run_analytics_sync,
         }
 
         handler = routes.get(self.path)
@@ -297,7 +299,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "- A34 caption_agent: стилизованные субтитры (ASS/SRT, TikTok-style) для видео + ffmpeg burn\n"
             "- A35 tts_agent: озвучка faceless-видео (self-hosted TTS → ElevenLabs)\n"
             "- transcription_agent: транскрипция видео (Deepgram → Whisper) + извлечение хука\n"
-            "- social_publisher: прямая публикация на 8 платформ через нативные API (без лимитов Publer)\n\n"
+            "- social_publisher: прямая публикация на 8 платформ через нативные API (без лимитов Publer)\n"
+            "- A36 post_analytics_agent: синхронизация нативных метрик постов (impressions/reach/likes/comments/shares)\n\n"
             "Если задача пользователя явно подходит для одного из агентов — добавь в КОНЕЦ ответа строку:\n"
             "[AGENT_SUGGEST: agent_id|Что именно агент сделает для этой задачи]\n"
             "Пример: [AGENT_SUGGEST: content_creator|Создать 3 варианта hook для нутра GEO US]\n"
@@ -726,6 +729,13 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     language=params.get("language", "ru"),
                 )
 
+            elif agent == "post_analytics":
+                from ubt_os.agents import run_post_analytics
+                return await run_post_analytics(
+                    platform=params.get("platform"),
+                    limit=int(params.get("limit", 100)),
+                )
+
             else:
                 return {"error": f"Неизвестный агент: {agent}"}
 
@@ -845,6 +855,17 @@ class WebhookHandler(BaseHTTPRequestHandler):
         if len(urls) == 1:
             return await run_transcription(urls[0], **kwargs)
         return {"results": await run_batch_transcription(urls, **kwargs)}
+
+    async def _run_analytics_sync(self, body: dict):
+        """A36 POST_ANALYTICS: синхронизация нативных метрик опубликованных постов."""
+        from ubt_os.core import pipeline_lock
+        from ubt_os.agents import run_post_analytics
+        platform = body.get("platform")
+        limit    = int(body.get("limit", 100))
+        async with pipeline_lock("post-analytics-sync", 300) as acquired:
+            if not acquired:
+                return {"status": "skipped", "reason": "lock_busy"}
+            return await run_post_analytics(platform=platform, limit=limit)
 
     async def _run_hooks_top(self, body: dict):
         """Возвращает топ хуков из библиотеки hook_templates."""
