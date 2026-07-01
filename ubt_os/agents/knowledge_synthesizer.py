@@ -10,6 +10,7 @@ from supabase import create_client, Client
 from anthropic import AsyncAnthropic
 
 from ubt_os.utils.llm_utils import extract_json as _extract_json
+from ubt_os.utils.supabase_utils import first_row, one_row
 
 logger = logging.getLogger("ubt_os.knowledge_synthesizer")
 
@@ -71,10 +72,9 @@ class KnowledgeDataCollector:
                 .gte("created_at", self.since).execute()).data
 
     def _strategy_status(self) -> dict | None:
-        rows = (self.db.table("strategy_briefs")
-                .select("week_label,top_formats,confidence_score")
-                .order("created_at", desc=True).limit(1).execute()).data
-        return rows[0] if rows else None
+        return first_row(self.db.table("strategy_briefs")
+                         .select("week_label,top_formats,confidence_score")
+                         .order("created_at", desc=True).limit(1).execute())
 
     def _patterns(self) -> list:
         return (self.db.table("winning_patterns")
@@ -192,7 +192,7 @@ class KnowledgeWriter:
 
         for entry in entries:
             res = self.db.table("knowledge_entries").insert(entry).execute()
-            ids.append(res.data[0]["id"])
+            ids.append(one_row(res)["id"])
 
         return ids
 
@@ -214,7 +214,7 @@ class KnowledgeWriter:
                 "date": datetime.now(timezone.utc).date().isoformat(),
                 "metadata": {"week": week}
             }).execute()
-            ids.append(res.data[0]["id"])
+            ids.append(one_row(res)["id"])
 
         return ids
 

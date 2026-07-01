@@ -103,7 +103,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
         request_id = self.headers.get("X-Request-Id") or str(uuid.uuid4())[:8]
         set_request_id(request_id)
 
-        body   = json.loads(raw_body) if raw_body else {}
+        try:
+            body = json.loads(raw_body) if raw_body else {}
+        except json.JSONDecodeError:
+            _METRICS["webhook_requests_error"] += 1
+            self._respond(400, {"error": "invalid JSON body"})
+            return
         action = body.get("action", "unknown")
 
         logger.info("Webhook received", extra={"path": self.path, "action": action, "request_id": request_id})
@@ -140,7 +145,13 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
         handler = routes.get(self.path)
         if handler:
-            result = asyncio.run(handler(body))
+            try:
+                result = asyncio.run(handler(body))
+            except Exception as exc:
+                _METRICS["webhook_requests_error"] += 1
+                logger.exception("Webhook: ошибка обработчика %s", self.path)
+                self._respond(500, {"error": str(exc)})
+                return
             _METRICS["webhook_requests_ok"] += 1
             self._respond(200, result if isinstance(result, dict) else {"status": "accepted"})
         else:

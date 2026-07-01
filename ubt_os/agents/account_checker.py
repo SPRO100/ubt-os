@@ -252,8 +252,9 @@ class AccountChecker:
         )
         try:
             start = time.monotonic()
+            # httpx ≥ 0.28: аргумент proxies удалён, используется proxy
             async with httpx.AsyncClient(
-                proxies={"all://": proxy_url},
+                proxy=proxy_url,
                 timeout=10
             ) as client:
                 await client.get("https://api.ipify.org")

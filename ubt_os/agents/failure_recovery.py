@@ -13,6 +13,8 @@ import httpx
 from supabase import create_client, Client
 import redis.asyncio as aioredis
 
+from ubt_os.utils.supabase_utils import rows
+
 logger = logging.getLogger("ubt_os.failure_recovery")
 
 
@@ -245,10 +247,10 @@ class FallbackManager:
         logger.info(f"[Fallback] {component} restored")
 
     def get_active(self) -> list[dict]:
-        return (
+        return rows(
             self.db.table("component_fallbacks")
             .select("*").eq("active", True).execute()
-        ).data
+        )
 
 
 # ── Degradation Level ─────────────────────────────────────

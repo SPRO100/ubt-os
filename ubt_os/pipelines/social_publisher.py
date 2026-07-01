@@ -19,6 +19,8 @@ from typing import Any, Optional
 import httpx
 from supabase import create_client, Client
 
+from ubt_os.utils.supabase_utils import rows, one_row
+
 logger = logging.getLogger("ubt_os.social_publisher")
 
 RETRY_DELAYS = [15 * 60, 60 * 60, 60 * 60]
@@ -594,13 +596,12 @@ class DirectSocialPublisher:
         self.db = db
 
     async def publish(self, job_id: str) -> dict:
-        job = (
+        job = one_row(
             self.db.table("direct_publish_jobs")
             .select("*")
             .eq("id", job_id)
             .single()
             .execute()
-            .data
         )
         if not job:
             raise ValueError(f"Job {job_id} не найдена")
@@ -642,14 +643,14 @@ class DirectSocialPublisher:
         return await self._handle_failure(job, attempt, result.error or "unknown error")
 
     def _get_credentials(self, account_id: str, platform: str) -> dict:
-        res = (
+        res = rows(
             self.db.table("direct_publish_accounts")
             .select("access_token,refresh_token,platform_user_id,extra_data")
             .eq("account_id", account_id)
             .eq("platform", platform)
             .limit(1)
             .execute()
-        ).data
+        )
         if not res:
             return {}
         row = res[0]
@@ -736,7 +737,7 @@ async def create_and_publish(
         "scheduled_at":  datetime.now(timezone.utc).isoformat(),
     }).execute()
 
-    job_id    = res.data[0]["id"]
+    job_id    = one_row(res)["id"]
     publisher = DirectSocialPublisher(db)
     result    = await publisher.publish(job_id)
     result["job_id"] = job_id

@@ -12,6 +12,8 @@ from typing import Any, Optional
 from supabase import create_client, Client
 from datetime import datetime, timezone
 
+from ubt_os.utils.supabase_utils import rows, first_row, one_row
+
 # ── инициализация ──────────────────────────────────────────
 _supabase: Optional[Client] = None
 
@@ -37,16 +39,16 @@ class AccountReader:
         q = get_db().table("accounts").select("*").eq("status", "active")
         if platform:
             q = q.eq("platform", platform)
-        return q.execute().data
+        return rows(q.execute())
 
     @staticmethod
     def get_by_id(account_id: str) -> dict | None:
         res = get_db().table("accounts").select("*").eq("id", account_id).maybe_single().execute()
-        return res.data if res else None
+        return first_row(res) if res else None
 
     @staticmethod
     def get_warming() -> list[dict]:
-        return get_db().table("accounts").select("*").eq("status", "warming").execute().data
+        return rows(get_db().table("accounts").select("*").eq("status", "warming").execute())
 
 
 class ContentPlanReader:
@@ -54,17 +56,17 @@ class ContentPlanReader:
 
     @staticmethod
     def get_approved() -> list[dict]:
-        return (
+        return rows(
             get_db().table("content_plans")
             .select("*")
             .eq("status", "approved")
-            .execute().data
+            .execute()
         )
 
     @staticmethod
     def get_by_id(plan_id: str) -> dict | None:
         res = get_db().table("content_plans").select("*").eq("id", plan_id).maybe_single().execute()
-        return res.data if res else None
+        return first_row(res) if res else None
 
 
 class VideoReader:
@@ -72,12 +74,12 @@ class VideoReader:
 
     @staticmethod
     def get_ready() -> list[dict]:
-        return get_db().table("videos").select("*").eq("status", "ready").execute().data
+        return rows(get_db().table("videos").select("*").eq("status", "ready").execute())
 
     @staticmethod
     def get_by_id(video_id: str) -> dict | None:
         res = get_db().table("videos").select("*").eq("id", video_id).maybe_single().execute()
-        return res.data if res else None
+        return first_row(res) if res else None
 
 
 # ══════════════════════════════════════════════════════════
@@ -124,7 +126,7 @@ class ContentPlanWriter:
     @staticmethod
     def create(account_id: str, title: str, format: str,
                vertical: str, script: str, mcsla_prompt: str) -> dict:
-        return get_db().table("content_plans").insert({
+        return one_row(get_db().table("content_plans").insert({
             "account_id":   account_id,
             "title":        title,
             "format":       format,
@@ -132,7 +134,7 @@ class ContentPlanWriter:
             "script":       script,
             "mcsla_prompt": mcsla_prompt,
             "status":       "draft",
-        }).execute().data[0]
+        }).execute())
 
     @staticmethod
     def approve(plan_id: str, approved_by: str = "user") -> Any:
@@ -147,10 +149,10 @@ class VideoWriter:
 
     @staticmethod
     def create(content_plan_id: str) -> dict:
-        return get_db().table("videos").insert({
+        return one_row(get_db().table("videos").insert({
             "content_plan_id": content_plan_id,
             "status": "queued",
-        }).execute().data[0]
+        }).execute())
 
     @staticmethod
     def set_generating(video_id: str, job_id: str) -> Any:
@@ -180,12 +182,12 @@ class PublicationWriter:
 
     @staticmethod
     def schedule(video_id: str, account_id: str, scheduled_at: datetime) -> dict:
-        return get_db().table("publications").insert({
+        return one_row(get_db().table("publications").insert({
             "video_id":     video_id,
             "account_id":   account_id,
             "scheduled_at": scheduled_at.isoformat(),
             "status":       "scheduled",
-        }).execute().data[0]
+        }).execute())
 
     @staticmethod
     def mark_published(pub_id: str, platform_post_id: str) -> Any:
@@ -197,7 +199,7 @@ class PublicationWriter:
 
     @staticmethod
     def increment_attempt(pub_id: str, error: str) -> Any:
-        pub = get_db().table("publications").select("attempt_count").eq("id", pub_id).single().execute().data
+        pub = one_row(get_db().table("publications").select("attempt_count").eq("id", pub_id).single().execute())
         new_count = (pub["attempt_count"] or 0) + 1
         new_status = "dead_letter" if new_count >= 3 else "failed"
         return get_db().table("publications").update({

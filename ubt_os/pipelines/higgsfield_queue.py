@@ -132,7 +132,8 @@ class HiggsFieldQueue:
             return None
 
         # zpopmin возвращает список пар (member, score) — берём member
-        job_json = items[0]
+        member = items[0][0]
+        job_json = member.decode() if isinstance(member, bytes) else str(member)
 
         job = VideoJob.from_json(job_json)
         await r.sadd(PROCESSING_KEY, job.job_id)

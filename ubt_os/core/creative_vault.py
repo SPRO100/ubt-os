@@ -12,6 +12,8 @@ from datetime import datetime, timedelta, timezone
 
 from supabase import create_client, Client
 
+from ubt_os.utils.supabase_utils import rows
+
 logger = logging.getLogger("ubt_os.creative_vault")
 
 
@@ -108,13 +110,13 @@ class CreativeVaultUpdater:
     async def update_all_scores(self, lookback_days: int = 7):
         """Пересчитывает скоры для всех видео за lookback_days."""
         since = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).isoformat()
-        assets = (
+        assets = rows(
             self.db.table("creative_assets")
             .select("*")
             .gte("updated_at", since)
             .is_("is_archived", "false")
             .execute()
-        ).data
+        )
 
         logger.info(f"Creative Vault: обновляем скоры для {len(assets)} видео")
 
@@ -140,10 +142,10 @@ class CreativeVaultUpdater:
 
     async def _update_hook_rankings(self):
         """Агрегирует метрики по тексту хука."""
-        assets = self.db.table("creative_assets").select(
+        assets = rows(self.db.table("creative_assets").select(
             "hook_text,hook_type,vertical,geo,platform,"
             "completion_rate,ctr,cr,revenue"
-        ).is_("is_archived", "false").execute().data
+        ).is_("is_archived", "false").execute())
 
         # Группируем по ключу
         groups: dict[tuple, list] = {}
@@ -182,9 +184,9 @@ class CreativeVaultUpdater:
 
     async def _update_cta_rankings(self):
         """Агрегирует метрики по CTA тексту."""
-        assets = self.db.table("creative_assets").select(
+        assets = rows(self.db.table("creative_assets").select(
             "cta_text,cta_position,vertical,platform,ctr,cr"
-        ).is_("is_archived", "false").not_.is_("cta_text", "null").execute().data
+        ).is_("is_archived", "false").not_.is_("cta_text", "null").execute())
 
         groups: dict[tuple, list] = {}
         for a in assets:
@@ -214,11 +216,11 @@ class CreativeVaultUpdater:
         Находит комбинации (hook_type + format + visual_style + duration)
         с composite_score > 65 при n >= min_samples.
         """
-        assets = self.db.table("creative_assets").select(
+        assets = rows(self.db.table("creative_assets").select(
             "hook_type,format_type,visual_style,duration_sec,"
             "cta_position,vertical,geo,platform,"
             "completion_rate,ctr,cr,revenue,composite_score"
-        ).gte("composite_score", 65).is_("is_archived", "false").execute().data
+        ).gte("composite_score", 65).is_("is_archived", "false").execute())
 
         groups: dict[tuple, list] = {}
         for a in assets:

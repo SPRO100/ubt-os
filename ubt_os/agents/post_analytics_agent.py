@@ -21,6 +21,8 @@ from typing import Optional
 import httpx
 from supabase import create_client, Client
 
+from ubt_os.utils.supabase_utils import rows
+
 logger = logging.getLogger("ubt_os.post_analytics")
 
 
@@ -355,7 +357,7 @@ class PostAnalyticsAgent:
         )
         if account_id:
             q = q.eq("account_id", account_id)
-        res = q.limit(1).execute().data
+        res = rows(q.limit(1).execute())
         if not res:
             return {}
         row   = res[0]
@@ -373,7 +375,7 @@ class PostAnalyticsAgent:
         )
         if platform:
             q = q.eq("platform", platform)
-        return q.execute().data or []
+        return rows(q.execute())
 
     async def sync(self, platform: Optional[str] = None, limit: int = 100) -> dict:
         jobs = self._published_jobs(platform, limit)

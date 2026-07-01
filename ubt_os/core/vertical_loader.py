@@ -9,6 +9,8 @@ import yaml
 from supabase import create_client, Client
 from anthropic import AsyncAnthropic
 
+from ubt_os.utils.supabase_utils import rows
+
 logger = logging.getLogger("ubt_os.vertical_loader")
 
 CONFIGS_DIR = Path(__file__).parent.parent.parent / "vertical_configs"
@@ -28,14 +30,14 @@ class VerticalLoader:
             return self._cache[vertical_id]
 
         # 1. Попробовать Supabase
-        row = (
+        row = rows(
             self.db.table("vertical_configs")
             .select("*")
             .eq("id", vertical_id)
             .eq("status", "active")
             .limit(1)
             .execute()
-        ).data
+        )
         if row:
             config = row[0]["config_yaml"]
             self._cache[vertical_id] = config
@@ -51,14 +53,13 @@ class VerticalLoader:
         logger.warning(f"Vertical config не найден: {vertical_id}")
         return None
 
-    def list_active(self) -> list[str]:
-        rows = (
+    def list_active(self) -> list[dict]:
+        return rows(
             self.db.table("vertical_configs")
             .select("id, name, category")
             .eq("status", "active")
             .execute()
-        ).data
-        return rows
+        )
 
     def save(self, config: dict) -> str:
         vid = config["vertical"]["id"]
