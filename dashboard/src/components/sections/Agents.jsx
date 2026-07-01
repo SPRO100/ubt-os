@@ -46,6 +46,8 @@ const AFFILIATE_AGENTS = [
 
 const MEDIA_AGENTS = [
   { id:'A30', file:'higgsfield_agent.py',     role:'UGC 9:16, Shorts 15–60с, Карусели через Higgsfield AI.', status:'нужен HIGGSFIELD_API_KEY', color:'var(--amber)' },
+  { id:'A34', file:'caption_agent.py',        role:'Авто-субтитры (ASS/SRT, TikTok-style) + ffmpeg burn — буст удержания.', status:'готов', color:'var(--green)' },
+  { id:'A35', file:'tts_agent.py',            role:'Озвучка faceless-видео: self-hosted TTS → ElevenLabs.', status:'готов', color:'var(--green)' },
   { id:'—',  file:'transcription_agent.py',  role:'Транскрипция видео (Deepgram → Whisper) + извлечение хука.', status:'готов', color:'var(--green)' },
   { id:'—',  file:'social_publisher.py',     role:'Прямая публикация на 8 платформ через нативные API.',        status:'готов', color:'var(--green)' },
 ]

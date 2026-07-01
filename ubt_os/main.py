@@ -131,6 +131,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
             # A32/A33: тренды + авто-сбор крипов
             "/trends/radar":          self._run_trends_radar,
             "/competitor/scrape":     self._run_competitor_scrape,
+            # A34/A35: субтитры + озвучка
+            "/caption":               self._run_caption,
+            "/tts":                   self._run_tts,
         }
 
         handler = routes.get(self.path)
@@ -818,6 +821,28 @@ class WebhookHandler(BaseHTTPRequestHandler):
             platform=body.get("platform", "tiktok"),
             limit=int(body.get("limit", 20)),
             persist=body.get("persist", True),
+        )
+
+    async def _run_caption(self, body: dict):
+        """A34 CAPTION_AGENT — стилизованные субтитры (ASS/SRT) + ffmpeg burn."""
+        from ubt_os.agents.caption_agent import run_caption
+        return await run_caption(
+            video_url=body.get("video_url", ""),
+            words=body.get("words"),
+            language=body.get("language", "ru"),
+            style=body.get("style", "tiktok"),
+            max_words=int(body.get("max_words", 4)),
+            burn=body.get("burn", False),
+        )
+
+    async def _run_tts(self, body: dict):
+        """A35 TTS_AGENT — озвучка скрипта (self-hosted → ElevenLabs)."""
+        from ubt_os.agents.tts_agent import run_tts
+        return await run_tts(
+            text=body.get("text", ""),
+            voice=body.get("voice"),
+            provider=body.get("provider"),
+            upload=body.get("upload", True),
         )
 
     def _serve_metrics(self):

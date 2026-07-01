@@ -128,6 +128,8 @@ ubt_os/
 | A31 | `competitor_analyst.py` | Competitor hook analysis (complements A27) |
 | A32 | `trend_radar.py` | Ranks trending sounds/hashtags per vertical/GEO → `trend_signals` |
 | A33 | `competitor_scraper.py` | Scrapes crips into `competitor_signals` (feeds A31) |
+| A34 | `caption_agent.py` | Styled subtitles (ASS/SRT) from word timings + ffmpeg burn |
+| A35 | `tts_agent.py` | Voiceover: self-hosted TTS → ElevenLabs → Supabase Storage |
 | — | `transcription_agent.py` | Video transcription (Deepgram → Whisper) + hook extraction |
 | — | `pipelines/social_publisher.py` | Direct native-API publishing to 8 platforms |
 
@@ -195,6 +197,8 @@ LiteLLM spend before each call. Global daily cap via `LITELLM_DAILY_BUDGET`
 | POST | `/competitor/analyze`, `/hooks/top` | A31 competitor hook analysis |
 | POST | `/trends/radar` | A32 trend radar (ranks sounds/hashtags) |
 | POST | `/competitor/scrape` | A33 scrape crips into `competitor_signals` |
+| POST | `/caption` | A34 styled subtitles (ASS/SRT) + ffmpeg burn |
+| POST | `/tts` | A35 voiceover (self-hosted TTS → ElevenLabs) |
 | POST | `/transcribe` | Video transcription + hook extraction |
 | POST | `/publish/direct`, `/publish/bulk` | Direct native-API publishing |
 | GET | `/health/check-all` | Supabase + Redis connectivity |
