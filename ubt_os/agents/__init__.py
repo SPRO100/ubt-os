@@ -15,6 +15,8 @@ from .prelanding_generator  import PrelandingGenerator, PrelandingResult
 from .higgsfield_agent      import HiggsFieldAgent, HiggsFieldResult, VideoFormat
 from .competitor_analyst    import run_competitor_analyst
 from .transcription_agent   import run_transcription, run_batch_transcription
+from .trend_radar           import run_trend_radar
+from .competitor_scraper    import run_competitor_scrape
 
 __all__ = [
     # Ядро (A12–A18)
@@ -41,4 +43,7 @@ __all__ = [
     # Доп. агенты: анализ конкурентов + транскрипция
     "run_competitor_analyst",
     "run_transcription", "run_batch_transcription",
+    # A32/A33: тренды + авто-сбор крипов
+    "run_trend_radar",
+    "run_competitor_scrape",
 ]

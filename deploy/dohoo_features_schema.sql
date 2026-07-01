@@ -163,3 +163,20 @@ LEFT JOIN direct_publish_accounts dpa ON dpa.account_id = dpj.account_id AND dpa
 WHERE dpj.status IN ('pending', 'failed')
   AND (dpj.scheduled_at IS NULL OR dpj.scheduled_at <= NOW())
 ORDER BY dpj.scheduled_at ASC;
+
+-- ─────────────────────────────────────────────────────────
+-- trend_signals — A32 TREND_RADAR: ранжированные тренды звуков/хэштегов
+-- ─────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS trend_signals (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    vertical       VARCHAR(50)  NOT NULL,
+    geo            VARCHAR(5)   NOT NULL DEFAULT 'US',
+    platform       VARCHAR(50)  NOT NULL DEFAULT 'tiktok',
+    kind           VARCHAR(20)  NOT NULL,          -- 'hashtag' | 'sound'
+    name           TEXT         NOT NULL,
+    growth_pct     NUMERIC(8,2) DEFAULT 0,
+    rank           INT          DEFAULT 0,
+    recommendation TEXT,
+    created_at     TIMESTAMPTZ  DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_trend_signals_vertical ON trend_signals (vertical, geo, created_at DESC);
