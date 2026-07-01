@@ -126,6 +126,8 @@ ubt_os/
 | A29 | `prelanding_generator.py` | HTML prelanders (quiz/story/article/vsl) |
 | A30 | `higgsfield_agent.py` | UGC video / Shorts / carousels |
 | A31 | `competitor_analyst.py` | Competitor hook analysis (complements A27) |
+| A32 | `trend_radar.py` | Ranks trending sounds/hashtags per vertical/GEO → `trend_signals` |
+| A33 | `competitor_scraper.py` | Scrapes crips into `competitor_signals` (feeds A31) |
 | — | `transcription_agent.py` | Video transcription (Deepgram → Whisper) + hook extraction |
 | — | `pipelines/social_publisher.py` | Direct native-API publishing to 8 platforms |
 
@@ -191,6 +193,8 @@ LiteLLM spend before each call. Global daily cap via `LITELLM_DAILY_BUDGET`
 | POST | `/orchestrator/chat` | Chat with orchestrator (vertical context) |
 | POST | `/agents/run` | Run any A19–A30 agent directly (dashboard) |
 | POST | `/competitor/analyze`, `/hooks/top` | A31 competitor hook analysis |
+| POST | `/trends/radar` | A32 trend radar (ranks sounds/hashtags) |
+| POST | `/competitor/scrape` | A33 scrape crips into `competitor_signals` |
 | POST | `/transcribe` | Video transcription + hook extraction |
 | POST | `/publish/direct`, `/publish/bulk` | Direct native-API publishing |
 | GET | `/health/check-all` | Supabase + Redis connectivity |

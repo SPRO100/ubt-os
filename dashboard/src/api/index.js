@@ -102,6 +102,24 @@ export async function runAgentAPI(agent, params) {
   return res.json();
 }
 
+// Обобщённый POST на защищённый Agents API (для роутов вне /agents/run).
+export async function postAgents(path, body, ms = 120000) {
+  const res = await fetchWithTimeout(
+    `${AGENTS_SERVER}${path}`,
+    {
+      method: "POST",
+      headers: agentsHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(body),
+    },
+    ms
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => `HTTP ${res.status}`);
+    throw new Error(text || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function fetchN8nWorkflows() {
   const key = getN8nApiKey();
   if (!key) return { error: 'no_key', workflows: [] };

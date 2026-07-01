@@ -40,6 +40,8 @@ const AFFILIATE_AGENTS = [
   { id:'A28', file:'warmup_manager.py',          role:'14-дневный прогрев. Лимиты активности, инфра-валидация.',       status:'готов', color:'var(--green)' },
   { id:'A29', file:'prelanding_generator.py',    role:'HTML прелендинги: quiz/story/article/vsl. COD/Trial/SS.',        status:'готов', color:'var(--green)' },
   { id:'A31', file:'competitor_analyst.py',      role:'Анализ хуков конкурентов из competitor_signals → тренды (дополняет A27).', status:'готов', color:'var(--green)' },
+  { id:'A32', file:'trend_radar.py',             role:'Ранжирование трендовых звуков/хэштегов под vertical/GEO → «на чём ехать».', status:'готов', color:'var(--green)' },
+  { id:'A33', file:'competitor_scraper.py',      role:'Авто-сбор крипов конкурентов в competitor_signals (кормит A31).', status:'нужен TIKTOK_SCRAPER_URL', color:'var(--amber)' },
 ]
 
 const MEDIA_AGENTS = [

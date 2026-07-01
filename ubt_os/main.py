@@ -128,6 +128,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/publish/bulk":          self._run_publish_bulk,
             "/transcribe":            self._run_transcribe,
             "/hooks/top":             self._run_hooks_top,
+            # A32/A33: тренды + авто-сбор крипов
+            "/trends/radar":          self._run_trends_radar,
+            "/competitor/scrape":     self._run_competitor_scrape,
         }
 
         handler = routes.get(self.path)
@@ -792,6 +795,30 @@ class WebhookHandler(BaseHTTPRequestHandler):
         if platform:
             q = q.eq("platform", platform)
         return {"hooks": q.execute().data}
+
+    async def _run_trends_radar(self, body: dict):
+        """A32 TREND_RADAR — ранжирование трендовых звуков/хэштегов под vertical/GEO."""
+        from ubt_os.agents.trend_radar import run_trend_radar
+        return await run_trend_radar(
+            vertical=body.get("vertical", "nutra"),
+            geo=body.get("geo", "US"),
+            platform=body.get("platform", "tiktok"),
+            hashtags=body.get("hashtags"),
+            sounds=body.get("sounds"),
+            persist=body.get("persist", True),
+        )
+
+    async def _run_competitor_scrape(self, body: dict):
+        """A33 COMPETITOR_SCRAPER — авто-сбор крипов в competitor_signals (для A31)."""
+        from ubt_os.agents.competitor_scraper import run_competitor_scrape
+        return await run_competitor_scrape(
+            query=body.get("query", ""),
+            vertical=body.get("vertical", "nutra"),
+            geo=body.get("geo", "US"),
+            platform=body.get("platform", "tiktok"),
+            limit=int(body.get("limit", 20)),
+            persist=body.get("persist", True),
+        )
 
     def _serve_metrics(self):
         """GET /metrics — Prometheus-совместимый текстовый формат."""

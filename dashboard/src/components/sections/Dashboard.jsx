@@ -85,7 +85,7 @@ export default function Dashboard({ health }) {
         <StatCard label="Redis" value={redisOk ? 'OK' : 'ERR'} note="Upstash" color={redisOk ? 'c-cyan' : 'c-red'}
           icon="⚡" iconBg="rgba(6,182,212,.12)"
         />
-        <StatCard label="Агенты" value="22" note="A12–A31 в системе" color="c-indigo" icon="🤖" iconBg="var(--indigo-bg)" />
+        <StatCard label="Агенты" value="24" note="A12–A33 в системе" color="c-indigo" icon="🤖" iconBg="var(--indigo-bg)" />
         <StatCard label="Revenue Events" value={counts.revenue} note="net_amount events" color="c-green" icon="💰" iconBg="var(--green-bg)" />
         <StatCard label="Записи знаний" value={counts.knowledge} note="knowledge_entries" color="c-amber" icon="🧠" iconBg="var(--amber-bg)" />
         <StatCard label="Стратегий" value={counts.strategy} note="strategy_briefs" color="c-pink" icon="📊" iconBg="rgba(236,72,153,.12)" />
