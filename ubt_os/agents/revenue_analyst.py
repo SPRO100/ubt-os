@@ -153,7 +153,7 @@ class RevenueReportGenerator:
     async def generate(self, data: dict, leaks: list, candidates: list) -> dict:
         payload = {**data, "funnel_leaks": leaks, "scaling_candidates": candidates}
         resp = await self.client.messages.create(
-            model      = "claude-sonnet-4-6",
+            model      = "claude-sonnet-5",
             max_tokens = 4096,
             system     = self.SYSTEM_PROMPT,
             messages   = [{"role": "user", "content": json.dumps(payload, ensure_ascii=False, default=str)}],

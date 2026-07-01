@@ -223,7 +223,7 @@ CTA подзаголовок: "{cta_sub}"
 Сделай дизайн конвертирующим: контраст, читаемость, чёткий CTA."""
 
         resp = await self._client.messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-sonnet-5",
             max_tokens=4000,
             system=_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_msg}],

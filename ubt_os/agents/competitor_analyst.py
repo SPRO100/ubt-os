@@ -149,7 +149,7 @@ talking_head | voiceover_text | screen_record | ugc_raw | animation | slideshow 
 
         try:
             resp = await self.client.messages.create(
-                model="claude-sonnet-4-6",
+                model="claude-sonnet-5",
                 max_tokens=512,
                 system=self.SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_content}],
@@ -204,7 +204,7 @@ class CompetitorReportBuilder:
         )
 
         resp = await self.client.messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-sonnet-5",
             max_tokens=2048,
             system=self.SYSTEM_PROMPT,
             messages=[{

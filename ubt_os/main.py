@@ -322,7 +322,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
         client = AsyncAnthropic()
         resp = await client.messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-sonnet-5",
             max_tokens=1024,
             system=system_prompt,
             messages=messages,  # type: ignore[arg-type]  # роли валидируются на стороне БД

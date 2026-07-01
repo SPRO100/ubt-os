@@ -12,7 +12,7 @@
 
 [![CI](https://github.com/spro100/ubt-os/actions/workflows/ci.yml/badge.svg)](https://github.com/spro100/ubt-os/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Claude](https://img.shields.io/badge/AI-Claude_Sonnet_4.6_+_Haiku_4.5-8A2BE2?logo=anthropic&logoColor=white)](https://www.anthropic.com/)
+[![Claude](https://img.shields.io/badge/AI-Claude_Sonnet_5_+_Haiku_4.5-8A2BE2?logo=anthropic&logoColor=white)](https://www.anthropic.com/)
 [![React](https://img.shields.io/badge/Dashboard-React_18_+_Vite-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Lint](https://img.shields.io/badge/lint-ruff-261230?logo=ruff&logoColor=white)](https://github.com/astral-sh/ruff)
 [![Types](https://img.shields.io/badge/types-mypy-2A6DB2)](https://mypy-lang.org/)
@@ -64,7 +64,7 @@ UBT OS — оркестрированная система из **26 AI-аген
 контента → очистка от AI-маркеров → проверка на compliance → производство видео
 и прелендингов → прогрев аккаунтов → публикация с UTM-трекингом.
 
-Ядро — **Claude Sonnet 4.6** (оркестратор) и **Claude Haiku 4.5** (рутина).
+Ядро — **Claude Sonnet 5** (оркестратор) и **Claude Haiku 4.5** (рутина).
 Агенты связаны n8n-воркфлоу и общим HTTP-слоем; состояние живёт в Supabase +
 Redis; база знаний — в Obsidian Vault с git-синхронизацией.
 
@@ -338,7 +338,7 @@ React 18 + Vite SPA с live-данными из Supabase.
 | Раздел | Что показывает |
 |--------|----------------|
 | **Дашборд** | приоритеты, статистика в реальном времени |
-| **Чат с оркестратором** | Claude Sonnet 4.6 в контексте проекта + quick-links |
+| **Чат с оркестратором** | Claude Sonnet 5 в контексте проекта + quick-links |
 | **Аккаунты** | TikTok/FB/IG, добавление + запуск A28 прогрева |
 | **Контент** | производственный пайплайн, история публикаций |
 | **Запуск агентов** | веб-интерфейс для всех агентов без кода |
@@ -352,7 +352,7 @@ React 18 + Vite SPA с live-данными из Supabase.
 
 | Слой | Технология |
 |------|-----------|
-| AI | Claude Sonnet 4.6 (оркестратор) + Claude Haiku 4.5 (рутина) |
+| AI | Claude Sonnet 5 (оркестратор) + Claude Haiku 4.5 (рутина) |
 | Видео | Higgsfield AI API · Deepgram / Whisper (транскрипция) |
 | Публикация | Publer API + прямые нативные API (8 платформ) |
 | Автоматизация | n8n self-hosted |

@@ -117,7 +117,7 @@ class TrendRadar:
             f"- [{it['kind']}] {it['name']} (рост {it.get('growth_pct', 0)}%)" for it in items[:40]
         )
         resp = await self.llm.messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-sonnet-5",
             max_tokens=1500,
             system=SYSTEM_PROMPT,
             messages=[{

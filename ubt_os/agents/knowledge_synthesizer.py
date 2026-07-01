@@ -135,7 +135,7 @@ class KnowledgeAnalyst:
 
     async def synthesize_daily(self, data: dict, prev: list) -> dict:
         resp = await self.client.messages.create(
-            model="claude-sonnet-4-6", max_tokens=4096,
+            model="claude-sonnet-5", max_tokens=4096,
             messages=[{"role": "user", "content":
                 self.DAILY_PROMPT.format(
                     data=json.dumps(data, ensure_ascii=False, default=str),
@@ -147,7 +147,7 @@ class KnowledgeAnalyst:
 
     async def synthesize_weekly(self, data: dict) -> dict:
         resp = await self.client.messages.create(
-            model="claude-sonnet-4-6", max_tokens=4096,
+            model="claude-sonnet-5", max_tokens=4096,
             messages=[{"role": "user", "content":
                 self.WEEKLY_PROMPT.format(
                     data=json.dumps(data, ensure_ascii=False, default=str)

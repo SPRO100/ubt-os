@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 UBT OS is a multi-agent AI system that generates organic traffic to affiliate
 offers via short-form video and prelanders. It runs **19 agents (A12–A30)**
 across TikTok, Facebook, Instagram, Pinterest, and YouTube Shorts, orchestrated
-by n8n, powered by Claude Sonnet 4.6 (orchestrator) and Haiku 4.5 (routine
+by n8n, powered by Claude Sonnet 5 (orchestrator) and Haiku 4.5 (routine
 tasks), and deployed on a single Linux server (FirstVDS Amsterdam).
 
 **Language:** Russian is used throughout — code comments, log messages, the
