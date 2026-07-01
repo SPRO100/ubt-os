@@ -290,7 +290,14 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "- A27 spy_analyzer: анализ крипов конкурентов из PiPiAds/AdHeart, паттерны хуков и brief для A21\n"
             "- A28 warmup_manager: трекер 14-дневного прогрева аккаунтов, GEO-инфраструктура, лимиты активности\n"
             "- A29 prelanding_generator: генерация HTML прелендингов (quiz/story/article/vsl) для воронки\n"
-            "- A30 higgsfield_agent: генерация UGC-видео 9:16, Shorts 15–60с и каруселей через Higgsfield AI\n\n"
+            "- A30 higgsfield_agent: генерация UGC-видео 9:16, Shorts 15–60с и каруселей через Higgsfield AI\n"
+            "- A31 competitor_analyst: проактивный анализ хуков конкурентов из competitor_signals → тренды\n"
+            "- A32 trend_radar: ранжирование трендовых звуков/хэштегов под vertical/GEO — «на чём ехать сейчас»\n"
+            "- A33 competitor_scraper: авто-сбор крипов конкурентов по хэштегу/ключу в competitor_signals (кормит A31)\n"
+            "- A34 caption_agent: стилизованные субтитры (ASS/SRT, TikTok-style) для видео + ffmpeg burn\n"
+            "- A35 tts_agent: озвучка faceless-видео (self-hosted TTS → ElevenLabs)\n"
+            "- transcription_agent: транскрипция видео (Deepgram → Whisper) + извлечение хука\n"
+            "- social_publisher: прямая публикация на 8 платформ через нативные API (без лимитов Publer)\n\n"
             "Если задача пользователя явно подходит для одного из агентов — добавь в КОНЕЦ ответа строку:\n"
             "[AGENT_SUGGEST: agent_id|Что именно агент сделает для этой задачи]\n"
             "Пример: [AGENT_SUGGEST: content_creator|Создать 3 варианта hook для нутра GEO US]\n"
@@ -350,6 +357,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 {"label": "IPRoyal", "url": "https://iproyal.com"},
                 {"label": "Airalo", "url": "https://www.airalo.com"},
             ],
+            "competitor_analyst":   [{"label": "TikTok Creative Center", "url": "https://ads.tiktok.com/business/creativecenter"}],
+            "trend_radar":          [{"label": "TikTok Creative Center", "url": "https://ads.tiktok.com/business/creativecenter"}],
+            "tts_agent":            [{"label": "ElevenLabs", "url": "https://elevenlabs.io"}],
         }
         existing_urls = {ql["url"] for ql in quick_links}
         for s in suggestions:
@@ -660,6 +670,61 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     "duration_sec": r.duration_sec, "job_id": r.job_id,
                     "prompt_used": r.prompt_used, "error": r.error,
                 }
+
+            # ── Доп. агенты A31–A35 (свои run_-функции возвращают dict) ──
+            elif agent == "competitor_analyst":
+                from ubt_os.agents import run_competitor_analyst
+                return await run_competitor_analyst(
+                    params.get("vertical", "nutra"),
+                    int(params.get("lookback_days", 3)))
+
+            elif agent == "trend_radar":
+                from ubt_os.agents import run_trend_radar
+                return await run_trend_radar(
+                    vertical=params.get("vertical", "nutra"),
+                    geo=params.get("geo", "US"),
+                    platform=params.get("platform", "tiktok"),
+                    hashtags=params.get("hashtags"),
+                    sounds=params.get("sounds"),
+                )
+
+            elif agent == "competitor_scraper":
+                from ubt_os.agents import run_competitor_scrape
+                return await run_competitor_scrape(
+                    query=params.get("query", ""),
+                    vertical=params.get("vertical", "nutra"),
+                    geo=params.get("geo", "US"),
+                    platform=params.get("platform", "tiktok"),
+                    limit=int(params.get("limit", 20)),
+                )
+
+            elif agent == "caption_agent":
+                from ubt_os.agents import run_caption
+                return await run_caption(
+                    video_url=params.get("video_url", ""),
+                    words=params.get("words"),
+                    language=params.get("language", "ru"),
+                    style=params.get("style", "tiktok"),
+                    burn=params.get("burn", False),
+                )
+
+            elif agent == "tts_agent":
+                from ubt_os.agents import run_tts
+                return await run_tts(
+                    text=params.get("text", ""),
+                    voice=params.get("voice"),
+                    provider=params.get("provider"),
+                )
+
+            elif agent == "transcription_agent":
+                from ubt_os.agents import run_transcription
+                return await run_transcription(
+                    params.get("video_url", ""),
+                    vertical=params.get("vertical", "nutra"),
+                    platform=params.get("platform", "tiktok"),
+                    geo=params.get("geo", "US"),
+                    language=params.get("language", "ru"),
+                )
 
             else:
                 return {"error": f"Неизвестный агент: {agent}"}
