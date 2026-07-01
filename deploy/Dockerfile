@@ -11,8 +11,9 @@ WORKDIR /app
 COPY deploy/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Исходный код
+# Исходный код + файловые конфиги вертикалей (fallback для VerticalLoader)
 COPY ubt_os/ ./ubt_os/
+COPY vertical_configs/ ./vertical_configs/
 
 # Git config для obsidian sync
 RUN git config --global user.email "agent@ubt-os.local" && \

@@ -14,6 +14,8 @@ import httpx
 from anthropic import AsyncAnthropic
 from supabase import create_client, Client
 
+from ubt_os.utils.supabase_utils import rows, one_row
+
 logger = logging.getLogger("ubt_os.transcription_agent")
 
 DEEPGRAM_API_URL = "https://api.deepgram.com/v1/listen"
@@ -196,7 +198,7 @@ class TranscriptionWriter:
             },
             on_conflict="video_url",
         ).execute()
-        return res.data[0]["id"]
+        return one_row(res)["id"]
 
     def promote_to_hook_template(
         self,
@@ -233,13 +235,13 @@ async def run_transcription(
 ) -> dict:
     db = _get_db()
 
-    existing = (
+    existing = rows(
         db.table("transcriptions")
         .select("id,hook_text,hook_type,hook_strength")
         .eq("video_url", video_url)
         .limit(1)
         .execute()
-    ).data
+    )
 
     if existing:
         logger.info(f"Transcription: уже есть для {video_url[:60]}")

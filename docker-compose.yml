@@ -108,6 +108,7 @@ services:
       LITELLM_DAILY_BUDGET: ${LITELLM_DAILY_BUDGET:-20.0}
       HIGGSFIELD_API_KEY:   ${HIGGSFIELD_API_KEY}
       ELEVENLABS_API_KEY:   ${ELEVENLABS_API_KEY}
+      ELEVENLABS_VOICE_ID:  ${ELEVENLABS_VOICE_ID:-}
       BLOTATO_API_KEY:      ${BLOTATO_API_KEY}
       KEITARO_DOMAIN:       ${KEITARO_DOMAIN}
       KEITARO_API_KEY:      ${KEITARO_API_KEY}
@@ -118,6 +119,23 @@ services:
       OBSIDIAN_VAULT_PATH:  /app/obsidian-vault
       OBSIDIAN_REMOTE_URL:  ${OBSIDIAN_REMOTE_URL}
       N8N_WEBHOOK_URL:      ${N8N_WEBHOOK_URL}
+      # Аутентификация webhook-сервера — без этих ключей контейнер работает
+      # в dev-режиме и принимает запросы без проверки подписи/токена
+      WEBHOOK_SECRET:       ${WEBHOOK_SECRET:-}
+      AGENTS_API_TOKEN:     ${AGENTS_API_TOKEN:-}
+      CORS_ALLOW_ORIGIN:    ${CORS_ALLOW_ORIGIN:-*}
+      # Публикация и внешние API
+      PUBLER_API_KEY:              ${PUBLER_API_KEY:-}
+      PUBLER_TIKTOK_PROFILE_IDS:   ${PUBLER_TIKTOK_PROFILE_IDS:-}
+      PUBLER_FACEBOOK_PROFILE_IDS: ${PUBLER_FACEBOOK_PROFILE_IDS:-}
+      PUBLER_INSTAGRAM_PROFILE_IDS: ${PUBLER_INSTAGRAM_PROFILE_IDS:-}
+      PUBLER_PINTEREST_PROFILE_IDS: ${PUBLER_PINTEREST_PROFILE_IDS:-}
+      PUBLER_PINTEREST_BOARD_IDS:  ${PUBLER_PINTEREST_BOARD_IDS:-}
+      FIRECRAWL_API_KEY:    ${FIRECRAWL_API_KEY:-}
+      DEEPGRAM_API_KEY:     ${DEEPGRAM_API_KEY:-}
+      OPENAI_API_KEY:       ${OPENAI_API_KEY:-}
+      MEDIA_BUCKET:         ${MEDIA_BUCKET:-media}
+      TTS_SERVER_URL:       ${TTS_SERVER_URL:-}
     volumes:
       - obsidian_vault:/app/obsidian-vault
     depends_on:

@@ -14,6 +14,7 @@ from supabase import create_client, Client
 from anthropic import AsyncAnthropic
 
 from ubt_os.utils.llm_utils import extract_json as _extract_json
+from ubt_os.utils.supabase_utils import one_row
 
 logger = logging.getLogger("ubt_os.strategy_engine")
 
@@ -192,7 +193,7 @@ class StrategyWriter:
             })
             .execute()
         )
-        brief_id = res.data[0]["id"]
+        brief_id = one_row(res)["id"]
         self._save_daily_queues(brief_id, brief)
         return brief_id
 

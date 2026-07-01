@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What This Is
 
 UBT OS is a multi-agent AI system that generates organic traffic to affiliate
-offers via short-form video and prelanders. It runs **19 agents (A12–A30)**
+offers via short-form video and prelanders. It runs **27 agents (A12–A36)**
 across TikTok, Facebook, Instagram, Pinterest, and YouTube Shorts, orchestrated
 by n8n, powered by Claude Sonnet 5 (orchestrator) and Haiku 4.5 (routine
 tasks), and deployed on a single Linux server (FirstVDS Amsterdam).
@@ -90,13 +90,14 @@ ubt_os/
 │   ├── creative_vault.py    # Creative scoring and storage
 │   ├── vertical_loader.py   # Loads vertical YAML configs
 │   └── logging_config.py    # Structured JSON logging + request_id context var
-├── agents/                  # A12–A30 (19 agents) — see table below
+├── agents/                  # A12–A36 (27 agents) — see table below
 ├── pipelines/
 │   ├── higgsfield_queue.py  # Redis priority queue for video generation jobs
 │   ├── higgsfield_worker.py # Worker that dequeues and calls Higgsfield API
 │   └── blotato_dlq.py       # Dead Letter Queue with retry
 └── utils/
     ├── llm_utils.py          # extract_json() — robust JSON parsing of Claude responses
+    ├── supabase_utils.py     # rows()/first_row()/one_row() — typed resp.data extraction
     ├── attribution.py        # Attribution windows
     ├── obsidian_git_sync.py  # Git sync of the Obsidian vault
     └── obsidian_cron.py      # Hourly cron entry point for sync

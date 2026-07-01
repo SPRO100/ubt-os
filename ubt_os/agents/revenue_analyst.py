@@ -8,6 +8,8 @@ import asyncio, logging, os, json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from supabase import create_client, Client
+
+from ubt_os.utils.supabase_utils import one_row
 from anthropic import AsyncAnthropic
 
 logger = logging.getLogger("ubt_os.revenue_analyst")
@@ -208,7 +210,7 @@ class RevenueWriter:
             "scale_alerts":   report.get("scale_now",[]),
             "leak_alerts":    report.get("funnel_leaks",[]),
         }).execute())
-        return res.data[0]["id"]
+        return one_row(res)["id"]
 
     def update_video_profitability(self, candidates: list):
         for c in candidates:

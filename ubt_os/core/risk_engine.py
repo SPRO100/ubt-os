@@ -16,6 +16,7 @@ import httpx
 from supabase import create_client, Client
 
 from ubt_os.utils.account_compat import get_account_id  # FIX #5: id vs account_id
+from ubt_os.utils.supabase_utils import rows
 
 logger = logging.getLogger("ubt_os.risk_engine")
 
@@ -347,12 +348,12 @@ class RiskEngine:
 
     async def run_all(self):
         """Проверяет все активные аккаунты."""
-        accounts = (
+        accounts = rows(
             self.db.table("accounts")
             .select("*")
             .neq("status", "banned")
             .execute()
-        ).data
+        )
 
         logger.info(f"Risk Engine: проверяем {len(accounts)} аккаунтов")
         for acc in accounts:
@@ -363,12 +364,12 @@ class RiskEngine:
         result  = self.scorer.calculate(factors)
 
         # Достаём предыдущий скор
-        prev = (
+        prev = rows(
             self.db.table("account_risk_profiles")
             .select("risk_score, consecutive_high")
             .eq("account_id", get_account_id(acc))
             .limit(1).execute()
-        ).data
+        )
         prev_score  = prev[0]["risk_score"] if prev else 0
         consec_high = prev[0]["consecutive_high"] if prev else 0
 
@@ -396,13 +397,13 @@ class RiskEngine:
 
     async def _collect_factors(self, acc: dict) -> RiskFactors:
         """Собирает все данные для расчёта риска из БД и внешних проверок."""
-        analytics = (
+        analytics = rows(
             self.db.table("video_analytics")
             .select("completion_rate,er,views")
             .eq("account_id", get_account_id(acc))
             .gte("created_at", (datetime.now(timezone.utc) - timedelta(days=14)).isoformat())
             .execute()
-        ).data
+        )
 
         er_values  = [a["er"] for a in analytics if a.get("er")]
         er_baseline= sum(er_values) / len(er_values) if er_values else 0

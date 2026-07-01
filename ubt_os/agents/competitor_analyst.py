@@ -16,6 +16,7 @@ from anthropic import AsyncAnthropic
 from supabase import create_client, Client
 
 from ubt_os.utils.llm_utils import extract_json as _extract_json
+from ubt_os.utils.supabase_utils import rows, one_row
 
 logger = logging.getLogger("ubt_os.competitor_analyst")
 
@@ -69,7 +70,7 @@ class CompetitorSignalCollector:
             .limit(50)
             .execute()
         )
-        return res.data
+        return rows(res)
 
     def get_existing_patterns(self) -> set[str]:
         """Уже проанализированные URL чтобы не дублировать."""
@@ -80,7 +81,7 @@ class CompetitorSignalCollector:
             .gte("created_at", self.since)
             .execute()
         )
-        return {r["source_video_url"] for r in res.data if r.get("source_video_url")}
+        return {r["source_video_url"] for r in rows(res) if r.get("source_video_url")}
 
 
 # ── Claude-анализ хука ─────────────────────────────────────
@@ -247,7 +248,7 @@ class PatternWriter:
             "source_video_url": signal.get("video_url", ""),
         }
         res = self.db.table("competitor_patterns").insert(row).execute()
-        return res.data[0]["id"]
+        return one_row(res)["id"]
 
     def save_hook_template(self, analysis: dict, signal: dict, vertical: str):
         if analysis.get("hook_strength", 0) < 7:
@@ -279,7 +280,7 @@ class PatternWriter:
             "confidence_score":      report.get("confidence_score", 0.5),
             "raw_json":              report,
         }).execute()
-        return res.data[0]["id"]
+        return one_row(res)["id"]
 
 
 # ── Точка входа ───────────────────────────────────────────

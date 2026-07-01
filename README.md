@@ -190,6 +190,27 @@ Keitaro postback (UTM → конверсии)
 
 ## 🆕 Что нового
 
+### 🔧 Аудит системы + починка CI и трёх скрытых багов (июль 2026)
+
+Полный ресерч проекта (код, CI/CD, деплой, безопасность) — отчёт в
+[`docs/audit-2026-07-01.md`](docs/audit-2026-07-01.md). Починено:
+
+- **CI на main был красный**: бамп `supabase` 2.31 сломал типизацию
+  `resp.data` (226 ошибок mypy в 14 файлах). Добавлен
+  `ubt_os/utils/supabase_utils.py` (`rows`/`first_row`/`one_row`) —
+  единая типобезопасная точка извлечения данных postgrest.
+- **A14: проверка прокси молча не работала** — httpx ≥ 0.28 удалил аргумент
+  `proxies`, TypeError глотался и каждый прокси считался мёртвым.
+- **Higgsfield-воркер падал на каждой задаче** — `zpopmin` возвращает пары
+  `(member, score)`, в `VideoJob.from_json` уходил весь кортеж.
+- **Webhook-сервер** теперь отвечает `400` на битый JSON и `500` с логом при
+  ошибке обработчика (раньше — обрыв соединения без ответа n8n).
+- **docker-compose не пробрасывал `WEBHOOK_SECRET`/`AGENTS_API_TOKEN`** —
+  контейнер agents работал в dev-режиме без аутентификации; добавлены также
+  Publer/Firecrawl/Deepgram/OpenAI/`MEDIA_BUCKET`/`TTS_SERVER_URL`/CORS.
+- **Dockerfile** теперь копирует `vertical_configs/` (файловый fallback
+  VerticalLoader не попадал в образ).
+
 ### 📊 A36 `post_analytics_agent` — нативная аналитика по постам
 
 Разбор конкурента ([Postiz](https://github.com/gitroomhq/postiz-app)) показал
@@ -400,13 +421,14 @@ pip install -r deploy/requirements-dev.txt
 
 ruff check ubt_os/                          # линтинг      ✅ 0 ошибок
 mypy ubt_os/ --ignore-missing-imports       # типы         ✅ 0 ошибок
-pytest tests/ -v                            # 58 тестов    ✅ зелёные
+pytest tests/ -v                            # 85 тестов    ✅ зелёные
 bandit -r ubt_os/ -ll                       # безопасность ✅ 0 предупреждений
 ```
 
 Конфигурация ruff и mypy — в [`pyproject.toml`](pyproject.toml). Покрытие:
 аутентификация (dual-auth), compliance-regex (L1), парсинг JSON из LLM,
-circuit breaker, логирование, vault-path.
+circuit breaker, логирование, vault-path, trend radar, competitor scraper,
+caption, TTS, post analytics.
 
 ---
 
@@ -430,7 +452,7 @@ circuit breaker, логирование, vault-path.
 ```
 ubt-os/
 ├── ubt_os/
-│   ├── agents/              # A12–A31 + transcription
+│   ├── agents/              # A12–A36 + transcription
 │   ├── core/                # circuit breaker, budget guard, pipeline lock, risk engine
 │   ├── pipelines/           # Higgsfield queue/worker, DLQ, social_publisher
 │   ├── utils/               # attribution, Obsidian git sync, LLM utils
@@ -442,7 +464,8 @@ ubt-os/
 ├── obsidian-vault/          # База знаний (wiki-страницы)
 ├── deploy/                  # Dockerfile, SQL-схемы, nginx, LiteLLM config
 ├── n8n/workflows/           # воркфлоу (JSON)
-├── tests/                   # pytest (58 тестов)
+├── docs/                    # аудиты и отчёты ресерча
+├── tests/                   # pytest (85 тестов)
 ├── .env.template            # шаблон переменных окружения
 ├── pyproject.toml           # конфиг ruff + mypy
 └── CLAUDE.md                # гайд для AI-ассистентов
