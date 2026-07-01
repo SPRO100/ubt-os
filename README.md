@@ -189,6 +189,16 @@ Keitaro postback (UTM → конверсии)
 
 ## 🆕 Что нового
 
+### 🐛 Фикс: добавление аккаунтов Facebook/Pinterest
+
+Дашборд позволял добавлять аккаунты facebook/pinterest, а схема `accounts` их
+запрещала (CHECK), не имела колонок `proxy`/`publer_profile_id`/`account_type`
+и требовала UUID вместо человекочитаемого `id` — из-за чего «Добавить аккаунт»
+падал с ошибкой Supabase. Схема приведена к продукту: `id` **TEXT**, платформы
++facebook/+pinterest, недостающие колонки. Миграция существующих БД —
+[`deploy/06_patch_accounts_align.sql`](deploy/06_patch_accounts_align.sql)
+(в `make db-init`, идемпотентная). Проверено на реальном Postgres.
+
 ### Оркестратор знает всех агентов
 
 Каталог оркестратора и диспетчер `/agents/run` расширены: теперь **все on-demand

@@ -238,6 +238,14 @@ plus `strategy_`, `revenue_`, `risk_`, `vertical_`, `creative_vault_`,
 `recovery_` schemas and incremental patches). Each owned table has an
 `owned_by_agent` column; writers check ownership before mutating rows.
 
+**`accounts.id` is TEXT** (human-readable, e.g. `tiktok_us_001`), used as the
+`account_id` string across warmup_manager / social_publisher /
+`direct_publish_accounts`. `platform` allows tiktok/youtube/instagram/telegram/
+**facebook/pinterest**. The dashboard also writes `proxy`, `publer_profile_id`,
+`account_type`. Existing DBs are migrated by `06_patch_accounts_align.sql`
+(part of `make db-init`) — it changes `id` UUID→TEXT (dropping/re-adding the
+account_id FKs), expands the platform CHECK, and adds the missing columns.
+
 ---
 
 ## Testing
