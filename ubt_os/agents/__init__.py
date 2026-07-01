@@ -17,6 +17,8 @@ from .competitor_analyst    import run_competitor_analyst
 from .transcription_agent   import run_transcription, run_batch_transcription
 from .trend_radar           import run_trend_radar
 from .competitor_scraper    import run_competitor_scrape
+from .caption_agent         import run_caption
+from .tts_agent             import run_tts
 
 __all__ = [
     # Ядро (A12–A18)
@@ -46,4 +48,7 @@ __all__ = [
     # A32/A33: тренды + авто-сбор крипов
     "run_trend_radar",
     "run_competitor_scrape",
+    # A34/A35: субтитры + озвучка
+    "run_caption",
+    "run_tts",
 ]

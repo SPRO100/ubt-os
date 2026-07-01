@@ -10,6 +10,7 @@ import Clients from './components/sections/Clients'
 import Agents from './components/sections/Agents'
 import Launch from './components/sections/Launch'
 import Trends from './components/sections/Trends'
+import Media from './components/sections/Media'
 import Tasks from './components/sections/Tasks'
 import Analytics from './components/sections/Analytics'
 import Infra from './components/sections/Infra'
@@ -25,6 +26,7 @@ const NAV = [
   // ── Контент и агенты ───────────────────────────────
   { id:'clients',   icon:'🤝', label:'Клиенты',         section:'Контент' },
   { id:'trends',    icon:'📡', label:'Тренды',          section:'Контент' },
+  { id:'media',     icon:'🎙️', label:'Медиа',           section:'Контент' },
   { id:'content',   icon:'🎬', label:'Производство',    section:'Контент' },
   { id:'agents',    icon:'🧩', label:'Агенты',          section:'Контент' },
   // ── Система и данные ───────────────────────────────
@@ -41,8 +43,9 @@ const TITLES = {
   launch:    ['Запуск агентов',    'Прямой запуск A19–A30 из браузера'],
   clients:   ['Клиенты',           'Чат с оркестратором → создание заданий в очередь'],
   trends:    ['Тренды',            'Trend Radar (A32) + авто-сбор крипов конкурентов (A33 → A31)'],
+  media:     ['Медиа',             'Озвучка скриптов (A35 TTS) + авто-субтитры для видео (A34)'],
   content:   ['Производство',      'Архитектура пайплайна контента · A19–A30'],
-  agents:    ['Агенты',            '24 агента A12–A33 · Publer + прямые API · TikTok / Facebook / Instagram / Pinterest'],
+  agents:    ['Агенты',            '26 агентов A12–A35 · Publer + прямые API · TikTok / Facebook / Instagram / Pinterest'],
   analytics: ['Аналитика',         'Реальная выручка из Supabase · условия партнёрок'],
   knowledge: ['База знаний',       'Obsidian Vault · синхронизация через n8n каждый час'],
   infra:     ['Инфраструктура',    'FirstVDS Амстердам · 4 сервиса live'],
@@ -136,6 +139,7 @@ export default function App() {
       case 'pipeline':  return <Pipeline />
       case 'clients':   return <Clients onCreateTask={handleCreateTask} />
       case 'trends':    return <Trends />
+      case 'media':     return <Media />
       case 'tasks':     return <Tasks tasks={tasks} onUpdate={handleUpdateTask} />
       case 'agents':    return <Agents />
       case 'launch':    return <Launch goToLaunch={() => navigate('launch')} />

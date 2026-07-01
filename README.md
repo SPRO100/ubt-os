@@ -20,7 +20,7 @@
 
 <br/>
 
-**24 AI-агента** · **8 платформ** · **5 GEO** · **Live Dashboard** · **Self-hosted**
+**26 AI-агентов** · **8 платформ** · **5 GEO** · **Live Dashboard** · **Self-hosted**
 
 `TikTok` · `Facebook` · `Instagram` · `YouTube` · `Pinterest` · `Threads` · `X` · `LinkedIn`
 
@@ -59,7 +59,7 @@
 
 ## 🎯 Что это
 
-UBT OS — оркестрированная система из **24 AI-агентов**, закрывающая весь цикл
+UBT OS — оркестрированная система из **26 AI-агентов**, закрывающая весь цикл
 партнёрского маркетинга на органике: разведка крипов конкурентов → генерация
 контента → очистка от AI-маркеров → проверка на compliance → производство видео
 и прелендингов → прогрев аккаунтов → публикация с UTM-трекингом.
@@ -75,7 +75,7 @@ Redis; база знаний — в Obsidian Vault с git-синхронизац
 
 ## ⚡ Почему это работает
 
-- **🤖 Полная автоматизация цикла** — 24 агента покрывают путь от идеи до конверсии без ручного труда.
+- **🤖 Полная автоматизация цикла** — 26 агентов покрывают путь от идеи до конверсии без ручного труда.
 - **🛡 Безопасность контента** — трёхуровневый Compliance Gate (regex L1 → Claude L2/L3) ловит запрещённые клеймы до публикации.
 - **🔐 Защищённый API** — двойная аутентификация (HMAC для n8n + Bearer для dashboard), настраиваемый CORS.
 - **♻️ Отказоустойчивость** — circuit breaker, distributed lock, dead-letter queue, budget guard против перерасхода токенов.
@@ -155,6 +155,8 @@ Redis; база знаний — в Obsidian Vault с git-синхронизац
 | A31 | `competitor_analyst.py` | Анализ хуков конкурентов (дополняет A27) |
 | A32 | `trend_radar.py` | Ранжирование трендовых звуков/хэштегов → «на чём ехать» |
 | A33 | `competitor_scraper.py` | Авто-сбор крипов в `competitor_signals` (кормит A31) |
+| A34 | `caption_agent.py` | Авто-субтитры (ASS/SRT, TikTok-style) + ffmpeg burn |
+| A35 | `tts_agent.py` | Озвучка faceless-видео (self-hosted TTS → ElevenLabs) |
 | — | `transcription_agent.py` | Транскрипция видео (Deepgram → Whisper) + извлечение хука |
 | — | `pipelines/social_publisher.py` | Прямая публикация на 8 платформ через нативные API |
 
@@ -186,6 +188,13 @@ Keitaro postback (UTM → конверсии)
 ---
 
 ## 🆕 Что нового
+
+### Релиз — июль 2026 (медиа)
+
+**🎬 Медиа-агенты для органики**
+- **A34 `caption_agent`** — строит стилизованные субтитры (ASS/SRT, TikTok-style, фразами по 2–4 слова) из word-таймингов Deepgram + ffmpeg-команда burn. Субтитры резко поднимают удержание. Route `POST /caption`.
+- **A35 `tts_agent`** — озвучка faceless-видео: self-hosted TTS (`TTS_SERVER_URL`, Kokoro/Chatterbox) → fallback ElevenLabs, аудио в Supabase Storage. Route `POST /tts`.
+- Dashboard: раздел **«Медиа»** — озвучка скрипта (плеер) и генерация субтитров (ffmpeg-команда + SRT-превью). Агентов **24 → 26** (A12–A35).
 
 ### Релиз — июль 2026
 
