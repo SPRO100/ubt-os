@@ -20,7 +20,7 @@
 
 <br/>
 
-**26 AI-агентов** · **8 платформ** · **5 GEO** · **Live Dashboard** · **Self-hosted**
+**27 AI-агентов** · **8 платформ** · **5 GEO** · **Live Dashboard** · **Self-hosted**
 
 `TikTok` · `Facebook` · `Instagram` · `YouTube` · `Pinterest` · `Threads` · `X` · `LinkedIn`
 
@@ -59,7 +59,7 @@
 
 ## 🎯 Что это
 
-UBT OS — оркестрированная система из **26 AI-агентов**, закрывающая весь цикл
+UBT OS — оркестрированная система из **27 AI-агентов**, закрывающая весь цикл
 партнёрского маркетинга на органике: разведка крипов конкурентов → генерация
 контента → очистка от AI-маркеров → проверка на compliance → производство видео
 и прелендингов → прогрев аккаунтов → публикация с UTM-трекингом.
@@ -159,6 +159,7 @@ Redis; база знаний — в Obsidian Vault с git-синхронизац
 | A35 | `tts_agent.py` | Озвучка faceless-видео (self-hosted TTS → ElevenLabs) |
 | — | `transcription_agent.py` | Транскрипция видео (Deepgram → Whisper) + извлечение хука |
 | — | `pipelines/social_publisher.py` | Прямая публикация на 8 платформ через нативные API |
+| A36 | `post_analytics_agent.py` | Нативная аналитика постов (impressions/reach/likes/comments/shares) |
 
 ---
 
@@ -188,6 +189,21 @@ Keitaro postback (UTM → конверсии)
 ---
 
 ## 🆕 Что нового
+
+### 📊 A36 `post_analytics_agent` — нативная аналитика по постам
+
+Разбор конкурента ([Postiz](https://github.com/gitroomhq/postiz-app)) показал
+реальный пробел: воронка конверсии и A22 `ads_auditor` работали только с
+`revenue_events` (деньги) или ручным вводом — ни одной живой метрики
+вовлечённости с самих площадок не было. Новый A36 синхронизирует
+impressions/reach/views/likes/comments/shares/saves нативно через API
+TikTok/YouTube/Instagram/Facebook/Pinterest/Threads/Twitter/LinkedIn для
+каждого опубликованного поста, используя те же credentials, что и publisher.
+Пишет снапшотами в `post_metrics` ([`deploy/07_patch_post_metrics.sql`](deploy/07_patch_post_metrics.sql)) —
+видно рост метрик со временем, не только точку. Route `POST /analytics/sync`
+или `agent: "post_analytics"` в `/agents/run`. Dashboard: раздел «Аналитика»
+теперь показывает реальные таблицы по платформам и последним постам + кнопка
+синхронизации. Агентов **27** (A12–A36).
 
 ### 🐛 Фикс: добавление аккаунтов Facebook/Pinterest
 
