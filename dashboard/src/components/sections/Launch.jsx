@@ -699,6 +699,113 @@ function A30Card() {
   )
 }
 
+function splitLines(t) {
+  return (t || '').split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
+}
+
+function A31Card() {
+  const [vert, setVert] = useState('nutra')
+  return (
+    <AgentCard id="A31" name="competitor_analyst" desc="Проактивный анализ хуков конкурентов из competitor_signals → тренды (дополняет A27)">
+      {(run, loading) => <>
+        <label className="form-label">Вертикаль</label>
+        <Vertical value={vert} onChange={setVert} />
+        <button className="btn btn-primary" disabled={loading}
+          onClick={() => run('competitor_analyst', { vertical: vert })}>
+          {loading ? 'Анализирую…' : 'Анализировать конкурентов'}
+        </button>
+      </>}
+    </AgentCard>
+  )
+}
+
+function A32Card() {
+  const [vert, setVert] = useState('nutra')
+  const [geo, setGeo] = useState('US')
+  const [hashtags, setHashtags] = useState('')
+  const [sounds, setSounds] = useState('')
+  return (
+    <AgentCard id="A32" name="trend_radar" desc="Ранжирует трендовые звуки/хэштеги под vertical/GEO — на чём ехать сейчас">
+      {(run, loading) => <>
+        <label className="form-label">Вертикаль</label><Vertical value={vert} onChange={setVert} />
+        <label className="form-label">GEO</label><GEO value={geo} onChange={setGeo} />
+        <label className="form-label">Хэштеги (по строке/запятой)</label>
+        <textarea className="form-control" rows={3} value={hashtags} onChange={e => setHashtags(e.target.value)}
+          placeholder="#glowup, #detox" style={{ marginBottom: 6 }} />
+        <label className="form-label">Звуки</label>
+        <textarea className="form-control" rows={2} value={sounds} onChange={e => setSounds(e.target.value)}
+          placeholder="original sound - x" style={{ marginBottom: 6 }} />
+        <button className="btn btn-primary" disabled={loading}
+          onClick={() => run('trend_radar', { vertical: vert, geo, hashtags: splitLines(hashtags), sounds: splitLines(sounds) })}>
+          {loading ? 'Анализирую…' : 'Проанализировать тренды'}
+        </button>
+      </>}
+    </AgentCard>
+  )
+}
+
+function A33Card() {
+  const [vert, setVert] = useState('nutra')
+  const [geo, setGeo] = useState('US')
+  const [query, setQuery] = useState('')
+  return (
+    <AgentCard id="A33" name="competitor_scraper" desc="Авто-сбор крипов по хэштегу/ключу в competitor_signals (кормит A31). Нужен TIKTOK_SCRAPER_URL">
+      {(run, loading) => <>
+        <label className="form-label">Хэштег / ключ</label>
+        <input className="form-control" value={query} onChange={e => setQuery(e.target.value)}
+          placeholder="weightloss" style={{ marginBottom: 6 }} />
+        <label className="form-label">Вертикаль</label><Vertical value={vert} onChange={setVert} />
+        <label className="form-label">GEO</label><GEO value={geo} onChange={setGeo} />
+        <button className="btn btn-primary" disabled={loading}
+          onClick={() => { if (!query.trim()) return; run('competitor_scraper', { query: query.trim(), vertical: vert, geo }) }}>
+          {loading ? 'Собираю…' : 'Собрать крипы'}
+        </button>
+      </>}
+    </AgentCard>
+  )
+}
+
+function A34Card() {
+  const [videoUrl, setVideoUrl] = useState('')
+  const [style, setStyle] = useState('tiktok')
+  return (
+    <AgentCard id="A34" name="caption_agent" desc="Стилизованные субтитры (ASS/SRT, TikTok-style) + ffmpeg burn. Нужен DEEPGRAM_API_KEY">
+      {(run, loading) => <>
+        <label className="form-label">URL видео</label>
+        <input className="form-control" value={videoUrl} onChange={e => setVideoUrl(e.target.value)}
+          placeholder="https://…/video.mp4" style={{ marginBottom: 6 }} />
+        <label className="form-label">Стиль</label>
+        <Sel value={style} onChange={setStyle}>{['tiktok', 'bold_yellow', 'minimal'].map(s => <option key={s}>{s}</option>)}</Sel>
+        <button className="btn btn-primary" disabled={loading}
+          onClick={() => { if (!videoUrl.trim()) return; run('caption_agent', { video_url: videoUrl.trim(), style }) }}>
+          {loading ? 'Строю…' : 'Сделать субтитры'}
+        </button>
+      </>}
+    </AgentCard>
+  )
+}
+
+function A35Card() {
+  const [text, setText] = useState('')
+  const [voice, setVoice] = useState('')
+  return (
+    <AgentCard id="A35" name="tts_agent" desc="Озвучка faceless-видео: self-hosted TTS → ElevenLabs">
+      {(run, loading) => <>
+        <label className="form-label">Скрипт</label>
+        <textarea className="form-control" rows={4} value={text} onChange={e => setText(e.target.value)}
+          placeholder="Текст закадрового голоса…" style={{ marginBottom: 6 }} />
+        <label className="form-label">Voice ID (опц.)</label>
+        <input className="form-control" value={voice} onChange={e => setVoice(e.target.value)}
+          placeholder="default" style={{ marginBottom: 6 }} />
+        <button className="btn btn-primary" disabled={loading}
+          onClick={() => { if (!text.trim()) return; run('tts_agent', { text: text.trim(), voice: voice.trim() || undefined }) }}>
+          {loading ? 'Озвучиваю…' : 'Озвучить'}
+        </button>
+      </>}
+    </AgentCard>
+  )
+}
+
 export default function Launch() {
   return (
     <div className="agent-grid">
@@ -714,6 +821,11 @@ export default function Launch() {
       <A28Card />
       <A29Card />
       <A30Card />
+      <A31Card />
+      <A32Card />
+      <A33Card />
+      <A34Card />
+      <A35Card />
     </div>
   )
 }
