@@ -70,9 +70,10 @@ export default function App() {
   const [health,  setHealth]  = useState(null)
   const [tasks,   setTasks]   = useState(loadTasks)
   const [apiError, setApiError] = useState(null)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   // Hash-роутинг: секция отражается в URL (#/tasks) — работает deep-link и кнопка «назад».
-  function navigate(id) { window.location.hash = `/${id}` }
+  function navigate(id) { window.location.hash = `/${id}`; setMenuOpen(false) }
   useEffect(() => {
     const onHash = () => setSection(sectionFromHash())
     window.addEventListener('hashchange', onHash)
@@ -160,9 +161,11 @@ export default function App() {
         onSelect={navigate}
         allOk={allOk}
         badges={{ tasks: pendingCount }}
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
       />
       <div className="main">
-        <Topbar title={title} sub={sub} supaOk={supaOk} redisOk={redisOk} />
+        <Topbar title={title} sub={sub} supaOk={supaOk} redisOk={redisOk} onMenu={() => setMenuOpen(true)} />
         {apiError && (
           <div className="api-error-banner" role="alert">
             <span>⚠️ Проблема со связью: {apiError}</span>
