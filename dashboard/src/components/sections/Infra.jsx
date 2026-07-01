@@ -12,9 +12,8 @@ export default function Infra({ health }) {
   const checking = health === null || health === undefined
 
   function svcStatus(name) {
-    if (name === 'UBT Agents') return checking ? 'проверка…' : agentsOk ? 'online' : 'offline'
-    if (name === 'Dashboard')  return 'online'
-    // n8n and LiteLLM: not directly checkable from frontend (no CORS-open endpoint)
+    if (name === 'nginx (dashboard + API proxy)') return 'online'
+    if (name === 'UBT Agents')  return checking ? 'проверка…' : agentsOk ? 'online' : 'offline'
     return agentsOk ? 'online' : 'неизвестно'
   }
 
@@ -83,10 +82,10 @@ export default function Infra({ health }) {
             <thead><tr><th>Сервис</th><th>Порт</th><th>Тип</th><th>Статус</th></tr></thead>
             <tbody>
               {[
-                ['n8n','5678','Docker, restart always'],
-                ['LiteLLM','4000','systemd'],
-                ['UBT Agents','8080','systemd'],
-                ['Dashboard','3000','systemd'],
+                ['nginx (dashboard + API proxy)','80','Docker, restart unless-stopped'],
+                ['UBT Agents','8080','Docker (agents), внутренняя сеть'],
+                ['n8n','5678','Docker, отдельный контейнер (не в этом compose)'],
+                ['LiteLLM','4000','Docker, внутренний (без публичного доступа)'],
               ].map(([s,p,t]) => (
                 <tr key={s}>
                   <td className="primary">{s}</td>
@@ -113,19 +112,21 @@ export default function Infra({ health }) {
             <thead><tr><th>Путь</th><th>Сервис</th><th>Особенности</th></tr></thead>
             <tbody>
               {[
-                ['/','Dashboard :3000','gzip, static cache'],
-                ['/agents/','UBT Agents :8080','rate 30r/m, 180s timeout (LLM)'],
-                ['/n8n/','n8n :5678','WebSocket upgrade, 3600s'],
-                ['/litellm/','LiteLLM :4000','SSE streaming, buffering off'],
+                ['/','статика dashboard-static/','gzip, SPA fallback (index.html), кэш статики 1ч'],
+                ['/run/, /agents/run, /publish/, /orchestrator/…','agents:8080 (docker, внутренняя сеть)','rate 30r/m, 180s timeout (LLM)'],
               ].map(([path,svc,note]) => (
                 <tr key={path}>
-                  <td className="primary mono">{path}</td>
+                  <td className="primary mono" style={{ fontSize:11 }}>{path}</td>
                   <td>{svc}</td>
                   <td style={{ color:'var(--faint)', fontSize:12 }}>{note}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <div style={{ fontSize:11, color:'var(--faint)', marginTop:8 }}>
+            n8n и LiteLLM через nginx не проксируются — n8n доступен напрямую на :5678,
+            LiteLLM используется только внутри docker-сети агентами.
+          </div>
         </div>
       </div>
     </>

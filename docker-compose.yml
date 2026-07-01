@@ -80,6 +80,18 @@ services:
       redis:
         condition: service_healthy
 
+  # ── NGINX РЕВЕРС-ПРОКСИ + ДАШБОРД ────────────────────────
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./dashboard-static:/usr/share/nginx/html:ro
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - agents
+
   # ── UBT OS PYTHON АГЕНТЫ ──────────────────────────────────
   agents:
     build:
