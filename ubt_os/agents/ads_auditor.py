@@ -197,7 +197,7 @@ GEO: {geo}
 Проведи полный аудит и верни JSON."""
 
         response = await self.llm.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model="claude-sonnet-5",
             max_tokens=2048,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_msg}],

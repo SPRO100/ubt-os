@@ -138,7 +138,7 @@ class ComplianceGate:
         )
 
         resp = await self.llm.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model="claude-sonnet-5",
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_msg}],
