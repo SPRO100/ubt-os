@@ -8,11 +8,16 @@
 -- 1. ACCOUNTS — владелец: ACCOUNT_MANAGER
 -- ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS accounts (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    platform        TEXT NOT NULL CHECK (platform IN ('tiktok','youtube','instagram','telegram')),
+    -- id — человекочитаемый (напр. 'tiktok_us_001'), используется как account_id
+    -- в warmup_manager / social_publisher / direct_publish_accounts.
+    id              TEXT PRIMARY KEY,
+    platform        TEXT NOT NULL CHECK (platform IN ('tiktok','youtube','instagram','telegram','facebook','pinterest')),
     username        TEXT,
     proxy_id        UUID REFERENCES proxies(id),
-    gologin_profile_id TEXT,
+    proxy               TEXT,           -- строковый прокси, напр. 'mobile:iproyal:us-pool'
+    gologin_profile_id  TEXT,
+    publer_profile_id   TEXT,           -- профиль Publer для A26
+    account_type        TEXT,           -- 'aged' | 'new'
     status          TEXT NOT NULL DEFAULT 'new'
                     CHECK (status IN ('new','warming','active','shadow_banned','hard_banned','replaced','paused')),
     warming_started_at  TIMESTAMPTZ,
@@ -39,7 +44,7 @@ CREATE TABLE IF NOT EXISTS accounts (
 -- ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS content_plans (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    account_id      UUID NOT NULL REFERENCES accounts(id),
+    account_id      TEXT NOT NULL REFERENCES accounts(id),
     title           TEXT NOT NULL,
     format          TEXT,            -- история_трансформации, угадай_счёт и т.д.
     vertical        TEXT CHECK (vertical IN ('nutra','betting')),
@@ -80,7 +85,7 @@ CREATE TABLE IF NOT EXISTS videos (
 CREATE TABLE IF NOT EXISTS publications (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     video_id        UUID NOT NULL REFERENCES videos(id),
-    account_id      UUID NOT NULL REFERENCES accounts(id),
+    account_id      TEXT NOT NULL REFERENCES accounts(id),
     scheduled_at    TIMESTAMPTZ NOT NULL,
     published_at    TIMESTAMPTZ,
     platform_post_id TEXT,

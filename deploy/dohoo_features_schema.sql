@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS transcriptions (
 -- Direct Publish Accounts: токены для прямой публикации (без лимитов)
 CREATE TABLE IF NOT EXISTS direct_publish_accounts (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    account_id       UUID,   -- ссылка на accounts.id (GoLogin аккаунт)
+    account_id       TEXT,   -- ссылка на accounts.id (человекочитаемый id)
     platform         VARCHAR(50) NOT NULL,
     access_token     TEXT,
     refresh_token    TEXT,
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS direct_publish_accounts (
 -- Direct Publish Jobs: очередь прямой публикации (без Blotato)
 CREATE TABLE IF NOT EXISTS direct_publish_jobs (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    account_id       UUID,
+    account_id       TEXT,   -- ссылка на accounts.id (человекочитаемый id)
     platform         VARCHAR(50)  NOT NULL,
     content_type     VARCHAR(20)  DEFAULT 'video',   -- video | image | carousel | text
     media_url        TEXT,
