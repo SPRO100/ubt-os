@@ -15,7 +15,6 @@ import hmac
 import logging
 import os
 import signal
-import sys
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -190,20 +189,35 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
     async def _run_nutra(self, body: dict):
         from ubt_os.core import pipeline_lock
+        from ubt_os.pipelines.video_pipeline import run_video_pipeline
         async with pipeline_lock("video-pipeline-nutra", 600) as acquired:
             if not acquired:
                 logger.info("NUTRA: lock занят, пропускаем")
-                return
+                return {"status": "skipped", "reason": "lock_busy"}
             logger.info("NUTRA pipeline: запуск ✅")
-            # TODO: подключить агентов после FIX #1 применения
+            return await run_video_pipeline(
+                "nutra",
+                geo=body.get("geo", "US"),
+                offer=body.get("offer", ""),
+                count=int(body.get("count", 1)),
+                account_id=body.get("account_id"),
+            )
 
     async def _run_ubt(self, body: dict):
         from ubt_os.core import pipeline_lock
+        from ubt_os.pipelines.video_pipeline import run_video_pipeline
         async with pipeline_lock("video-pipeline-ubt", 600) as acquired:
             if not acquired:
                 logger.info("UBT: lock занят, пропускаем")
-                return
+                return {"status": "skipped", "reason": "lock_busy"}
             logger.info("UBT pipeline: запуск ✅")
+            return await run_video_pipeline(
+                "betting",
+                geo=body.get("geo", "BR"),
+                offer=body.get("offer", ""),
+                count=int(body.get("count", 1)),
+                account_id=body.get("account_id"),
+            )
 
     async def _run_checker(self, body: dict):
         from ubt_os.core import pipeline_lock
@@ -984,13 +998,16 @@ def main():
 
     def _shutdown(signum, frame):
         logger.info("UBT OS: получен сигнал завершения, останавливаем сервер...")
-        server.shutdown()
-        sys.exit(0)
+        # shutdown() нельзя вызывать из потока serve_forever (обработчик сигнала
+        # исполняется в главном потоке) — это дедлок; останавливаем из отдельного
+        import threading
+        threading.Thread(target=server.shutdown, daemon=True).start()
 
     signal.signal(signal.SIGTERM, _shutdown)
     signal.signal(signal.SIGINT, _shutdown)
 
     server.serve_forever()
+    logger.info("UBT OS: сервер остановлен")
 
 
 if __name__ == "__main__":

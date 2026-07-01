@@ -5,27 +5,54 @@
       "id": "trigger",
       "name": "Каждые 60 секунд",
       "type": "n8n-nodes-base.cron",
-      "position": [200, 300],
+      "position": [
+        200,
+        300
+      ],
       "parameters": {
-        "rule": {"interval": [{"field": "seconds", "secondsInterval": 60}]}
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 60
+            }
+          ]
+        }
       }
     },
     {
       "id": "run_checks",
       "name": "Запустить Health Checks",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [420, 300],
+      "position": [
+        420,
+        300
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.AGENTS_WEBHOOK }}/health/check-all",
-        "options": {"timeout": 30000}
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.AGENTS_API_TOKEN }}"
+            }
+          ]
+        }
       }
     },
     {
       "id": "parse",
       "name": "Разобрать результаты",
       "type": "n8n-nodes-base.code",
-      "position": [640, 300],
+      "position": [
+        640,
+        300
+      ],
       "parameters": {
         "jsCode": "const result = $input.first().json;\nconst health = result.health || {};\nconst unhealthy = Object.entries(health).filter(([_,v])=>v==='unhealthy').map(([k])=>k);\nconst degraded  = Object.entries(health).filter(([_,v])=>v==='degraded').map(([k])=>k);\nconst level     = result.level || 0;\nreturn [{ json: { health, unhealthy, degraded, level, fallbacks: result.fallbacks||[] } }];"
       }
@@ -34,16 +61,35 @@
       "id": "level_gate",
       "name": "Уровень деградации?",
       "type": "n8n-nodes-base.switch",
-      "position": [860, 300],
+      "position": [
+        860,
+        300
+      ],
       "parameters": {
         "dataType": "number",
         "value1": "={{ $json.level }}",
         "rules": {
           "rules": [
-            {"operation": "equal", "value2": 0, "output": 0},
-            {"operation": "equal", "value2": 1, "output": 1},
-            {"operation": "equal", "value2": 2, "output": 2},
-            {"operation": "largerEqual", "value2": 3, "output": 3}
+            {
+              "operation": "equal",
+              "value2": 0,
+              "output": 0
+            },
+            {
+              "operation": "equal",
+              "value2": 1,
+              "output": 1
+            },
+            {
+              "operation": "equal",
+              "value2": 2,
+              "output": 2
+            },
+            {
+              "operation": "largerEqual",
+              "value2": 3,
+              "output": 3
+            }
           ]
         }
       }
@@ -52,70 +98,153 @@
       "id": "all_ok",
       "name": "Всё в порядке",
       "type": "n8n-nodes-base.noOp",
-      "position": [1080, 160]
+      "position": [
+        1080,
+        160
+      ]
     },
     {
       "id": "alert_warning",
       "name": "Telegram — WARNING",
       "type": "n8n-nodes-base.telegram",
-      "position": [1080, 260],
+      "position": [
+        1080,
+        260
+      ],
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $env.TELEGRAM_ALERT_CHAT_ID }}",
         "text": "⚠️ *HEALTH MONITOR*\nУровень деградации: *1*\nНедоступно: `{{ $json.unhealthy.join(', ') || 'none' }}`\nFallback активирован.",
-        "additionalFields": {"parse_mode": "Markdown"}
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       }
     },
     {
       "id": "alert_high",
       "name": "Telegram — HIGH",
       "type": "n8n-nodes-base.telegram",
-      "position": [1080, 360],
+      "position": [
+        1080,
+        360
+      ],
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $env.TELEGRAM_ALERT_CHAT_ID }}",
         "text": "🔴 *HEALTH MONITOR — ВЫСОКИЙ УРОВЕНЬ*\nДеградация: *{{ $json.level }}*\nНедоступно ({{ $json.unhealthy.length }}): `{{ $json.unhealthy.join(', ') }}`\nАктивных fallback: {{ $json.fallbacks.length }}\n\nОчереди копятся, только критические задачи.",
-        "additionalFields": {"parse_mode": "Markdown"}
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       }
     },
     {
       "id": "alert_critical",
       "name": "Telegram — CRITICAL",
       "type": "n8n-nodes-base.telegram",
-      "position": [1080, 460],
+      "position": [
+        1080,
+        460
+      ],
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $env.TELEGRAM_ALERT_CHAT_ID }}",
         "text": "🚨🚨 *КРИТИЧЕСКИЙ ОТКАЗ* 🚨🚨\nДеградация: *УРОВЕНЬ {{ $json.level }}*\nНедоступно: *{{ $json.unhealthy.length }}/9* компонентов\n`{{ $json.unhealthy.join(', ') }}`\n\n*ТРЕБУЕТСЯ РУЧНОЕ ВМЕШАТЕЛЬСТВО*",
-        "additionalFields": {"parse_mode": "Markdown"}
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       }
     },
     {
       "id": "pause_pipelines",
       "name": "Остановить пайплайны",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [1300, 460],
+      "position": [
+        1300,
+        460
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.AGENTS_WEBHOOK }}/system/emergency-pause",
         "bodyContentType": "json",
-        "body": {"reason": "critical_degradation", "level": "={{ $json.level }}"}
+        "body": {
+          "reason": "critical_degradation",
+          "level": "={{ $json.level }}"
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.AGENTS_API_TOKEN }}"
+            }
+          ]
+        }
       }
     }
   ],
   "connections": {
-    "Каждые 60 секунд":        {"main":[[{"node":"Запустить Health Checks"}]]},
-    "Запустить Health Checks": {"main":[[{"node":"Разобрать результаты"}]]},
-    "Разобрать результаты":    {"main":[[{"node":"Уровень деградации?"}]]},
-    "Уровень деградации?": {
+    "Каждые 60 секунд": {
       "main": [
-        [{"node":"Всё в порядке"}],
-        [{"node":"Telegram — WARNING"}],
-        [{"node":"Telegram — HIGH"}],
-        [{"node":"Telegram — CRITICAL"}]
+        [
+          {
+            "node": "Запустить Health Checks"
+          }
+        ]
       ]
     },
-    "Telegram — CRITICAL":{"main":[[{"node":"Остановить пайплайны"}]]}
+    "Запустить Health Checks": {
+      "main": [
+        [
+          {
+            "node": "Разобрать результаты"
+          }
+        ]
+      ]
+    },
+    "Разобрать результаты": {
+      "main": [
+        [
+          {
+            "node": "Уровень деградации?"
+          }
+        ]
+      ]
+    },
+    "Уровень деградации?": {
+      "main": [
+        [
+          {
+            "node": "Всё в порядке"
+          }
+        ],
+        [
+          {
+            "node": "Telegram — WARNING"
+          }
+        ],
+        [
+          {
+            "node": "Telegram — HIGH"
+          }
+        ],
+        [
+          {
+            "node": "Telegram — CRITICAL"
+          }
+        ]
+      ]
+    },
+    "Telegram — CRITICAL": {
+      "main": [
+        [
+          {
+            "node": "Остановить пайплайны"
+          }
+        ]
+      ]
+    }
   },
-  "settings": {"timezone":"Europe/Moscow"}
+  "settings": {
+    "timezone": "Europe/Moscow"
+  }
 }
