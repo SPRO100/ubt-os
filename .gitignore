@@ -6,6 +6,4 @@ node_modules/
 .next/
 *.log
 
-# Артефакты сборки дашборда (кладёт deploy-dashboard.yml, раздаёт nginx)
-dashboard-static/*
-!dashboard-static/.gitkeep
+# dashboard-static tracked directly (git pull = instant deploy on server)
