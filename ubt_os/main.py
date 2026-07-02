@@ -140,6 +140,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/tts":                   self._run_tts,
             # A36: синхронизация нативных метрик постов
             "/analytics/sync":        self._run_analytics_sync,
+            # Бесплатный стоковый видео-конвейер (Pexels + edge-tts + ffmpeg)
+            "/video/stock":           self._run_video_stock,
         }
 
         handler = routes.get(self.path)
@@ -201,6 +203,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 offer=body.get("offer", ""),
                 count=int(body.get("count", 1)),
                 account_id=body.get("account_id"),
+                provider=body.get("provider", ""),
             )
 
     async def _run_ubt(self, body: dict):
@@ -217,6 +220,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 offer=body.get("offer", ""),
                 count=int(body.get("count", 1)),
                 account_id=body.get("account_id"),
+                provider=body.get("provider", ""),
             )
 
     async def _run_checker(self, body: dict):
@@ -880,6 +884,18 @@ class WebhookHandler(BaseHTTPRequestHandler):
         if len(urls) == 1:
             return await run_transcription(urls[0], **kwargs)
         return {"results": await run_batch_transcription(urls, **kwargs)}
+
+    async def _run_video_stock(self, body: dict):
+        """Бесплатное faceless-видео: стоковые клипы Pexels + озвучка + ffmpeg."""
+        from ubt_os.pipelines.stock_video import run_stock_video
+        return await run_stock_video(
+            script=body.get("script", ""),
+            vertical=body.get("vertical", "nutra"),
+            geo=body.get("geo", "US"),
+            voice=body.get("voice"),
+            max_clips=int(body.get("max_clips", 4)),
+            keywords=body.get("keywords"),
+        )
 
     async def _run_analytics_sync(self, body: dict):
         """A36 POST_ANALYTICS: синхронизация нативных метрик опубликованных постов."""

@@ -19,6 +19,9 @@ pyrogram==2.0.106
 # Validation
 pydantic==2.13.4
 
+# TTS (бесплатные голоса Microsoft, без ключа)
+edge-tts==7.2.8
+
 # Utilities
 python-dotenv==1.0.1
 typing_extensions==4.15.0

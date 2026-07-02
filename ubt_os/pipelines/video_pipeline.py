@@ -60,6 +60,7 @@ async def run_video_pipeline(
     offer: str = "",
     count: int = 1,
     account_id: str | None = None,
+    provider: str = "",
 ) -> dict:
     acc = _pick_account(vertical, account_id)
     if not acc:
@@ -112,6 +113,8 @@ async def run_video_pipeline(
             mcsla_prompt=mcsla,
             account_id=str(acc["id"]),
             content_plan_id=str(plan["id"]),
+            script=text,
+            provider=provider,
         ))
         created += 1
         items.append({

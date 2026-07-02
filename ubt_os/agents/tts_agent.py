@@ -1,8 +1,9 @@
 """
 A35 — TTS_AGENT
 Озвучка faceless-видео: тонкий клиент к TTS-провайдерам с fallback.
-Порядок: self-hosted сервер (TTS_SERVER_URL — Kokoro/Chatterbox, коммерческие
-лицензии) → ElevenLabs (ELEVENLABS_API_KEY). Аудио грузится в Supabase Storage.
+Порядок: self-hosted сервер (TTS_SERVER_URL — Kokoro/Chatterbox) →
+edge-tts (бесплатно, без ключа) → ElevenLabs (ELEVENLABS_API_KEY).
+Аудио грузится в Supabase Storage.
 
 Запуск: POST /tts
 """
@@ -20,6 +21,10 @@ logger = logging.getLogger("ubt_os.tts_agent")
 
 ELEVENLABS_URL = "https://api.elevenlabs.io/v1/text-to-speech"
 _WORDS_PER_MIN = 150  # средний темп закадрового голоса
+
+# Бесплатные нейроголоса Microsoft (edge-tts) — без ключа и GPU
+EDGE_VOICE_RU_DEFAULT = "ru-RU-DmitryNeural"
+EDGE_VOICE_EN_DEFAULT = "en-US-ChristopherNeural"
 
 
 @dataclass
@@ -64,12 +69,32 @@ def estimate_duration(text: str, wpm: int = _WORDS_PER_MIN) -> float:
 
 
 def pick_provider(server_url: str | None, elevenlabs_key: str | None) -> str | None:
-    """Выбирает провайдера по доступным настройкам."""
+    """Выбирает провайдера по доступным настройкам (без учёта edge)."""
     if server_url:
         return "local"
     if elevenlabs_key:
         return "elevenlabs"
     return None
+
+
+def provider_chain(server_url: str | None, elevenlabs_key: str | None) -> list[str]:
+    """Порядок fallback: self-hosted → edge (всегда доступен) → ElevenLabs."""
+    chain = []
+    if server_url:
+        chain.append("local")
+    chain.append("edge")
+    if elevenlabs_key:
+        chain.append("elevenlabs")
+    return chain
+
+
+def edge_voice_for(text: str, voice: str | None = None) -> str:
+    """Голос edge-tts: явный voice с 'Neural' в имени, иначе по языку текста."""
+    if voice and "Neural" in voice:
+        return voice
+    if re.search(r"[а-яА-ЯёЁ]", text or ""):
+        return os.getenv("EDGE_TTS_VOICE_RU", EDGE_VOICE_RU_DEFAULT)
+    return os.getenv("EDGE_TTS_VOICE_EN", EDGE_VOICE_EN_DEFAULT)
 
 
 # ── Провайдеры ────────────────────────────────────────────
@@ -83,6 +108,21 @@ async def _local(text: str, voice: str, server_url: str) -> bytes | None:
             return resp.content
     except Exception as e:
         logger.warning("tts: self-hosted сервер недоступен: %s", e)
+        return None
+
+
+async def _edge(text: str, voice: str) -> bytes | None:
+    """Бесплатный edge-tts (Microsoft): mp3 без ключа. Длинный текст — нативно."""
+    try:
+        import edge_tts
+        buf = bytearray()
+        communicate = edge_tts.Communicate(text, voice)
+        async for chunk in communicate.stream():
+            if chunk.get("type") == "audio":
+                buf.extend(chunk["data"])
+        return bytes(buf) or None
+    except Exception as e:
+        logger.warning("tts: edge-tts ошибка: %s", e)
         return None
 
 
@@ -124,6 +164,36 @@ def _upload_audio(audio: bytes) -> str | None:
         return None
 
 
+async def synth_speech(
+    text: str,
+    voice: str | None = None,
+    provider: str | None = None,
+) -> tuple[str | None, bytes | None]:
+    """Синтез полного текста по цепочке провайдеров → (провайдер, mp3-байты).
+
+    Используется и /tts, и stock_video_pipeline (там нужны байты, не URL).
+    """
+    server_url = os.getenv("TTS_SERVER_URL")
+    el_key = os.getenv("ELEVENLABS_API_KEY")
+    chain = [provider] if provider else provider_chain(server_url, el_key)
+    chunks = chunk_text(text)
+
+    for prov in chain:
+        audio: bytes | None = None
+        if prov == "local" and server_url:
+            parts = [await _local(c, voice or "default", server_url) for c in chunks]
+            audio = b"".join(p for p in parts if p) or None
+        elif prov == "edge":
+            audio = await _edge(text, edge_voice_for(text, voice))
+        elif prov == "elevenlabs" and el_key:
+            vid = voice or os.getenv("ELEVENLABS_VOICE_ID") or "default"
+            parts = [await _elevenlabs(c, vid, el_key) for c in chunks]
+            audio = b"".join(p for p in parts if p) or None
+        if audio:
+            return prov, audio
+    return None, None
+
+
 async def run_tts(
     text: str,
     voice: str | None = None,
@@ -135,25 +205,12 @@ async def run_tts(
     if not text:
         return {"error": "text обязателен"}
 
-    server_url = os.getenv("TTS_SERVER_URL")
-    el_key = os.getenv("ELEVENLABS_API_KEY")
-    voice = voice or os.getenv("ELEVENLABS_VOICE_ID") or "default"
-
-    chosen = provider or pick_provider(server_url, el_key)
-    if not chosen:
-        return {"error": "нет TTS-провайдера: задай TTS_SERVER_URL или ELEVENLABS_API_KEY"}
-
-    # берём первый кусок для короткой озвучки; длинные скрипты — воркеру по частям
     chunks = chunk_text(text)
-    audio: bytes | None = None
-    if chosen == "local" and server_url:
-        audio = await _local(chunks[0], voice, server_url)
-    elif chosen == "elevenlabs" and el_key:
-        audio = await _elevenlabs(chunks[0], voice, el_key)
+    chosen, audio = await synth_speech(text, voice=voice, provider=provider)
 
     result = TTSResult(
-        provider=chosen, voice=voice, chars=len(text),
-        est_duration_sec=estimate_duration(text),
+        provider=chosen or "none", voice=voice or edge_voice_for(text, voice),
+        chars=len(text), est_duration_sec=estimate_duration(text),
     )
     if audio is None:
         result.error = f"провайдер {chosen} не вернул аудио"

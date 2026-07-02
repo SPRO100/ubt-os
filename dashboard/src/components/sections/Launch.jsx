@@ -1,5 +1,89 @@
 import { useState } from 'react'
-import { runAgentAPI } from '../../api'
+import { runAgentAPI, postAgents } from '../../api'
+
+// Провайдеры видеогенерации: '' = авто-цепочка из env VIDEO_PROVIDER_CHAIN
+const VIDEO_PROVIDERS = [
+  { value: '',           label: '⚙️ Авто (stock → fal → higgsfield)' },
+  { value: 'stock',      label: '🆓 Stock — бесплатно (Pexels + edge-tts)' },
+  { value: 'fal',        label: '💸 fal.ai — Wan 2.5 (~$0.25/ролик)' },
+  { value: 'higgsfield', label: '💎 Higgsfield — кредиты' },
+]
+
+function PipelineCard() {
+  const [vert, setVert]         = useState('nutra')
+  const [geo, setGeo]           = useState('US')
+  const [offer, setOffer]       = useState('')
+  const [count, setCount]       = useState('1')
+  const [provider, setProvider] = useState(localStorage.getItem('video_provider') || '')
+  const [loading, setLoading]   = useState(false)
+  const [result, setResult]     = useState(null)
+  const [error, setError]       = useState(null)
+
+  function changeProvider(v) {
+    setProvider(v)
+    localStorage.setItem('video_provider', v)
+  }
+
+  async function launch() {
+    setLoading(true); setResult(null); setError(null)
+    try {
+      const path = vert === 'betting' ? '/run/ubt' : '/run/nutra'
+      const data = await postAgents(path, { geo, offer, count: Number(count) || 1, provider }, 300000)
+      setResult(data)
+    } catch (e) { setError(e.message) }
+    setLoading(false)
+  }
+
+  return (
+    <div className="agent-card" style={{ gridColumn: '1 / -1', borderColor: 'var(--indigo-bd)' }}>
+      <div className="agent-card-head">
+        <span className="agent-id-tag">PIPELINE</span>
+        <span className="agent-name">Видео-пайплайн: контент → compliance → генерация</span>
+      </div>
+      <div className="agent-desc">
+        A21 скрипт → A25 проверка → очередь генерации. Публикации нет — черновик на одобрение.
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:8 }}>
+        <div>
+          <label className="form-label">Вертикаль</label>
+          <select className="form-control" value={vert} onChange={e=>setVert(e.target.value)}>
+            <option value="nutra">Nutra</option><option value="betting">Betting (UBT)</option>
+          </select>
+        </div>
+        <div>
+          <label className="form-label">GEO</label>
+          <select className="form-control" value={geo} onChange={e=>setGeo(e.target.value)}>
+            {['US','BR','MX','DE','PL'].map(g=><option key={g}>{g}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="form-label">Оффер</label>
+          <input className="form-control" value={offer} onChange={e=>setOffer(e.target.value)} placeholder="Dr.Cash / 1win" />
+        </div>
+        <div>
+          <label className="form-label">Кол-во</label>
+          <input className="form-control" type="number" min="1" max="10" value={count} onChange={e=>setCount(e.target.value)} />
+        </div>
+        <div style={{ gridColumn:'1 / -1' }}>
+          <label className="form-label">Провайдер генерации видео</label>
+          <select className="form-control" value={provider} onChange={e=>changeProvider(e.target.value)}>
+            {VIDEO_PROVIDERS.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}
+          </select>
+        </div>
+      </div>
+      <button className="btn btn-primary btn-block" disabled={loading} style={{ marginTop:10 }}
+        onClick={launch}>
+        {loading ? '⏳ Работает…' : '▶ Запустить пайплайн'}
+      </button>
+      {error && <div className="agent-result"><span style={{ color:'var(--red)' }}>⚠️ {error}</span></div>}
+      {result && (
+        <div className="agent-result">
+          <pre style={{ margin:0, fontSize:11 }}>{JSON.stringify(result, null, 2)}</pre>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function AgentResult({ data, agent }) {
   if (!data) return null
@@ -861,6 +945,7 @@ function A36Card() {
 export default function Launch() {
   return (
     <div className="agent-grid">
+      <PipelineCard />
       <A21Card />
       <A19Card />
       <A20Card />
