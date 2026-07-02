@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { fetchRows, insertRows, SUPABASE_URL, SUPABASE_ANON_KEY, AGENTS_SERVER } from '../../api'
 
-// ── Supabase helpers ─────────────────────────────────────────────────────────
 const SB_HEADERS = {
   apikey: SUPABASE_ANON_KEY,
   Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
@@ -26,7 +25,6 @@ async function sbDelete(table, id) {
   if (!res.ok) throw new Error(await res.text())
 }
 
-// ── Task parser ──────────────────────────────────────────────────────────────
 function parseTaskFromReply(reply, verticalName) {
   const geoMatch    = reply.match(/\b(US|BR|MX|DE|PL|UK|RU)\b/i)
   const countMatch  = reply.match(/(\d+)\s*(видео|роликов|video)/i)
@@ -35,9 +33,7 @@ function parseTaskFromReply(reply, verticalName) {
   return {
     id:          crypto.randomUUID(),
     title:       `Контент: ${verticalName}${countMatch ? ' · ' + countMatch[1] + ' видео' : ''}`,
-    description: reply,
-    plan:        reply,
-    status:      'pending',
+    description: reply, plan: reply, status: 'pending',
     createdAt:   new Date().toISOString(),
     params: {
       vertical: vertMatch?.[1] || verticalName || '',
@@ -48,7 +44,6 @@ function parseTaskFromReply(reply, verticalName) {
   }
 }
 
-// ── Component ────────────────────────────────────────────────────────────────
 export default function Projects({ onCreateTask }) {
   const [projects,    setProjects]    = useState([])
   const [loading,     setLoading]     = useState(true)
@@ -66,16 +61,27 @@ export default function Projects({ onCreateTask }) {
   const [newCategory, setNewCategory] = useState('')
   const [creating,    setCreating]    = useState(false)
 
+  // Three-dots menu
+  const [menuId,      setMenuId]      = useState(null)
+
   // Rename
   const [editId,      setEditId]      = useState(null)
   const [editName,    setEditName]    = useState('')
   const [renaming,    setRenaming]    = useState(false)
 
-  // Delete
+  // Delete confirm
   const [deleteId,    setDeleteId]    = useState(null)
   const [deleting,    setDeleting]    = useState(false)
 
   const logRef = useRef(null)
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuId) return
+    const close = () => setMenuId(null)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [menuId])
 
   function loadProjects() {
     setLoading(true)
@@ -83,20 +89,16 @@ export default function Projects({ onCreateTask }) {
       .then(rows => { setProjects(rows); setLoading(false) })
       .catch(() => setLoading(false))
   }
-
   useEffect(loadProjects, [])
 
   async function openProject(p) {
-    if (editId || deleteId) return
-    setCurrent(p)
-    setPendingTask(null)
-    setCfgOpen(false)
+    if (editId || deleteId || menuId) return
+    setCurrent(p); setPendingTask(null); setCfgOpen(false)
     const [k, h] = await Promise.all([
       fetchRows('knowledge_entries', `select=type,content,created_at&vertical=eq.${p.id}&order=created_at.desc&limit=5`),
       fetchRows('chat_messages',     `select=role,content,created_at&vertical_id=eq.${p.id}&order=created_at.asc&limit=30`),
     ])
-    setKnowledge(k)
-    setHistory(h)
+    setKnowledge(k); setHistory(h)
   }
 
   useEffect(() => {
@@ -115,51 +117,39 @@ export default function Projects({ onCreateTask }) {
       })
       setNewName(''); setNewCategory(''); setNewOpen(false)
       loadProjects()
-    } catch (e) {
-      alert('Ошибка создания: ' + e.message)
-    }
+    } catch (e) { alert('Ошибка создания: ' + e.message) }
     setCreating(false)
   }
 
   // ── RENAME ───────────────────────────────────────────────────────────────
-  function startRename(e, p) {
-    e.stopPropagation()
-    setEditId(p.id)
-    setEditName(p.name)
-    setDeleteId(null)
+  function startRename(p) {
+    setEditId(p.id); setEditName(p.name)
+    setDeleteId(null); setMenuId(null)
   }
 
-  async function confirmRename(e) {
-    e?.stopPropagation()
+  async function confirmRename() {
     if (!editName.trim()) { setEditId(null); return }
     setRenaming(true)
     try {
       await sbPatch('vertical_configs', editId, { name: editName.trim() })
       setProjects(ps => ps.map(p => p.id === editId ? { ...p, name: editName.trim() } : p))
       if (current?.id === editId) setCurrent(c => ({ ...c, name: editName.trim() }))
-    } catch (e) {
-      alert('Ошибка переименования: ' + e.message)
-    }
+    } catch (e) { alert('Ошибка переименования: ' + e.message) }
     setEditId(null); setRenaming(false)
   }
 
   // ── DELETE ───────────────────────────────────────────────────────────────
-  function startDelete(e, p) {
-    e.stopPropagation()
-    setDeleteId(p.id)
-    setEditId(null)
+  function startDelete(p) {
+    setDeleteId(p.id); setEditId(null); setMenuId(null)
   }
 
-  async function confirmDelete(e) {
-    e?.stopPropagation()
+  async function confirmDelete() {
     setDeleting(true)
     try {
       await sbDelete('vertical_configs', deleteId)
       setProjects(ps => ps.filter(p => p.id !== deleteId))
       if (current?.id === deleteId) { setCurrent(null); setHistory([]); setKnowledge([]) }
-    } catch (e) {
-      alert('Ошибка удаления: ' + e.message)
-    }
+    } catch (e) { alert('Ошибка удаления: ' + e.message) }
     setDeleteId(null); setDeleting(false)
   }
 
@@ -168,16 +158,13 @@ export default function Projects({ onCreateTask }) {
     if (!input.trim() || !current) return
     const msg = input.trim()
     setHistory(h => [...h, { role: 'user', content: msg }])
-    setInput('')
-    setSending(true)
-    setPendingTask(null)
+    setInput(''); setSending(true); setPendingTask(null)
     try {
       const res = await fetch(`${AGENTS_SERVER}/orchestrator/chat`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          vertical_id: current.id,
-          message:     msg,
-          history:     history.slice(-20).map(h => ({ role: h.role, content: h.content })),
+          vertical_id: current.id, message: msg,
+          history: history.slice(-20).map(h => ({ role: h.role, content: h.content })),
         }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -194,27 +181,23 @@ export default function Projects({ onCreateTask }) {
   function createTask() {
     if (!pendingTask || !onCreateTask) return
     const task = parseTaskFromReply(pendingTask, current?.name || '')
-    onCreateTask(task)
-    setPendingTask(null)
-    setHistory(h => [...h, {
-      role: 'assistant',
-      content: `✅ Задание #${task.id.slice(-6).toUpperCase()} создано → раздел «Задания»`,
-    }])
+    onCreateTask(task); setPendingTask(null)
+    setHistory(h => [...h, { role: 'assistant',
+      content: `✅ Задание #${task.id.slice(-6).toUpperCase()} создано → раздел «Задания»` }])
   }
 
   // ── RENDER ────────────────────────────────────────────────────────────────
-  const btnBase = { fontSize: 11, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', border: 'none', fontWeight: 600 }
-
   return (
     <>
-      {/* ── Project list ── */}
       <div className="card">
         <div className="card-header">
-          <div className="card-title">📂 Проекты</div>
+          <div className="card-title">📁 Проекты</div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <span className="live-tag">live · {projects.length}</span>
-            <button onClick={() => { setNewOpen(o => !o); setEditId(null); setDeleteId(null) }}
-              style={{ ...btnBase, background: 'var(--indigo)', color: '#fff', padding: '5px 12px' }}>
+            <button
+              onClick={() => { setNewOpen(o => !o); setEditId(null); setDeleteId(null) }}
+              style={{ fontSize: 12, padding: '5px 14px', borderRadius: 8, cursor: 'pointer',
+                background: 'var(--indigo)', color: '#fff', border: 'none', fontWeight: 600 }}>
               {newOpen ? '✕ Закрыть' : '+ Новый проект'}
             </button>
           </div>
@@ -238,28 +221,32 @@ export default function Projects({ onCreateTask }) {
                 className="form-control" style={{ fontSize: 13 }} />
             </div>
             <button onClick={createProject} disabled={creating || !newName.trim()}
-              style={{ ...btnBase, background: 'var(--indigo)', color: '#fff', padding: '8px 16px',
+              style={{ fontSize: 12, padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
+                background: 'var(--indigo)', color: '#fff', border: 'none', fontWeight: 600,
                 opacity: (!newName.trim() || creating) ? .5 : 1 }}>
               {creating ? '…' : 'Создать'}
             </button>
           </div>
         )}
 
-        <div style={{ padding: '14px 18px', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           {loading && <div className="note-box">Загрузка проектов…</div>}
           {!loading && projects.length === 0 && (
             <div className="note-box">Нет проектов. Создай первый ↑</div>
           )}
 
           {projects.map(p => {
+            const isActive = current?.id === p.id
             const isEdit   = editId   === p.id
             const isDel    = deleteId === p.id
-            const isActive = current?.id === p.id
+            const isMenu   = menuId   === p.id
 
             return (
-              <div key={p.id} onClick={() => openProject(p)}
+              <div key={p.id}
+                onClick={() => !isEdit && !isDel && openProject(p)}
                 style={{
-                  flex: '1', minWidth: 180, borderRadius: 10, padding: '12px 14px',
+                  position: 'relative',
+                  borderRadius: 10, padding: '14px 16px',
                   background: isActive ? 'var(--indigo-bg)' : 'var(--surface2)',
                   border: `1px solid ${isActive ? 'var(--indigo-bd)' : 'var(--border)'}`,
                   borderLeft: `3px solid ${isActive ? 'var(--indigo)' : '#60a5fa'}`,
@@ -267,55 +254,102 @@ export default function Projects({ onCreateTask }) {
                   transition: 'all .15s',
                 }}>
 
-                {/* Rename mode */}
+                {/* ── Rename mode ── */}
                 {isEdit ? (
-                  <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <input autoFocus value={editName}
                       onChange={e => setEditName(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') confirmRename(); if (e.key === 'Escape') setEditId(null) }}
-                      className="form-control" style={{ fontSize: 13, flex: 1, padding: '4px 8px' }} />
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') confirmRename()
+                        if (e.key === 'Escape') setEditId(null)
+                      }}
+                      className="form-control" style={{ fontSize: 14, flex: 1, padding: '6px 10px' }} />
                     <button onClick={confirmRename} disabled={renaming}
-                      style={{ ...btnBase, background: 'var(--indigo)', color: '#fff' }}>
-                      {renaming ? '…' : '✓'}
+                      style={{ fontSize: 12, padding: '6px 14px', borderRadius: 7, cursor: 'pointer',
+                        background: 'var(--indigo)', color: '#fff', border: 'none', fontWeight: 700 }}>
+                      {renaming ? '…' : '✓ Сохранить'}
                     </button>
                     <button onClick={e => { e.stopPropagation(); setEditId(null) }}
-                      style={{ ...btnBase, background: 'transparent', border: '1px solid var(--border)', color: 'var(--faint)' }}>
-                      ✕
+                      style={{ fontSize: 12, padding: '6px 10px', borderRadius: 7, cursor: 'pointer',
+                        background: 'transparent', border: '1px solid var(--border)', color: 'var(--faint)' }}>
+                      Отмена
                     </button>
                   </div>
+
                 ) : isDel ? (
-                  /* Delete confirm */
+                  /* ── Delete confirm ── */
                   <div onClick={e => e.stopPropagation()}>
-                    <div style={{ fontSize: 12, color: '#ef4444', fontWeight: 600, marginBottom: 8 }}>
-                      Удалить «{p.name}»?
+                    <div style={{ fontSize: 13, color: '#ef4444', fontWeight: 600, marginBottom: 10 }}>
+                      Удалить проект «{p.name}»? Это действие необратимо.
                     </div>
-                    <div style={{ display: 'flex', gap: 6 }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <button onClick={confirmDelete} disabled={deleting}
-                        style={{ ...btnBase, background: '#ef4444', color: '#fff' }}>
-                        {deleting ? '…' : 'Удалить'}
+                        style={{ fontSize: 12, padding: '6px 16px', borderRadius: 7, cursor: 'pointer',
+                          background: '#ef4444', color: '#fff', border: 'none', fontWeight: 700 }}>
+                        {deleting ? '…' : 'Да, удалить'}
                       </button>
                       <button onClick={e => { e.stopPropagation(); setDeleteId(null) }}
-                        style={{ ...btnBase, background: 'transparent', border: '1px solid var(--border)', color: 'var(--faint)' }}>
+                        style={{ fontSize: 12, padding: '6px 14px', borderRadius: 7, cursor: 'pointer',
+                          background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)' }}>
                         Отмена
                       </button>
                     </div>
                   </div>
+
                 ) : (
-                  /* Normal view */
+                  /* ── Normal view ── */
                   <>
-                    <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{p.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 8 }}>{p.category}</div>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={e => startRename(e, p)}
-                        style={{ ...btnBase, background: 'transparent', border: '1px solid var(--border)',
-                          color: 'var(--muted)', fontSize: 10 }}>
-                        ✏️ Переименовать
-                      </button>
-                      <button onClick={e => startDelete(e, p)}
-                        style={{ ...btnBase, background: 'transparent', border: '1px solid #ef444440',
-                          color: '#ef4444', fontSize: 10 }}>
-                        🗑 Удалить
-                      </button>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                      <div>
+                        <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: 15 }}>{p.name}</div>
+                        <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 3 }}>{p.category}</div>
+                      </div>
+
+                      {/* Three-dots button */}
+                      <div style={{ position: 'relative', flexShrink: 0 }}>
+                        <button
+                          onClick={e => { e.stopPropagation(); setMenuId(isMenu ? null : p.id) }}
+                          style={{
+                            width: 30, height: 30, borderRadius: 8, cursor: 'pointer', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center', fontSize: 18, lineHeight: 1,
+                            background: isMenu ? 'var(--indigo-bg)' : 'transparent',
+                            border: `1px solid ${isMenu ? 'var(--indigo-bd)' : 'transparent'}`,
+                            color: 'var(--muted)',
+                          }}>
+                          ···
+                        </button>
+
+                        {/* Dropdown */}
+                        {isMenu && (
+                          <div onClick={e => e.stopPropagation()}
+                            style={{
+                              position: 'absolute', right: 0, top: 36, zIndex: 100,
+                              background: 'var(--surface)', border: '1px solid var(--border)',
+                              borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.4)',
+                              minWidth: 170, overflow: 'hidden',
+                            }}>
+                            <button
+                              onClick={() => startRename(p)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                                padding: '11px 16px', background: 'transparent', border: 'none',
+                                cursor: 'pointer', fontSize: 13, color: 'var(--text)', textAlign: 'left' }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                              <span>✏️</span> Переименовать
+                            </button>
+                            <div style={{ height: 1, background: 'var(--border)', margin: '0 10px' }} />
+                            <button
+                              onClick={() => startDelete(p)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                                padding: '11px 16px', background: 'transparent', border: 'none',
+                                cursor: 'pointer', fontSize: 13, color: '#ef4444', textAlign: 'left' }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,.08)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                              <span>🗑</span> Удалить
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </>
                 )}
