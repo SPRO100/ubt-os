@@ -33,6 +33,7 @@ export default function Clients({ onCreateTask }) {
   const [input,     setInput]     = useState('')
   const [sending,   setSending]   = useState(false)
   const [pendingTask, setPendingTask] = useState(null) // last assistant reply to convert
+  const [cfgOpen, setCfgOpen] = useState(false) // конфиг проекта свёрнут по умолчанию
   const logRef = useRef(null)
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export default function Clients({ onCreateTask }) {
   async function openProject(p) {
     setCurrent(p)
     setPendingTask(null)
+    setCfgOpen(false)
     const [k, h] = await Promise.all([
       fetchRows('knowledge_entries', `select=type,content,created_at&vertical=eq.${p.id}&order=created_at.desc&limit=5`),
       fetchRows('chat_messages',     `select=role,content,created_at&vertical_id=eq.${p.id}&order=created_at.asc&limit=30`),
@@ -123,16 +125,21 @@ export default function Clients({ onCreateTask }) {
       {current && (
         <>
           <div className="card">
-            <div className="card-header">
+            <div className="card-header" onClick={() => setCfgOpen(o => !o)}
+              style={{ cursor:'pointer', userSelect:'none' }}
+              role="button" aria-expanded={cfgOpen}>
               <div className="card-title">⚙️ Конфигурация: {current.name}</div>
-              <span className="ref-tag">справка</span>
+              <span className="ref-tag">{cfgOpen ? 'скрыть ▴' : 'справка ▾'}</span>
             </div>
-            <div className="card-body">
-              <pre style={{ margin:0, fontSize:11, fontFamily:"'IBM Plex Mono',monospace",
-                color:'var(--muted)', whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
-                {JSON.stringify(current.config_yaml, null, 2)}
-              </pre>
-            </div>
+            {cfgOpen && (
+              <div className="card-body">
+                <pre style={{ margin:0, fontSize:11, fontFamily:"'IBM Plex Mono',monospace",
+                  color:'var(--muted)', whiteSpace:'pre-wrap', wordBreak:'break-word',
+                  maxHeight:320, overflowY:'auto' }}>
+                  {JSON.stringify(current.config_yaml, null, 2)}
+                </pre>
+              </div>
+            )}
           </div>
 
           <div className="card">

@@ -372,13 +372,21 @@ textarea.form-control { resize:vertical; min-height:60px; }
 /* ── AGENT LAUNCHER ───────────────────────────────────────── */
 .agent-grid {
   display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
-  gap:12px;
+  gap:12px; align-items:start;   /* свёрнутые карточки не растягиваются по строке */
 }
 .agent-card {
   background:var(--surface); border:1px solid var(--border);
   border-radius:12px; padding:18px;
 }
+.agent-card.collapsed { padding:14px 18px; }
+.agent-card.collapsed .agent-desc { margin-bottom:0; }
 .agent-card-head { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.agent-toggle {
+  width:100%; background:none; border:none; cursor:pointer;
+  padding:0; text-align:left; color:inherit;
+}
+.agent-toggle:hover .agent-name { color:#a5b4fc; }
+.agent-chevron { margin-left:auto; color:var(--faint); font-size:13px; flex-shrink:0; }
 .agent-id-tag {
   font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:600;
   background:var(--surface2); border:1px solid var(--border2);
