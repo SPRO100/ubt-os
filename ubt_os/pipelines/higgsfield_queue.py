@@ -50,6 +50,18 @@ STATUS_POLL_SEC      = 20
 # product ads, TikTok/Reels ready», 12–15 сек, 9:16, звук — наш кейс UGC.
 DEFAULT_VIDEO_MODEL  = os.getenv("HIGGSFIELD_MODEL", "marketing_studio_video")
 
+# ── Мультипровайдерная генерация ──────────────────────────
+# Цепочка fallback: перечисли через запятую в порядке приоритета.
+#   stock      — бесплатно: Pexels + edge-tts + ffmpeg (нужен PEXELS_API_KEY)
+#   fal        — дёшево: fal.ai / Wan 2.5 ≈ $0.05/сек (нужен FAL_KEY)
+#   higgsfield — кредиты Higgsfield MCP (нужен HIGGSFIELD_API_KEY)
+# Переопределяется на уровне задания полем VideoJob.provider.
+PROVIDER_CHAIN = [p.strip() for p in
+                  os.getenv("VIDEO_PROVIDER_CHAIN", "stock,fal,higgsfield").split(",")
+                  if p.strip()]
+FAL_QUEUE_URL   = "https://queue.fal.run"
+FAL_VIDEO_MODEL = os.getenv("FAL_VIDEO_MODEL", "fal-ai/wan-25-preview/text-to-video")
+
 # Приоритеты (меньше = выше приоритет в Sorted Set)
 PRIORITY = {
     "betting": 1,
@@ -72,6 +84,8 @@ class VideoJob:
     model:          str = ""  # пусто → DEFAULT_VIDEO_MODEL воркера
     retry_count:    int = 0
     created_at:     float = 0.0
+    script:         str = ""  # чистый текст озвучки (для stock-провайдера)
+    provider:       str = ""  # переключатель: stock|fal|higgsfield; пусто → цепочка
 
     def __post_init__(self):
         if not self.created_at:
@@ -347,6 +361,73 @@ class HiggsFieldWorker:
         return m.group(0) if m else None
 
     async def _generate_video(self, job: VideoJob) -> dict:
+        """Диспетчер: пробует провайдеров по цепочке (или один из job.provider)."""
+        chain = [job.provider] if job.provider else PROVIDER_CHAIN
+        errors: list[str] = []
+        for prov in chain:
+            try:
+                if prov == "stock":
+                    if not os.getenv("PEXELS_API_KEY"):
+                        continue
+                    from ubt_os.pipelines.stock_video import run_stock_video
+                    r = await run_stock_video(
+                        job.script or job.mcsla_prompt, vertical=job.vertical)
+                    if r.get("video_url"):
+                        return r
+                    errors.append(f"stock: {r.get('error')}")
+                elif prov == "fal":
+                    if not os.getenv("FAL_KEY"):
+                        continue
+                    return await self._generate_fal(job)
+                elif prov == "higgsfield":
+                    if not self.api_key:
+                        continue
+                    return await self._generate_higgsfield(job)
+                else:
+                    errors.append(f"неизвестный провайдер: {prov}")
+            except Exception as e:
+                errors.append(f"{prov}: {e}")
+                logger.warning("[Worker] провайдер %s упал: %s — пробуем следующий", prov, e)
+        raise RuntimeError("; ".join(errors) or "нет доступных видео-провайдеров "
+                           "(задай PEXELS_API_KEY / FAL_KEY / HIGGSFIELD_API_KEY)")
+
+    async def _generate_fal(self, job: VideoJob) -> dict:
+        """fal.ai queue API: submit → poll status → result (Wan 2.5 и др.)."""
+        fal_key = os.environ["FAL_KEY"]
+        headers = {"Authorization": f"Key {fal_key}", "Content-Type": "application/json"}
+        payload: dict = {"prompt": job.mcsla_prompt, "aspect_ratio": "9:16"}
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(f"{FAL_QUEUE_URL}/{FAL_VIDEO_MODEL}",
+                                     headers=headers, json=payload)
+            if resp.status_code == 422:  # модель не знает aspect_ratio — без него
+                payload.pop("aspect_ratio", None)
+                resp = await client.post(f"{FAL_QUEUE_URL}/{FAL_VIDEO_MODEL}",
+                                         headers=headers, json=payload)
+            resp.raise_for_status()
+            sub = resp.json()
+            status_url   = sub.get("status_url")
+            response_url = sub.get("response_url")
+            if not (status_url and response_url):
+                raise RuntimeError(f"fal: неожиданный ответ submit: {str(sub)[:200]}")
+
+            deadline = time.time() + GENERATION_TIMEOUT - 60
+            while time.time() < deadline:
+                await asyncio.sleep(STATUS_POLL_SEC)
+                st = (await client.get(status_url, headers=headers)).json()
+                status = st.get("status")
+                if status == "COMPLETED":
+                    result = (await client.get(response_url, headers=headers)).json()
+                    url = (result.get("video") or {}).get("url") or \
+                        self._find_video_url(json.dumps(result))
+                    if not url:
+                        raise RuntimeError(f"fal: нет URL в результате: {str(result)[:200]}")
+                    return {"provider": "fal", "video_url": url,
+                            "duration": result.get("duration", 0)}
+                if status in ("FAILED", "CANCELLED"):
+                    raise RuntimeError(f"fal: генерация {status}: {str(st)[:200]}")
+            raise RuntimeError(f"fal: не успела за {GENERATION_TIMEOUT}s")
+
+    async def _generate_higgsfield(self, job: VideoJob) -> dict:
         """Генерация через Higgsfield MCP: generate_video → опрос до готовности."""
         async with httpx.AsyncClient(timeout=120) as client:
             session_id = await self._mcp_session(client)

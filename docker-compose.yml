@@ -135,6 +135,14 @@ services:
       OPENAI_API_KEY:       ${OPENAI_API_KEY:-}
       MEDIA_BUCKET:         ${MEDIA_BUCKET:-media}
       TTS_SERVER_URL:       ${TTS_SERVER_URL:-}
+      # Переключатель видео-провайдеров (stock=бесплатно, fal=дёшево)
+      VIDEO_PROVIDER_CHAIN: ${VIDEO_PROVIDER_CHAIN:-stock,fal,higgsfield}
+      PEXELS_API_KEY:       ${PEXELS_API_KEY:-}
+      FAL_KEY:              ${FAL_KEY:-}
+      FAL_VIDEO_MODEL:      ${FAL_VIDEO_MODEL:-fal-ai/wan-25-preview/text-to-video}
+      HIGGSFIELD_MODEL:     ${HIGGSFIELD_MODEL:-marketing_studio_video}
+      EDGE_TTS_VOICE_RU:    ${EDGE_TTS_VOICE_RU:-ru-RU-DmitryNeural}
+      EDGE_TTS_VOICE_EN:    ${EDGE_TTS_VOICE_EN:-en-US-ChristopherNeural}
     volumes:
       - obsidian_vault:/app/obsidian-vault
     depends_on:
@@ -153,10 +161,22 @@ services:
     environment:
       REDIS_URL:            redis://:${REDIS_PASSWORD}@redis:6379
       HIGGSFIELD_API_KEY:   ${HIGGSFIELD_API_KEY}
+      HIGGSFIELD_MODEL:     ${HIGGSFIELD_MODEL:-marketing_studio_video}
       SUPABASE_URL:         ${SUPABASE_URL}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       TELEGRAM_ALERT_BOT_TOKEN: ${TELEGRAM_ALERT_BOT_TOKEN}
       TELEGRAM_ALERT_CHAT_ID:   ${TELEGRAM_ALERT_CHAT_ID}
+      # Мультипровайдерная генерация: stock (Pexels+edge-tts) и fal.ai
+      ANTHROPIC_API_KEY:    ${ANTHROPIC_API_KEY}
+      VIDEO_PROVIDER_CHAIN: ${VIDEO_PROVIDER_CHAIN:-stock,fal,higgsfield}
+      PEXELS_API_KEY:       ${PEXELS_API_KEY:-}
+      FAL_KEY:              ${FAL_KEY:-}
+      FAL_VIDEO_MODEL:      ${FAL_VIDEO_MODEL:-fal-ai/wan-25-preview/text-to-video}
+      MEDIA_BUCKET:         ${MEDIA_BUCKET:-media}
+      EDGE_TTS_VOICE_RU:    ${EDGE_TTS_VOICE_RU:-ru-RU-DmitryNeural}
+      EDGE_TTS_VOICE_EN:    ${EDGE_TTS_VOICE_EN:-en-US-ChristopherNeural}
+      ELEVENLABS_API_KEY:   ${ELEVENLABS_API_KEY:-}
+      TTS_SERVER_URL:       ${TTS_SERVER_URL:-}
     depends_on:
       redis:
         condition: service_healthy
