@@ -154,7 +154,10 @@ def _upload_audio(audio: bytes) -> str | None:
         with httpx.Client(timeout=60) as client:
             resp = client.post(
                 f"{supabase_url}/storage/v1/object/{bucket}/{name}",
-                headers={"Authorization": f"Bearer {service_key}", "Content-Type": "audio/mpeg"},
+                # новые ключи sb_secret_* требуют и apikey, и Authorization
+                headers={"Authorization": f"Bearer {service_key}",
+                         "apikey": service_key,
+                         "Content-Type": "audio/mpeg"},
                 content=audio,
             )
             resp.raise_for_status()

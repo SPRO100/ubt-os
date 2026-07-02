@@ -181,7 +181,9 @@ def _upload_video(data: bytes) -> str | None:
         with httpx.Client(timeout=120) as client:
             resp = client.post(
                 f"{supabase_url}/storage/v1/object/{bucket}/{name}",
+                # новые ключи sb_secret_* требуют и apikey, и Authorization
                 headers={"Authorization": f"Bearer {service_key}",
+                         "apikey": service_key,
                          "Content-Type": "video/mp4"},
                 content=data,
             )
