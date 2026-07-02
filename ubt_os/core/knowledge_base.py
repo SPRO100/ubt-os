@@ -25,9 +25,13 @@ KB_SCHEMA_SQL = """
 -- FIX #9: Knowledge Base с версионированием
 -- Записи НИКОГДА не удаляются и не обновляются напрямую.
 -- Новая версия создаётся как новая строка.
+--
+-- Реальная схема применяется через deploy/08_patch_kb_entries.sql.
+-- Таблица называется kb_entries (НЕ knowledge_entries — та занята
+-- под записи A18 knowledge_synthesizer со схемой type/content/date).
 -- ─────────────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS knowledge_entries (
+CREATE TABLE IF NOT EXISTS kb_entries (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
     -- Идентификация
@@ -43,7 +47,7 @@ CREATE TABLE IF NOT EXISTS knowledge_entries (
     -- Версионирование
     version         INT  NOT NULL DEFAULT 1,
     is_current      BOOLEAN NOT NULL DEFAULT TRUE,
-    superseded_by   UUID REFERENCES knowledge_entries(id),
+    superseded_by   UUID REFERENCES kb_entries(id),
     
     -- Метаданные изменения
     changed_by      TEXT NOT NULL DEFAULT 'OPTIMIZER',  -- агент или 'user'
@@ -58,14 +62,14 @@ CREATE TABLE IF NOT EXISTS knowledge_entries (
 );
 
 -- Уникальность: только одна current запись на ключ
-CREATE UNIQUE INDEX IF NOT EXISTS idx_kb_current
-    ON knowledge_entries(entry_key)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_kb_entries_current
+    ON kb_entries(entry_key)
     WHERE is_current = TRUE;
 
 -- Быстрый поиск по категории
-CREATE INDEX IF NOT EXISTS idx_kb_category   ON knowledge_entries(category);
-CREATE INDEX IF NOT EXISTS idx_kb_vertical   ON knowledge_entries(vertical);
-CREATE INDEX IF NOT EXISTS idx_kb_created    ON knowledge_entries(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_kb_entries_category   ON kb_entries(category);
+CREATE INDEX IF NOT EXISTS idx_kb_entries_vertical   ON kb_entries(vertical);
+CREATE INDEX IF NOT EXISTS idx_kb_entries_created    ON kb_entries(created_at DESC);
 
 -- Таблица бан-паттернов (отдельная для быстрого поиска)
 CREATE TABLE IF NOT EXISTS ban_patterns (
@@ -94,15 +98,19 @@ class KnowledgeBase:
     Новые версии создаются через update(), старые сохраняются.
     """
 
-    def __init__(self, db_client):
+    # kb_entries — версионируемая таксономия. НЕ knowledge_entries (там A18).
+    TABLE = "kb_entries"
+
+    def __init__(self, db_client, table: str | None = None):
         self.db = db_client
+        self.table = table or self.TABLE
 
     # ── ЧИТАТЬ ──────────────────────────────────────────
 
     def get_current(self, entry_key: str) -> Optional[dict]:
         """Возвращает актуальную версию записи."""
         res = (
-            self.db.table("knowledge_entries")
+            self.db.table(self.table)
             .select("*")
             .eq("entry_key", entry_key)
             .eq("is_current", True)
@@ -114,7 +122,7 @@ class KnowledgeBase:
     def get_history(self, entry_key: str) -> list[dict]:
         """Возвращает полную историю изменений по ключу."""
         return (
-            self.db.table("knowledge_entries")
+            self.db.table(self.table)
             .select("id,version,title,changed_by,change_reason,created_at,is_current")
             .eq("entry_key", entry_key)
             .order("version", desc=True)
@@ -126,7 +134,7 @@ class KnowledgeBase:
                tags: list[str] | None = None) -> list[dict]:
         """Поиск по категории/вертикали/тегам (только current)."""
         q = (
-            self.db.table("knowledge_entries")
+            self.db.table(self.table)
             .select("id,entry_key,title,category,vertical,version,created_at")
             .eq("is_current", True)
         )
@@ -160,7 +168,7 @@ class KnowledgeBase:
                 f"Запись '{entry_key}' уже существует (v{existing['version']}). "
                 f"Используй update() для изменения."
             )
-        row = self.db.table("knowledge_entries").insert({
+        row = self.db.table(self.table).insert({
             "entry_key":    entry_key,
             "category":     category,
             "vertical":     vertical,
@@ -207,7 +215,7 @@ class KnowledgeBase:
         new_id      = str(uuid.uuid4())
 
         # 1. Вставляем новую версию
-        new_row = self.db.table("knowledge_entries").insert({
+        new_row = self.db.table(self.table).insert({
             "id":           new_id,
             "entry_key":    entry_key,
             "category":     current["category"],
@@ -225,7 +233,7 @@ class KnowledgeBase:
         }).execute().data[0]
 
         # 2. Помечаем старую как устаревшую
-        self.db.table("knowledge_entries").update({
+        self.db.table(self.table).update({
             "is_current":   False,
             "superseded_by": new_id,
             "valid_until":  now.isoformat(),
@@ -251,7 +259,7 @@ class KnowledgeBase:
 
         # Получаем полный контент целевой версии
         full_target = (
-            self.db.table("knowledge_entries")
+            self.db.table(self.table)
             .select("*").eq("id", target["id"])
             .single().execute().data
         )
