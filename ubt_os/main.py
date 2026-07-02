@@ -47,6 +47,165 @@ def _get_db():
     )
 
 
+# ── Парсер файлов аккаунтов (/accounts/parse-file) ───────────────────────────
+
+_ACC_PLATFORMS = {'tiktok', 'facebook', 'instagram', 'pinterest', 'youtube', 'threads'}
+_ACC_GEOS = {
+    'US','BR','MX','DE','PL','TR','IN','NG','RU','KZ','UA',
+    'FR','GB','ES','IT','AU','CA','JP','TH','VN','ID','PH',
+}
+_DATE_RE = None  # инициализируется лениво
+
+def _is_date_like(s: str) -> bool:
+    import re as _re
+    global _DATE_RE
+    if _DATE_RE is None:
+        _DATE_RE = _re.compile(
+            r'^\d{1,2}[./\-]\d{1,2}[./\-]\d{2,4}$|^\d{4}[./\-]\d{2}[./\-]\d{2}$'
+        )
+    return bool(_DATE_RE.match(s.strip()))
+
+
+def _platform_from_filename(name: str) -> str | None:
+    n = name.lower()
+    if 'tiktok' in n or 'tok' in n: return 'tiktok'
+    if 'facebook' in n or '/fb' in n or n.startswith('fb'): return 'facebook'
+    if 'instagram' in n or 'insta' in n or '/ig' in n: return 'instagram'
+    if 'pinterest' in n or 'pin' in n: return 'pinterest'
+    if 'youtube' in n or 'yt' in n: return 'youtube'
+    return None
+
+
+def _detect_delim(line: str) -> str:
+    # Запятая/pipe/tab/точка-с-запятой имеют приоритет — стандартные CSV-разделители
+    for d in [',', '|', '\t', ';']:
+        if d in line:
+            return d
+    # Двоеточие — формат продавца (login:pass или login:pass:email:...)
+    if ':' in line:
+        return ':'
+    return ','
+
+
+def _parse_account_line(line: str, platform_hint: str | None) -> dict | None:
+    """Парсит одну строку файла аккаунта в dict или None при ошибке."""
+    line = line.strip()
+    if not line or line.startswith('#'):
+        return None
+
+    delim = _detect_delim(line)
+    parts = [p.strip() for p in line.split(delim)]
+
+    account_id = parts[0]
+    if not account_id:
+        return None
+
+    # Стандартный CSV нашего формата: id,platform,geo,proxy,publer_id,type
+    if delim == ',' and len(parts) >= 2 and parts[1].lower() in _ACC_PLATFORMS:
+        geo = parts[2].upper() if len(parts) > 2 else 'US'
+        geo = geo if geo in _ACC_GEOS else 'US'
+        return {
+            'id': account_id,
+            'platform': parts[1].lower(),
+            'geo': geo,
+            'proxy': parts[3] or None if len(parts) > 3 else None,
+            'publer_profile_id': parts[4] or None if len(parts) > 4 else None,
+            'account_type': (parts[5] or 'aged') if len(parts) > 5 else 'aged',
+            'status': 'new',
+        }
+
+    # Формат продавца: login:password:email:phone:proxy или login|password|geo...
+    platform = platform_hint or 'tiktok'
+    geo = 'US'
+    proxy = None
+
+    for field in parts[1:]:
+        f = field.strip()
+        if not f or _is_date_like(f):
+            continue
+        fu = f.upper()
+        if fu in _ACC_GEOS:
+            geo = fu
+        elif f.lower() in _ACC_PLATFORMS:
+            platform = f.lower()
+        elif ':' in f and len(f.split(':')) >= 2 and not _is_date_like(f):
+            # выглядит как прокси (host:port или type:host:port)
+            parts_p = f.split(':')
+            if parts_p[0].lower() in ('http','https','socks5','mobile','residential','dc','static'):
+                proxy = f
+            elif all(c.isdigit() or c == '.' for c in parts_p[-1]):
+                proxy = f  # host:port
+
+    return {
+        'id': account_id,
+        'platform': platform,
+        'geo': geo,
+        'proxy': proxy,
+        'publer_profile_id': None,
+        'account_type': 'aged',
+        'status': 'new',
+    }
+
+
+def _parse_file_bytes(raw_bytes: bytes, filename: str,
+                      platform_hint: str | None) -> dict:
+    """Разбирает байты файла (.txt/.csv/.zip) в список аккаунтов."""
+    import zipfile, io
+
+    ext = filename.lower().rsplit('.', 1)[-1] if '.' in filename else ''
+    lines_with_meta: list[tuple[str, str | None, str]] = []  # (line, platform, src)
+
+    if ext == 'zip':
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw_bytes)) as zf:
+                for name in sorted(zf.namelist()):
+                    if name.lower().endswith(('.txt', '.csv')) and '__MACOSX' not in name:
+                        plat = _platform_from_filename(name) or platform_hint
+                        text = zf.read(name).decode('utf-8', errors='ignore')
+                        for ln in text.splitlines():
+                            ln = ln.strip()
+                            if ln and not ln.startswith('#'):
+                                lines_with_meta.append((ln, plat, name))
+        except zipfile.BadZipFile:
+            return {'error': 'Не удалось открыть ZIP-архив'}
+    else:
+        text = raw_bytes.decode('utf-8', errors='ignore')
+        plat = _platform_from_filename(filename) or platform_hint
+        for ln in text.splitlines():
+            ln = ln.strip()
+            if ln and not ln.startswith('#'):
+                lines_with_meta.append((ln, plat, filename))
+
+    # Пропустить заголовок CSV если он есть
+    if lines_with_meta and lines_with_meta[0][0].lower().startswith(('id,', 'id|', 'login', 'username', 'account')):
+        lines_with_meta = lines_with_meta[1:]
+
+    accounts: list[dict] = []
+    errors: list[str] = []
+    seen_ids: set[str] = set()
+
+    for i, (ln, plat, src) in enumerate(lines_with_meta, 1):
+        rec = _parse_account_line(ln, plat)
+        if rec is None:
+            if ln:
+                errors.append(f'{src} стр.{i}: не распознано — {ln[:60]}')
+        elif rec['id'] in seen_ids:
+            errors.append(f'{src} стр.{i}: дубль ID {rec["id"]}')
+        else:
+            seen_ids.add(rec['id'])
+            accounts.append(rec)
+        if len(accounts) >= 1000:
+            errors.append('⚠ Достигнут лимит 1000 аккаунтов за один импорт')
+            break
+
+    return {
+        'accounts': accounts,
+        'errors': errors[:60],
+        'raw_lines': len(lines_with_meta),
+        'parsed': len(accounts),
+    }
+
+
 class WebhookHandler(BaseHTTPRequestHandler):
     """Принимает POST-запросы от n8n и запускает нужный пайплайн."""
 
@@ -144,6 +303,14 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/video/stock":           self._run_video_stock,
             # Структурированная база знаний по таксономии
             "/knowledge/kb":          self._run_kb_search,
+            # Парсинг файлов аккаунтов (txt/csv/zip → список записей)
+            "/accounts/parse-file":   self._run_parse_file,
+            # Health check (POST для совместимости с n8n — делает то же что GET)
+            "/health/check-all":      self._run_health_check_post,
+            # Экстренная пауза всех активных аккаунтов (n8n health-monitor)
+            "/system/emergency-pause": self._run_emergency_pause,
+            # Пауза конкретных аккаунтов по risk_level=stop (n8n risk-engine-monitor)
+            "/risk/pause-accounts":   self._run_risk_pause_accounts,
         }
 
         handler = routes.get(self.path)
@@ -168,6 +335,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/metrics":
             self._serve_metrics()
+            return
+        if self.path == "/health/env":
+            self._serve_env_check()
             return
         self._respond(404, {"error": "unknown route"})
 
@@ -301,15 +471,39 @@ class WebhookHandler(BaseHTTPRequestHandler):
             .execute()
         ).data
 
-        # Структурированная база знаний (записана через [LEARN] маркеры)
+        # Структурированная база знаний — релевантные записи по вертикали + ключевым словам сообщения
+        from ubt_os.core.kb_context import load_kb_context as _load_kb
+        from ubt_os.core.knowledge_taxonomy import PLATFORMS, PROCESSES, SCHEMES
+        _msg_lower = message.lower()
+        _detected_platform = next((p for p in PLATFORMS if p != "any" and p in _msg_lower), None)
+        _detected_process   = next((p for p in PROCESSES if p in _msg_lower), None)
+        _detected_scheme    = next((s for s in SCHEMES   if s in _msg_lower), None)
+        # Вертикаль из конфига проекта (yaml содержит ключ vertical)
+        import re as _re2
+        _proj_vertical_m = _re2.search(r"vertical:\s*(\w+)", project.get("config_yaml", ""))
+        _proj_vertical = _proj_vertical_m.group(1) if _proj_vertical_m else None
         kb_learnings = (
             db.table("kb_entries")
             .select("entry_key,title,content,created_at")
             .eq("is_current", True)
             .order("created_at", desc=True)
-            .limit(10)
+            .limit(20)
             .execute()
         ).data
+        # Сортируем по релевантности: совпадение vertical/platform/process в entry_key — выше
+        def _relevance(e):
+            key = e.get("entry_key", "")
+            score = 0
+            if _proj_vertical and _proj_vertical in key:
+                score += 4
+            if _detected_platform and _detected_platform in key:
+                score += 3
+            if _detected_process and _detected_process in key:
+                score += 2
+            if _detected_scheme and _detected_scheme in key:
+                score += 1
+            return score
+        kb_learnings = sorted(kb_learnings, key=_relevance, reverse=True)[:8]
 
         history = (
             db.table("chat_messages")
@@ -368,8 +562,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
         kb_section = ""
         if kb_learnings:
-            kb_section = "\n\nБАЗА ЗНАНИЙ (зафиксированные рабочие схемы):\n" + "\n".join(
-                f"- [{k['entry_key']}] {k['title']}: {k['content'][:200]}"
+            kb_section = "\n\nБАЗА ЗНАНИЙ (зафиксированные рабочие схемы, отсортированы по релевантности):\n" + "\n".join(
+                f"- [{k['entry_key']}] {k['title']}:\n  {k['content'][:500]}"
                 for k in kb_learnings
             )
 
@@ -388,7 +582,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
         client = AsyncAnthropic()
         resp = await client.messages.create(
-            model="claude-sonnet-5",
+            model="claude-sonnet-4-6",
             max_tokens=1024,
             system=system_prompt,
             messages=messages,  # type: ignore[arg-type]  # роли валидируются на стороне БД
@@ -1114,6 +1308,118 @@ class WebhookHandler(BaseHTTPRequestHandler):
             status["redis"] = f"error: {e}"
 
         self._respond(200, status)
+
+    async def _run_health_check_post(self, body: dict) -> dict:
+        """POST /health/check-all — POST-обёртка для совместимости с n8n.
+        GET-версия по-прежнему работает для браузеров/curl."""
+        status = {"supabase": "unknown", "redis": "unknown"}
+        try:
+            db = _get_db()
+            db.table("accounts").select("id").limit(1).execute()
+            status["supabase"] = "ok"
+        except Exception as e:
+            status["supabase"] = f"error: {e}"
+        try:
+            import redis
+            r = redis.from_url(os.environ["REDIS_URL"])
+            r.ping()
+            status["redis"] = "ok"
+        except Exception as e:
+            status["redis"] = f"error: {e}"
+        return status
+
+    async def _run_emergency_pause(self, body: dict) -> dict:
+        """POST /system/emergency-pause — ставит все активные аккаунты на паузу.
+        Вызывается n8n health-monitor при critical_degradation."""
+        reason = body.get("reason", "manual")
+        level  = body.get("level", "unknown")
+        logger.warning("ЭКСТРЕННАЯ ПАУЗА: reason=%s level=%s", reason, level)
+        try:
+            db = _get_db()
+            # Ставим на паузу все аккаунты кроме уже заблокированных/banned
+            res = (
+                db.table("accounts")
+                .update({"status": "paused"})
+                .not_.in_("status", ["banned", "paused"])
+                .execute()
+            )
+            paused = len(res.data or [])
+            # Telegram-алерт (если настроен)
+            bot   = os.getenv("TELEGRAM_ALERT_BOT_TOKEN")
+            chat  = os.getenv("TELEGRAM_ALERT_CHAT_ID")
+            if bot and chat:
+                import urllib.request as _ur, urllib.parse as _up
+                msg = f"⛔ EMERGENCY PAUSE\nПричина: {reason}\nУровень: {level}\nАккаунтов приостановлено: {paused}"
+                _ur.urlopen(
+                    f"https://api.telegram.org/bot{bot}/sendMessage"
+                    f"?chat_id={chat}&text={_up.quote(msg)}",
+                    timeout=5,
+                )
+            return {"status": "paused", "accounts_paused": paused, "reason": reason}
+        except Exception as exc:
+            logger.exception("emergency_pause: ошибка")
+            return {"error": str(exc)}
+
+    async def _run_risk_pause_accounts(self, body: dict) -> dict:
+        """POST /risk/pause-accounts — пауза конкретных аккаунтов по risk_level=stop.
+        Вызывается n8n risk-engine-monitor."""
+        accounts = body.get("accounts", [])
+        if not accounts:
+            return {"status": "ok", "paused": 0, "note": "список пуст"}
+        if not isinstance(accounts, list):
+            return {"error": "accounts должен быть списком строк"}
+        try:
+            db = _get_db()
+            res = (
+                db.table("accounts")
+                .update({"status": "paused"})
+                .in_("id", accounts[:200])  # защита от слишком большого списка
+                .execute()
+            )
+            paused = len(res.data or [])
+            logger.info("risk_pause_accounts: приостановлено %d аккаунтов", paused)
+            return {"status": "ok", "paused": paused, "requested": len(accounts)}
+        except Exception as exc:
+            logger.exception("risk_pause_accounts: ошибка")
+            return {"error": str(exc)}
+
+    async def _run_parse_file(self, body: dict) -> dict:
+        """POST /accounts/parse-file — парсинг файла аккаунтов.
+
+        Тело запроса:
+          { "filename": "accounts.zip", "content": "<base64>", "platform": "tiktok" }
+        Ответ:
+          { "accounts": [...], "errors": [...], "raw_lines": N, "parsed": N }
+        """
+        import base64
+        filename = body.get("filename", "file.txt")
+        content_b64 = body.get("content", "")
+        platform_hint = body.get("platform") or None
+        if platform_hint:
+            platform_hint = platform_hint.lower().strip()
+            if platform_hint not in _ACC_PLATFORMS:
+                platform_hint = None
+        if not content_b64:
+            return {"error": "content обязателен (base64)"}
+        try:
+            raw_bytes = base64.b64decode(content_b64)
+        except Exception:
+            return {"error": "Не удалось декодировать base64"}
+        if len(raw_bytes) > 10 * 1024 * 1024:
+            return {"error": "Файл слишком большой (макс. 10 МБ)"}
+        return _parse_file_bytes(raw_bytes, filename, platform_hint)
+
+    def _serve_env_check(self):
+        """GET /health/env — какие API-ключи прописаны (наличие, не значения)."""
+        keys = [
+            "ANTHROPIC_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_KEY",
+            "REDIS_URL", "FIRECRAWL_API_KEY", "HIGGSFIELD_API_KEY",
+            "PUBLER_API_KEY", "TIKTOK_SCRAPER_URL", "ELEVENLABS_API_KEY",
+            "WEBHOOK_SECRET", "AGENTS_API_TOKEN", "TELEGRAM_ALERT_TOKEN",
+            "KEITARO_URL", "LITELLM_BASE_URL",
+        ]
+        result = {k: bool(os.environ.get(k)) for k in keys}
+        self._respond(200, result)
 
 
 def main():

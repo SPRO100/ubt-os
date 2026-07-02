@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react'
+
 const PIPELINE_NODES = [
   { id:'A27', name:'spy_analyzer',  color:'var(--pink)', bg:'rgba(236,72,153,.08)' },
   { id:'→',   name:'',             color:'',        bg:'transparent' },
@@ -87,6 +89,19 @@ function AgentTable({ rows, cols }) {
   )
 }
 
+function EnvBadge({ envKey, label }) {
+  const [status, setStatus] = useState(null) // null=loading, true=ok, false=missing
+  useEffect(() => {
+    fetch('/health/env')
+      .then(r => r.json())
+      .then(d => setStatus(d[envKey] === true))
+      .catch(() => setStatus(null))
+  }, [envKey])
+  if (status === null) return <span className="badge" style={{ color:'var(--faint)', background:'rgba(136,146,164,.1)' }}>{label || envKey}</span>
+  if (status) return <span className="badge badge-green">✓ настроен</span>
+  return <span className="badge badge-amber">{label || envKey}</span>
+}
+
 export default function Agents() {
   return (
     <>
@@ -139,7 +154,7 @@ export default function Agents() {
                   <td className="mono" style={{ color:'var(--faint)' }}>{r.id}</td>
                   <td className="primary mono">{r.file}</td>
                   <td>{r.role}</td>
-                  <td><span className="badge badge-amber">{r.need}</span></td>
+                  <td><EnvBadge envKey={r.need} /></td>
                 </tr>
               ))}
             </tbody>

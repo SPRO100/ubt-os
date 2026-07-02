@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { fetchRows, insertRows, AGENTS_SERVER, agentsHeaders } from '../../api'
 
 const PLATFORMS_TABS = [
@@ -20,7 +20,7 @@ const WARMUP_ROWS = [
 export default function Accounts() {
   const [accounts, setAccounts] = useState([])
   const [filter,   setFilter]   = useState('all')
-  const [tab,      setTab]      = useState('single') // 'single' | 'bulk'
+  const [tab,      setTab]      = useState('single') // 'single' | 'bulk' | 'file'
   const [msg,      setMsg]      = useState('')
   const [bulkMsg,  setBulkMsg]  = useState('')
   const [bulkProg, setBulkProg] = useState('')
@@ -34,9 +34,17 @@ export default function Accounts() {
   const [acctType, setAcctType] = useState('aged')
   const [doWarmup, setDoWarmup] = useState(true)
 
-  // bulk
-  const [bulkCsv,      setBulkCsv]      = useState('')
-  const [bulkWarmup,   setBulkWarmup]   = useState(true)
+  // bulk CSV
+  const [bulkCsv,    setBulkCsv]    = useState('')
+  const [bulkWarmup, setBulkWarmup] = useState(true)
+
+  // file import
+  const fileRef = useRef(null)
+  const [filePlatform, setFilePlatform] = useState('')   // hint (empty = auto)
+  const [fileWarmup,   setFileWarmup]   = useState(true)
+  const [fileMsg,      setFileMsg]      = useState('')
+  const [fileParsed,   setFileParsed]   = useState(null) // { accounts, errors, raw_lines, parsed }
+  const [fileImporting, setFileImporting] = useState(false)
 
   const load = async () => {
     const rows = await fetchRows('accounts', 'select=id,platform,status,proxy,publer_profile_id,created_at&order=created_at.desc&limit=50')
@@ -108,6 +116,68 @@ export default function Accounts() {
       }
       setBulkCsv(''); await load()
     } catch(e) { setBulkMsg('❌ ' + e.message) }
+  }
+
+  async function fileParseAndPreview() {
+    const files = fileRef.current?.files
+    if (!files || !files.length) { setFileMsg('❌ Выбери файл'); return }
+    const file = files[0]
+    if (file.size > 10 * 1024 * 1024) { setFileMsg('❌ Файл > 10 МБ'); return }
+    setFileMsg('Читаю файл…')
+    setFileParsed(null)
+    try {
+      const buf = await file.arrayBuffer()
+      const bytes = new Uint8Array(buf)
+      let b64 = ''
+      const chunk = 8192
+      for (let i = 0; i < bytes.length; i += chunk) {
+        b64 += String.fromCharCode(...bytes.subarray(i, i + chunk))
+      }
+      b64 = btoa(b64)
+      const token = localStorage.getItem('agents_api_token') || ''
+      const res = await fetch(`${AGENTS_SERVER}/accounts/parse-file`, {
+        method: 'POST',
+        headers: agentsHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ filename: file.name, content: b64, platform: filePlatform || null }),
+      })
+      const data = await res.json()
+      if (data.error) { setFileMsg('❌ ' + data.error); return }
+      setFileParsed(data)
+      setFileMsg(`Распознано ${data.parsed} из ${data.raw_lines} строк`)
+    } catch(e) { setFileMsg('❌ ' + e.message) }
+  }
+
+  async function fileDoImport() {
+    if (!fileParsed?.accounts?.length) return
+    setFileImporting(true)
+    setFileMsg(`Загружаю ${fileParsed.accounts.length} аккаунтов…`)
+    try {
+      await insertRows('accounts', fileParsed.accounts, 'return=minimal,resolution=ignore-duplicates')
+      setFileMsg(`✅ Загружено ${fileParsed.accounts.length} аккаунтов`)
+      if (fileWarmup) {
+        let done = 0
+        for (const r of fileParsed.accounts) {
+          try {
+            const wr = await fetch(`${AGENTS_SERVER}/agents/run`, {
+              method: 'POST', headers: agentsHeaders({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify({ agent: 'warmup_manager', params: {
+                action: 'register', account_id: r.id, geo: r.geo,
+                account_type: r.account_type, platform: r.platform,
+                proxy_type: r.proxy ? r.proxy.split(':')[0] : 'none',
+              }}),
+            })
+            if (!wr.ok) throw new Error(`HTTP ${wr.status}`)
+          } catch(we) { /* продолжаем */ }
+          done++
+          if (done % 10 === 0) setFileMsg(`A28 прогрев: ${done}/${fileParsed.accounts.length}`)
+        }
+        setFileMsg(`✅ ${fileParsed.accounts.length} аккаунтов + прогрев A28 запущен`)
+      }
+      setFileParsed(null)
+      if (fileRef.current) fileRef.current.value = ''
+      await load()
+    } catch(e) { setFileMsg('❌ ' + e.message) }
+    setFileImporting(false)
   }
 
   const byCounts = id => accounts.filter(a => a.platform === id).length
@@ -193,11 +263,11 @@ export default function Accounts() {
         <div className="card-header">
           <div className="card-title">➕ Добавить аккаунты</div>
           <div style={{ display:'flex', gap:6 }}>
-            {['single','bulk'].map(t => (
+            {[['single','Одиночный'],['bulk','CSV'],['file','Файл / Архив']].map(([t,label]) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`btn btn-outline${tab===t?' active':''}`}
                 style={{ padding:'4px 12px', fontSize:11 }}>
-                {t === 'single' ? 'Одиночный' : 'Массовый CSV'}
+                {label}
               </button>
             ))}
           </div>
@@ -258,6 +328,86 @@ export default function Accounts() {
                 {bulkMsg && <span style={{ fontSize:12, color: bulkMsg.startsWith('✅') ? 'var(--green)' : bulkMsg.startsWith('❌') ? 'var(--red)' : 'var(--faint)' }}>{bulkMsg}</span>}
               </div>
               {bulkProg && <div style={{ marginTop:8, fontSize:11, color:'var(--faint)' }}>{bulkProg}</div>}
+            </>
+          )}
+
+          {tab === 'file' && (
+            <>
+              <div style={{ fontSize:11, color:'var(--faint)', marginBottom:10, lineHeight:1.7 }}>
+                Поддерживаемые форматы: <b>.txt</b>, <b>.csv</b>, <b>.zip</b> (до 10 МБ).<br/>
+                Авто-определение: формат продавца <code style={{ background:'var(--surface2)', padding:'1px 4px', borderRadius:3, fontFamily:"'IBM Plex Mono',monospace" }}>login:password:email:proxy</code>,
+                стандартный CSV <code style={{ background:'var(--surface2)', padding:'1px 4px', borderRadius:3, fontFamily:"'IBM Plex Mono',monospace" }}>id,platform,geo,proxy</code>,
+                разделители: , | ; \t :<br/>
+                В ZIP — все .txt/.csv файлы обрабатываются; платформа берётся из имени файла (tiktok_*.txt).
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:10, alignItems:'end', marginBottom:10 }}>
+                <div>
+                  <label className="form-label">Файл (.txt / .csv / .zip)</label>
+                  <input ref={fileRef} type="file" accept=".txt,.csv,.zip"
+                    className="form-control" style={{ cursor:'pointer' }}
+                    onChange={() => { setFileParsed(null); setFileMsg('') }} />
+                </div>
+                <div>
+                  <label className="form-label">Платформа (если не авто)</label>
+                  <select className="form-control" value={filePlatform} onChange={e => setFilePlatform(e.target.value)}>
+                    <option value="">— авто из файла —</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="pinterest">Pinterest</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', marginBottom:10 }}>
+                <button className="btn btn-outline" onClick={fileParseAndPreview}>
+                  🔍 Распознать файл
+                </button>
+                <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'var(--muted)', cursor:'pointer' }}>
+                  <input type="checkbox" checked={fileWarmup} onChange={e => setFileWarmup(e.target.checked)} />
+                  Прогрев A28 после импорта
+                </label>
+                {fileMsg && (
+                  <span style={{ fontSize:12, color: fileMsg.startsWith('✅') ? 'var(--green)' : fileMsg.startsWith('❌') ? 'var(--red)' : 'var(--faint)' }}>
+                    {fileMsg}
+                  </span>
+                )}
+              </div>
+
+              {fileParsed && fileParsed.accounts.length > 0 && (
+                <div style={{ marginTop:4 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                    <span style={{ fontSize:12, color:'var(--muted)' }}>
+                      Предпросмотр (первые {Math.min(20, fileParsed.accounts.length)} из {fileParsed.accounts.length}):
+                    </span>
+                    <button className="btn btn-primary" onClick={fileDoImport} disabled={fileImporting}>
+                      {fileImporting ? 'Импортирую…' : `⬆ Импортировать ${fileParsed.accounts.length} аккаунтов`}
+                    </button>
+                  </div>
+                  <div style={{ overflowX:'auto', borderRadius:8, border:'1px solid var(--border)' }}>
+                    <table style={{ minWidth:600 }}>
+                      <thead>
+                        <tr><th>ID</th><th>Платформа</th><th>GEO</th><th>Прокси</th><th>Тип</th></tr>
+                      </thead>
+                      <tbody>
+                        {fileParsed.accounts.slice(0, 20).map((a, i) => (
+                          <tr key={i}>
+                            <td className="primary mono" style={{ maxWidth:180, overflow:'hidden', textOverflow:'ellipsis' }}>{a.id}</td>
+                            <td><span className="badge badge-indigo">{a.platform}</span></td>
+                            <td className="mono">{a.geo}</td>
+                            <td className="mono" style={{ maxWidth:160, overflow:'hidden', textOverflow:'ellipsis' }}>{a.proxy || '—'}</td>
+                            <td><span className="badge badge-muted">{a.account_type}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {fileParsed.errors.length > 0 && (
+                    <div style={{ marginTop:8, fontSize:11, color:'var(--amber)', maxHeight:80, overflowY:'auto', lineHeight:1.6 }}>
+                      {fileParsed.errors.map((e, i) => <div key={i}>{e}</div>)}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
