@@ -32,9 +32,21 @@ export default function Clients({ onCreateTask }) {
   const [history,   setHistory]   = useState([])
   const [input,     setInput]     = useState('')
   const [sending,   setSending]   = useState(false)
-  const [pendingTask, setPendingTask] = useState(null) // last assistant reply to convert
-  const [cfgOpen, setCfgOpen] = useState(false) // конфиг проекта свёрнут по умолчанию
+  const [pendingTask, setPendingTask] = useState(null)
+  const [cfgOpen, setCfgOpen] = useState(false)
   const logRef = useRef(null)
+
+  // Управление токеном авторизации
+  const [token,     setToken]     = useState(() => localStorage.getItem('agents_api_token') || '')
+  const [tokenEdit, setTokenEdit] = useState('')
+  const [tokenOpen, setTokenOpen] = useState(false)
+
+  function saveToken() {
+    const t = tokenEdit.trim()
+    localStorage.setItem('agents_api_token', t)
+    setToken(t)
+    setTokenOpen(false)
+  }
 
   useEffect(() => {
     fetchRows('vertical_configs', 'select=id,name,category,config_yaml&order=created_at.asc')
@@ -68,8 +80,13 @@ export default function Clients({ onCreateTask }) {
     try {
       const res = await fetch(`${AGENTS_SERVER}/orchestrator/chat`, {
         method:'POST', headers: agentsHeaders({'Content-Type':'application/json'}),
-        body: JSON.stringify({ vertical_id: current.id, message: msg }),
+        body: JSON.stringify({
+          vertical_id: current.id,
+          message: msg,
+          history: history.slice(-20).map(h => ({ role: h.role, content: h.content })),
+        }),
       })
+      if (res.status === 403) throw new Error('HTTP 403 — токен авторизации не задан или неверный. Нажми ⚙ Токен API.')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       const reply = data.reply || data.error || 'Ошибка ответа'
@@ -96,6 +113,36 @@ export default function Clients({ onCreateTask }) {
 
   return (
     <>
+      {/* Настройка токена авторизации */}
+      <div className="card">
+        <div className="card-header" onClick={() => { setTokenEdit(token); setTokenOpen(o => !o) }}
+          style={{ cursor:'pointer', userSelect:'none' }} role="button">
+          <div className="card-title">🔑 Токен API (AGENTS_API_TOKEN)</div>
+          <span className={`badge ${token ? 'badge-green' : 'badge-red'}`}>
+            {token ? '✓ настроен' : '⚠ не задан — чат недоступен'}
+          </span>
+        </div>
+        {(tokenOpen || !token) && (
+          <div className="card-body">
+            {!token && (
+              <div className="note-box" style={{ marginBottom:10 }}>
+                Для работы чата нужен токен, который совпадает с <code>AGENTS_API_TOKEN</code> в <code>.env</code> сервера.
+              </div>
+            )}
+            <div style={{ display:'flex', gap:8 }}>
+              <input className="form-control" type="password"
+                placeholder="Вставь AGENTS_API_TOKEN…"
+                defaultValue={token}
+                onChange={e => setTokenEdit(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && saveToken()}
+                style={{ flex:1, fontFamily:"'IBM Plex Mono',monospace" }} />
+              <button className="btn btn-primary" onClick={saveToken}>Сохранить</button>
+              {token && <button className="btn btn-outline" onClick={() => setTokenOpen(false)}>Отмена</button>}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="card">
         <div className="card-header">
           <div className="card-title">📂 Проекты</div>
@@ -169,7 +216,14 @@ export default function Clients({ onCreateTask }) {
           <div className="card">
             <div className="card-header">
               <div className="card-title">💬 Чат с оркестратором</div>
-              <span className="live-tag">live</span>
+              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                <span className={`badge ${token ? 'badge-green' : 'badge-red'}`}>
+                  {token ? '✓ авторизован' : '⚠ нет токена'}
+                </span>
+                <button onClick={() => { setTokenEdit(token); setTokenOpen(true); window.scrollTo(0,0) }}
+                  style={{ fontSize:11, padding:'3px 8px', borderRadius:6, border:'1px solid var(--border)',
+                    background:'transparent', color:'var(--faint)', cursor:'pointer' }}>⚙ Токен</button>
+              </div>
             </div>
             <div className="card-body">
               <div ref={logRef} className="chat-log" style={{ marginBottom:12 }}>
@@ -216,9 +270,10 @@ export default function Clients({ onCreateTask }) {
               <div style={{ display:'flex', gap:8 }}>
                 <textarea value={input} onChange={e => setInput(e.target.value)}
                   onKeyDown={e => e.key==='Enter' && !e.shiftKey && (e.preventDefault(), send())}
-                  rows={2} placeholder="Спроси оркестратора об этом проекте…"
+                  rows={2} placeholder={token ? 'Спроси оркестратора об этом проекте…' : '⚠ Сначала задай токен API выше…'}
+                  disabled={!token}
                   className="form-control" style={{ flex:1, resize:'vertical' }} />
-                <button onClick={send} disabled={sending || !input.trim()}
+                <button onClick={send} disabled={sending || !input.trim() || !token}
                   className="btn btn-primary" style={{ alignSelf:'flex-end', padding:'8px 18px' }}>
                   {sending ? '…' : 'Отправить'}
                 </button>

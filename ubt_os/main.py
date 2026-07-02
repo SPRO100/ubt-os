@@ -478,10 +478,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
         _detected_platform = next((p for p in PLATFORMS if p != "any" and p in _msg_lower), None)
         _detected_process   = next((p for p in PROCESSES if p in _msg_lower), None)
         _detected_scheme    = next((s for s in SCHEMES   if s in _msg_lower), None)
-        # Вертикаль из конфига проекта (yaml содержит ключ vertical)
-        import re as _re2
-        _proj_vertical_m = _re2.search(r"vertical:\s*(\w+)", project.get("config_yaml", ""))
-        _proj_vertical = _proj_vertical_m.group(1) if _proj_vertical_m else None
+        # Вертикаль из vertical_id: "nutra_joints_pl" → "nutra", "betting_ru" → "betting"
+        from ubt_os.core.knowledge_taxonomy import VERTICALS as _VERTS
+        _proj_vertical = next(
+            (v for v in _VERTS if v not in ("both", "any") and v in vertical_id.lower()),
+            None
+        )
         kb_learnings = (
             db.table("kb_entries")
             .select("entry_key,title,content,created_at")
