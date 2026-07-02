@@ -142,6 +142,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/analytics/sync":        self._run_analytics_sync,
             # Бесплатный стоковый видео-конвейер (Pexels + edge-tts + ffmpeg)
             "/video/stock":           self._run_video_stock,
+            # Структурированная база знаний по таксономии
+            "/knowledge/kb":          self._run_kb_search,
         }
 
         handler = routes.get(self.path)
@@ -299,6 +301,16 @@ class WebhookHandler(BaseHTTPRequestHandler):
             .execute()
         ).data
 
+        # Структурированная база знаний (записана через [LEARN] маркеры)
+        kb_learnings = (
+            db.table("kb_entries")
+            .select("entry_key,title,content,created_at")
+            .eq("is_current", True)
+            .order("created_at", desc=True)
+            .limit(10)
+            .execute()
+        ).data
+
         history = (
             db.table("chat_messages")
             .select("role,content")
@@ -337,14 +349,36 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "Если в ответе уместна ссылка на внешний сервис (PiPiAds, AdHeart, Publer, Higgsfield, Keitaro и т.д.) — "
             "добавь в конец ответа: [QUICK_LINK: Название|https://url]\n"
             "Примеры: [QUICK_LINK: PiPiAds|https://www.pipiads.com] или [QUICK_LINK: Publer|https://app.publer.io]\n"
-            "Не более 3 ссылок. Только если они реально помогут пользователю прямо сейчас."
+            "Не более 3 ссылок. Только если они реально помогут пользователю прямо сейчас.\n\n"
+            "СИНХРОНИЗАЦИЯ С БАЗОЙ ЗНАНИЙ. Если в диалоге появилось новое устойчивое "
+            "знание, применимое в будущем (рабочая схема залива, лимиты прогрева, "
+            "мастер-промт, антибан-приём, находка по площадке) — зафиксируй его "
+            "маркером в конце ответа:\n"
+            "[LEARN: entry_key|Заголовок|Суть знания в 1-3 предложениях]\n"
+            "entry_key строится как <процесс>.<площадка>.<вертикаль>.<схема>, где\n"
+            "  процесс: zaliv|warmup|master_prompt|content|prelanding|publishing|antiban|analytics|scaling|infra\n"
+            "  площадка: tiktok|facebook|instagram|youtube|pinterest|threads|any\n"
+            "  вертикаль: nutra|betting|both|any\n"
+            "  схема: white|grey|black\n"
+            "Пример: [LEARN: warmup.tiktok.nutra.grey|Прогрев TikTok 7 дней|"
+            "Первые 3 дня только просмотры FYP 20-30 мин, посты с 4 дня, био-ссылка с 8].\n"
+            "Фиксируй только реально новое и проверяемое знание, максимум 2 маркера. "
+            "Не фиксируй общие фразы и то, что уже есть в записях выше."
         )
+
+        kb_section = ""
+        if kb_learnings:
+            kb_section = "\n\nБАЗА ЗНАНИЙ (зафиксированные рабочие схемы):\n" + "\n".join(
+                f"- [{k['entry_key']}] {k['title']}: {k['content'][:200]}"
+                for k in kb_learnings
+            )
 
         system_prompt = (
             f"Ты — ORCHESTRATOR проекта «{project['name']}» в системе UBT OS.\n"
             f"Конфигурация проекта: {project['config_yaml']}\n\n"
-            f"Последние записи базы знаний этого проекта:\n"
+            f"Последние записи синтезатора знаний этого проекта:\n"
             + ("\n".join(f"- [{k['type']}] {k['content'][:200]}" for k in knowledge) if knowledge else "пока нет записей")
+            + kb_section
             + "\n\nОтвечай по-русски, кратко и по делу, в контексте именно этого проекта."
             + agent_catalog
         )
@@ -364,17 +398,29 @@ class WebhookHandler(BaseHTTPRequestHandler):
         import re as _re
         suggestions = []
         quick_links = []
+        learnings = []
 
         def _extract_markers(text):
             for m in _re.finditer(r"\[AGENT_SUGGEST:\s*([^\|]+)\|([^\]]+)\]", text):
                 suggestions.append({"agent": m.group(1).strip(), "description": m.group(2).strip()})
             for m in _re.finditer(r"\[QUICK_LINK:\s*([^\|]+)\|([^\]]+)\]", text):
                 quick_links.append({"label": m.group(1).strip(), "url": m.group(2).strip()})
+            # [LEARN: entry_key|заголовок|суть знания] — фиксируем в базу знаний
+            for m in _re.finditer(r"\[LEARN:\s*([^\|]+)\|([^\|]+)\|([^\]]+)\]", text):
+                learnings.append({
+                    "entry_key": m.group(1).strip(),
+                    "title":     m.group(2).strip(),
+                    "content":   m.group(3).strip(),
+                })
             text = _re.sub(r"\[AGENT_SUGGEST:[^\]]+\]", "", text)
             text = _re.sub(r"\[QUICK_LINK:[^\]]+\]", "", text)
+            text = _re.sub(r"\[LEARN:[^\]]+\]", "", text)
             return text.strip()
 
         reply = _extract_markers(raw_reply)
+
+        # Синхронизация чат → база знаний: изученное сразу пишем в knowledge_entries
+        saved_learnings = self._persist_learnings(db, vertical_id, learnings)
 
         # Auto-add agent launch quick_links from suggestions
         _agent_links = {
@@ -408,7 +454,57 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "vertical_id": vertical_id,
             "agent_suggestions": suggestions,
             "quick_links": quick_links,
+            "learnings_saved": saved_learnings,
         }
+
+    @staticmethod
+    def _persist_learnings(db, vertical_id: str, learnings: list) -> list:
+        """Пишет извлечённые из чата знания в knowledge_entries (append-only,
+        версионируемо через KnowledgeBase) + зеркалит в Obsidian-vault."""
+        from ubt_os.core.knowledge_base import KnowledgeBase
+        from ubt_os.core.knowledge_taxonomy import (
+            parse_entry_key, vault_path_for, page_template,
+        )
+        if not learnings:
+            return []
+        kb = KnowledgeBase(db)
+        saved = []
+        for item in learnings:
+            key = item.get("entry_key", "").strip()
+            title = item.get("title", "").strip() or key
+            content = item.get("content", "").strip()
+            if not key or not content:
+                continue
+            ax = parse_entry_key(key)
+            try:
+                existing = kb.get_current(key)
+                if existing:
+                    kb.update(
+                        entry_key=key, content=content, title=title,
+                        changed_by="orchestrator",
+                        change_reason=f"чат-инсайт (vertical={vertical_id})",
+                    )
+                else:
+                    kb.create(
+                        entry_key=key, category=ax["process"], vertical=ax["vertical"],
+                        title=title, content=content,
+                        tags=[ax["process"], ax["platform"], ax["scheme"]],
+                        changed_by="orchestrator",
+                    )
+                saved.append(key)
+                # Зеркало в vault (best-effort, не роняет ответ)
+                try:
+                    target = WebhookHandler._safe_vault_path(vault_path_for(key))
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text(page_template(key, title, content), encoding="utf-8")
+                except Exception as ve:
+                    logger.warning("LEARN: зеркало в vault не удалось (%s): %s", key, ve)
+            except Exception as e:
+                logger.warning("LEARN: не сохранил '%s': %s", key, e)
+        if saved:
+            logger.info("orchestrator: записано в базу знаний %d записей: %s",
+                        len(saved), ", ".join(saved))
+        return saved
 
     async def _run_agent(self, body: dict):
         """POST /agents/run — запуск A19–A24 напрямую из браузера."""
@@ -896,6 +992,22 @@ class WebhookHandler(BaseHTTPRequestHandler):
             max_clips=int(body.get("max_clips", 4)),
             keywords=body.get("keywords"),
         )
+
+    async def _run_kb_search(self, body: dict):
+        """Поиск по структурированной базе знаний kb_entries (таксономия)."""
+        from ubt_os.core.knowledge_base import KnowledgeBase
+        db = _get_db()
+        kb = KnowledgeBase(db)
+        entry_key = (body.get("entry_key") or "").strip()
+        if entry_key:
+            entry = kb.get_current(entry_key)
+            return {"entry": entry}
+        results = kb.search(
+            category=body.get("process") or body.get("category"),
+            vertical=body.get("vertical"),
+            tags=body.get("tags"),
+        )
+        return {"entries": results, "count": len(results)}
 
     async def _run_analytics_sync(self, body: dict):
         """A36 POST_ANALYTICS: синхронизация нативных метрик опубликованных постов."""

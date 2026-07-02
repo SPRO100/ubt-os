@@ -31,35 +31,37 @@ db-init:
 	@if [ -z "$(DATABASE_URL)" ]; then \
 		export $$(cat .env | xargs); \
 	fi
-	@echo "  [1/14] 01_schema_sot.sql"
+	@echo "  [1/15] 01_schema_sot.sql"
 	psql $${DATABASE_URL} -f deploy/01_schema_sot.sql
-	@echo "  [2/14] strategy_schema.sql"
+	@echo "  [2/15] strategy_schema.sql"
 	psql $${DATABASE_URL} -f deploy/strategy_schema.sql
-	@echo "  [3/14] revenue_schema.sql"
+	@echo "  [3/15] revenue_schema.sql"
 	psql $${DATABASE_URL} -f deploy/revenue_schema.sql
-	@echo "  [4/14] risk_schema.sql"
+	@echo "  [4/15] risk_schema.sql"
 	psql $${DATABASE_URL} -f deploy/risk_schema.sql
-	@echo "  [5/14] vertical_schema.sql"
+	@echo "  [5/15] vertical_schema.sql"
 	psql $${DATABASE_URL} -f deploy/vertical_schema.sql
-	@echo "  [6/14] creative_vault_schema.sql"
+	@echo "  [6/15] creative_vault_schema.sql"
 	psql $${DATABASE_URL} -f deploy/creative_vault_schema.sql
-	@echo "  [7/14] recovery_schema.sql"
+	@echo "  [7/15] recovery_schema.sql"
 	psql $${DATABASE_URL} -f deploy/recovery_schema.sql
-	@echo "  [8/14] 02_patch_missing_tables.sql"
+	@echo "  [8/15] 02_patch_missing_tables.sql"
 	psql $${DATABASE_URL} -f deploy/02_patch_missing_tables.sql
-	@echo "  [9/14] 03_patch_knowledge_entries.sql"
+	@echo "  [9/15] 03_patch_knowledge_entries.sql"
 	psql $${DATABASE_URL} -f deploy/03_patch_knowledge_entries.sql
-	@echo "  [10/14] 04_patch_competitor_patterns.sql"
+	@echo "  [10/15] 04_patch_competitor_patterns.sql"
 	psql $${DATABASE_URL} -f deploy/04_patch_competitor_patterns.sql
-	@echo "  [11/14] 05_patch_projects_chat.sql  ← chat_messages + vertical_id"
+	@echo "  [11/15] 05_patch_projects_chat.sql  ← chat_messages + vertical_id"
 	psql $${DATABASE_URL} -f deploy/05_patch_projects_chat.sql
-	@echo "  [12/14] dohoo_features_schema.sql  ← hook_templates, transcriptions, direct_publish_*"
+	@echo "  [12/15] dohoo_features_schema.sql  ← hook_templates, transcriptions, direct_publish_*"
 	psql $${DATABASE_URL} -f deploy/dohoo_features_schema.sql
-	@echo "  [13/14] 06_patch_accounts_align.sql  ← id TEXT + facebook/pinterest + publer/proxy колонки"
+	@echo "  [13/15] 06_patch_accounts_align.sql  ← id TEXT + facebook/pinterest + publer/proxy колонки"
 	psql $${DATABASE_URL} -f deploy/06_patch_accounts_align.sql
-	@echo "  [14/14] 07_patch_post_metrics.sql  ← post_metrics, нативная аналитика по постам"
+	@echo "  [14/15] 07_patch_post_metrics.sql  ← post_metrics, нативная аналитика по постам"
 	psql $${DATABASE_URL} -f deploy/07_patch_post_metrics.sql
-	@echo "✅ Все 14 схем применены"
+	@echo "  [15/15] 08_patch_kb_entries.sql  ← kb_entries, версионируемая база знаний (таксономия)"
+	psql $${DATABASE_URL} -f deploy/08_patch_kb_entries.sql
+	@echo "✅ Все 15 схем применены"
 
 apply-schema:
 	psql $${DATABASE_URL} -f $(SCHEMA)
