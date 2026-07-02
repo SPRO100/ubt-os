@@ -111,7 +111,8 @@ class ComplianceGate:
             violations.append({"rule": "trademark_mention", "text": m.group(), "severity": "soft"})
         return violations
 
-    async def check(self, text: str, vertical: str = "nutra", geo: str = "US") -> ComplianceResult:
+    async def check(self, text: str, vertical: str = "nutra", geo: str = "US",
+                    kb_context: str = "") -> ComplianceResult:
         """Полная трёхуровневая проверка."""
         # Уровень 1: regex
         fast_violations = self._fast_check(text, vertical)
@@ -137,10 +138,11 @@ class ComplianceGate:
             f"Выполни полную проверку и верни JSON."
         )
 
+        eff_sys = SYSTEM_PROMPT + (f"\n\n{kb_context}" if kb_context else "")
         resp = await self.llm.messages.create(
             model="claude-sonnet-5",
             max_tokens=1024,
-            system=SYSTEM_PROMPT,
+            system=eff_sys,
             messages=[{"role": "user", "content": user_msg}],
         )
 

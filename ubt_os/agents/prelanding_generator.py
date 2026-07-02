@@ -172,6 +172,7 @@ class PrelandingGenerator:
         product_benefits: list[str] | None = None,
         target_audience: str = "",
         lander_url: str = "LANDER_URL",
+        kb_context: str = "",
     ) -> PrelandingResult:
         """
         Генерирует HTML прелендинг.
@@ -222,10 +223,11 @@ CTA подзаголовок: "{cta_sub}"
 Создай полный профессиональный HTML прелендинг. Используй реалистичный контент.
 Сделай дизайн конвертирующим: контраст, читаемость, чёткий CTA."""
 
+        eff_sys = _SYSTEM_PROMPT + (f"\n\n{kb_context}" if kb_context else "")
         resp = await self._client.messages.create(
             model="claude-sonnet-5",
             max_tokens=4000,
-            system=_SYSTEM_PROMPT,
+            system=eff_sys,
             messages=[{"role": "user", "content": user_msg}],
         )
         html_content = getattr(resp.content[0], "text", "").strip()
@@ -278,12 +280,13 @@ CTA подзаголовок: "{cta_sub}"
         geo: str = "US",
         billing_model: str = "COD",
         formats: list[str] | None = None,
+        kb_context: str = "",
     ) -> list[PrelandingResult]:
         """Генерирует несколько вариантов прелендинга для A/B теста."""
         import asyncio
         formats = formats or ["story", "native_article"]
         tasks = [
-            self.generate(offer_name, vertical, geo, billing_model, fmt)
+            self.generate(offer_name, vertical, geo, billing_model, fmt, kb_context=kb_context)
             for fmt in formats
         ]
         return list(await asyncio.gather(*tasks))

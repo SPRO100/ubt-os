@@ -197,17 +197,18 @@ class CompetitorReportBuilder:
     def __init__(self):
         self.client = AsyncAnthropic()
 
-    async def build(self, patterns: list[dict], vertical: str) -> dict:
+    async def build(self, patterns: list[dict], vertical: str, kb_context: str = "") -> dict:
         patterns_text = "\n".join(
             f"- [{p['platform']}] тип={p['hook_type']} сила={p['hook_strength']}/10 "
             f"views={p['views']:,} ER={p.get('er', 0):.2%}: \"{p['hook_text'][:100]}\""
             for p in patterns[:40]
         )
 
+        eff_sys = self.SYSTEM_PROMPT + (f"\n\n{kb_context}" if kb_context else "")
         resp = await self.client.messages.create(
             model="claude-sonnet-5",
             max_tokens=2048,
-            system=self.SYSTEM_PROMPT,
+            system=eff_sys,
             messages=[{
                 "role": "user",
                 "content": (
@@ -288,6 +289,7 @@ class PatternWriter:
 async def run_competitor_analyst(
     vertical: str = "nutra",
     lookback_days: int = 3,
+    kb_context: str = "",
 ) -> dict:
     db = _get_db()
     collector = CompetitorSignalCollector(db, vertical, lookback_days)
@@ -327,7 +329,7 @@ async def run_competitor_analyst(
     # Агрегированный отчёт
     report = {}
     if patterns_saved:
-        report = await report_builder.build(patterns_saved, vertical)
+        report = await report_builder.build(patterns_saved, vertical, kb_context=kb_context)
         report_id = writer.save_report(report, vertical)
         report["report_id"] = report_id
 

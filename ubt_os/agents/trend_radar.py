@@ -110,16 +110,18 @@ class TrendRadar:
     def __init__(self):
         self.llm = AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
-    async def analyze(self, items: list[dict], vertical: str, geo: str) -> dict:
+    async def analyze(self, items: list[dict], vertical: str, geo: str,
+                      kb_context: str = "") -> dict:
         if not items:
             return {"ranked": [], "top_pick": "", "avoid": []}
         listing = "\n".join(
             f"- [{it['kind']}] {it['name']} (рост {it.get('growth_pct', 0)}%)" for it in items[:40]
         )
+        eff_sys = SYSTEM_PROMPT + (f"\n\n{kb_context}" if kb_context else "")
         resp = await self.llm.messages.create(
             model="claude-sonnet-5",
             max_tokens=1500,
-            system=SYSTEM_PROMPT,
+            system=eff_sys,
             messages=[{
                 "role": "user",
                 "content": (
@@ -161,6 +163,7 @@ async def run_trend_radar(
     hashtags: list | None = None,
     sounds: list | None = None,
     persist: bool = True,
+    kb_context: str = "",
 ) -> dict:
     """Точка входа для /trends/radar."""
     source = "input"
@@ -175,7 +178,7 @@ async def run_trend_radar(
         return {"error": "нет трендовых данных: задай TREND_SOURCE_URL или передай hashtags/sounds",
                 "vertical": vertical, "geo": geo}
 
-    analysis = await TrendRadar().analyze(items, vertical, geo)
+    analysis = await TrendRadar().analyze(items, vertical, geo, kb_context=kb_context)
     result = TrendRadarResult(
         vertical=vertical, geo=geo, platform=platform,
         ranked=analysis.get("ranked", []),

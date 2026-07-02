@@ -145,8 +145,11 @@ class ContentCreator:
         geo: str,
         offer: str = "",
         day: int = 1,
+        kb_context: str = "",
     ) -> ContentPiece:
         system = self._build_system(vertical.value, geo)
+        if kb_context:
+            system = system + f"\n\n{kb_context}"
         prompt_template = CONTENT_PROMPTS.get(fmt, CONTENT_PROMPTS[ContentFormat.HOOK_PROBLEM])
         prompt = prompt_template.replace("{day}", str(day))
 

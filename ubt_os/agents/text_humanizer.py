@@ -74,7 +74,9 @@ class TextHumanizer:
         self.client = AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
         self.model = model
 
-    async def humanize(self, text: str, geo: str = "US", vertical: str = "nutra") -> HumanizeResult:
+    async def humanize(self, text: str, geo: str = "US", vertical: str = "nutra",
+                       kb_context: str = "") -> HumanizeResult:
+        eff_sys = SYSTEM_PROMPT + (f"\n\n{kb_context}" if kb_context else "")
         user_msg = f"""GEO: {geo} | Вертикаль: {vertical}
 
 Текст для очистки:
@@ -87,7 +89,7 @@ class TextHumanizer:
         response = await self.client.messages.create(
             model=self.model,
             max_tokens=2048,
-            system=SYSTEM_PROMPT,
+            system=eff_sys,
             messages=[{"role": "user", "content": user_msg}],
         )
 

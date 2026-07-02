@@ -116,6 +116,26 @@ def page_template(entry_key: str, title: str, content: str = "") -> str:
     )
 
 
+# Маппинг агент → process для автоматической загрузки KB в _run_agent
+AGENT_PROCESS: dict[str, str] = {
+    "content_creator":      "content",
+    "text_humanizer":       "content",
+    "youtube_creator":      "content",
+    "higgsfield_agent":     "master_prompt",
+    "trend_scraper":        "zaliv",
+    "ads_auditor":          "zaliv",
+    "spy_analyzer":         "zaliv",
+    "competitor_analyst":   "zaliv",
+    "trend_radar":          "zaliv",
+    "competitor_scraper":   "zaliv",
+    "compliance_gate":      "content",
+    "prelanding_generator": "prelanding",
+    "publer_publisher":     "publishing",
+    "warmup_manager":       "warmup",
+    "post_analytics_agent": "analytics",
+}
+
+
 def taxonomy_overview() -> dict:
     """Полная карта осей — для дашборда и обзорных страниц vault."""
     return {

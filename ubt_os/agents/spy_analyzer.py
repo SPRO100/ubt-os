@@ -74,6 +74,7 @@ class SpyAnalyzer:
         geo: str = "US",
         platform: str = "tiktok",
         focus: str = "hooks",
+        kb_context: str = "",
     ) -> SpyAnalysisResult:
         """
         Анализирует список описаний крипов и возвращает паттерны.
@@ -112,10 +113,12 @@ GEO: {geo}
 
 Верни JSON с паттернами, фразами и creative brief для нашего A21 content_creator."""
 
+        from ubt_os.core.kb_writer import LEARN_INSTRUCTION
+        eff_sys = _SYSTEM_PROMPT + (f"\n\n{kb_context}" if kb_context else "") + LEARN_INSTRUCTION
         resp = await self._client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=2000,
-            system=_SYSTEM_PROMPT,
+            system=eff_sys,
             messages=[{"role": "user", "content": user_msg}],
         )
         raw = getattr(resp.content[0], "text", "")

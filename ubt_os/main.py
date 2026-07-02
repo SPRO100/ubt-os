@@ -688,6 +688,27 @@ class WebhookHandler(BaseHTTPRequestHandler):
         agent  = body.get("agent", "")
         params = body.get("params", {})
 
+        # ── Загрузка KB контекста для агента ─────────────────────────────────
+        from ubt_os.core.kb_context import load_kb_context as _load_kb_agent
+        from ubt_os.core.knowledge_taxonomy import AGENT_PROCESS, VERTICALS as _AVERTS
+        from ubt_os.core.kb_writer import save_learnings, scan_and_strip, LEARN_INSTRUCTION
+        _agent_process  = AGENT_PROCESS.get(agent)
+        _agent_vertical = params.get("vertical")
+        if _agent_vertical and _agent_vertical not in _AVERTS:
+            _agent_vertical = None
+        _agent_platform = params.get("platform")
+        try:
+            _kb_ctx = _load_kb_agent(
+                _get_db(),
+                process=_agent_process,
+                platform=_agent_platform,
+                vertical=_agent_vertical,
+                limit=5,
+            ) if _agent_process else ""
+        except Exception:
+            _kb_ctx = ""
+        # ─────────────────────────────────────────────────────────────────────
+
         # Диспетчер возвращает разнородные dataclass-результаты — типы динамические.
         result:  Any
         r:       Any
@@ -704,8 +725,16 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     params.get("vertical", "nutra"),
                     params.get("geo", "US"),
                     params.get("offer", ""),
+                    kb_context=_kb_ctx + LEARN_INSTRUCTION if _kb_ctx else LEARN_INSTRUCTION,
                 )
-                return {"result": result.humanized_text, "score": result.score, "passed": result.passed_quality}
+                _out = {"result": result.humanized_text, "score": result.score, "passed": result.passed_quality}
+                _out, _ll = scan_and_strip(_out)
+                if _ll:
+                    try:
+                        save_learnings(_get_db(), _ll, params.get("vertical", "any"))
+                    except Exception as _le:
+                        logger.warning("kb_writer: %s", _le)
+                return _out
 
             elif agent == "text_humanizer":
                 from ubt_os.agents import TextHumanizer
@@ -714,6 +743,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     params.get("text", ""),
                     params.get("geo", "US"),
                     params.get("vertical", "nutra"),
+                    kb_context=_kb_ctx,
                 )
                 return {"result": result.humanized_text, "score": result.total_score, "passed": result.passed}
 
@@ -721,9 +751,10 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 from ubt_os.agents import TrendScraper
                 scraper = TrendScraper()
                 if params.get("url"):
-                    r = await scraper.analyze_url(params["url"])
+                    r = await scraper.analyze_url(params["url"], kb_context=_kb_ctx)
                 else:
-                    r = await scraper.find_trends(params.get("vertical", "nutra"), params.get("geo", "US"))
+                    r = await scraper.find_trends(params.get("vertical", "nutra"), params.get("geo", "US"),
+                                                  kb_context=_kb_ctx)
                 return {"hooks": r.hooks, "pains": r.pains, "action_items": r.action_items, "trend_score": r.trend_score}
 
             elif agent == "ads_auditor":
@@ -734,6 +765,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     params.get("vertical", "nutra"),
                     params.get("account_data", {}),
                     params.get("geo", "US"),
+                    kb_context=_kb_ctx,
                 )
                 return {"health_score": result.health_score, "grade": result.grade,
                         "critical_issues": result.critical_issues, "quick_wins": result.quick_wins}
@@ -748,8 +780,16 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     params.get("geo", "US"),
                     params.get("topic", ""),
                     params.get("offer", ""),
+                    kb_context=_kb_ctx + LEARN_INSTRUCTION if _kb_ctx else LEARN_INSTRUCTION,
                 )
-                return {"content": result.content}
+                _out = {"content": result.content}
+                _out, _ll = scan_and_strip(_out)
+                if _ll:
+                    try:
+                        save_learnings(_get_db(), _ll, params.get("vertical", "any"))
+                    except Exception as _le:
+                        logger.warning("kb_writer: %s", _le)
+                return _out
 
             elif agent == "obsidian_brain":
                 from ubt_os.agents import ObsidianBrain
@@ -772,6 +812,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     params.get("text", ""),
                     params.get("vertical", "nutra"),
                     params.get("geo", "US"),
+                    kb_context=_kb_ctx,
                 )
                 return {
                     "risk_level": result.risk_level.value,
@@ -825,8 +866,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     params.get("geo", "US"),
                     params.get("platform", "tiktok"),
                     params.get("focus", "all"),
+                    kb_context=_kb_ctx + LEARN_INSTRUCTION if _kb_ctx else LEARN_INSTRUCTION,
                 )
-                return {
+                _out = {
                     "hook_patterns": result.hook_patterns,
                     "content_structures": result.content_structures,
                     "key_phrases": result.key_phrases,
@@ -836,6 +878,13 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     "a21_prompt_extension": result.a21_prompt_extension,
                     "creatives_analyzed": result.creatives_analyzed,
                 }
+                _out, _ll = scan_and_strip(_out)
+                if _ll:
+                    try:
+                        save_learnings(_get_db(), _ll, params.get("vertical", "any"))
+                    except Exception as _le:
+                        logger.warning("kb_writer: %s", _le)
+                return _out
 
             elif agent == "warmup_manager":
                 from ubt_os.agents import WarmupManager
@@ -895,6 +944,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                         params.get("geo", "US"),
                         params.get("billing_model", "COD"),
                         params.get("formats", ["story", "native_article"]),
+                        kb_context=_kb_ctx,
                     )
                     return {
                         "variants": [
@@ -914,6 +964,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     params.get("product_benefits", []),
                     params.get("target_audience", ""),
                     params.get("lander_url", "LANDER_URL"),
+                    kb_context=_kb_ctx,
                 )
                 return {
                     "offer_name": result.offer_name,
@@ -981,7 +1032,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 from ubt_os.agents import run_competitor_analyst
                 return await run_competitor_analyst(
                     params.get("vertical", "nutra"),
-                    int(params.get("lookback_days", 3)))
+                    int(params.get("lookback_days", 3)),
+                    kb_context=_kb_ctx)
 
             elif agent == "trend_radar":
                 from ubt_os.agents import run_trend_radar
@@ -991,6 +1043,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     platform=params.get("platform", "tiktok"),
                     hashtags=params.get("hashtags"),
                     sounds=params.get("sounds"),
+                    kb_context=_kb_ctx,
                 )
 
             elif agent == "competitor_scraper":

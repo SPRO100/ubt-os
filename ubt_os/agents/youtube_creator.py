@@ -206,8 +206,11 @@ class YoutubeCreator:
         topic: str = "",
         offer: str = "",
         channel_data: dict | None = None,
+        kb_context: str = "",
     ) -> YTContent:
         system = SYSTEM_PROMPTS.get(fmt, SYSTEM_PROMPTS[YTFormat.SHORTS])
+        if kb_context:
+            system = system + f"\n\n{kb_context}"
 
         context = f"Вертикаль: {vertical} | GEO: {geo} | Оффер: {offer}"
         if topic:

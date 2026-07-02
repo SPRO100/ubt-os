@@ -92,7 +92,8 @@ class TrendScraper:
         self.firecrawl = FirecrawlClient()
         self.llm = AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
-    async def analyze_url(self, url: str, geo: str = "US", vertical: str = "nutra") -> TrendSignal:
+    async def analyze_url(self, url: str, geo: str = "US", vertical: str = "nutra",
+                          kb_context: str = "") -> TrendSignal:
         scraped = await self.firecrawl.scrape(url)
         content = scraped.get("markdown", "")[:4000]
 
@@ -100,10 +101,11 @@ class TrendScraper:
             logger.warning("Пустой контент для %s", url)
             content = f"URL: {url} — контент недоступен"
 
+        eff_sys = ANALYSIS_PROMPT + (f"\n\n{kb_context}" if kb_context else "")
         response = await self.llm.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=1024,
-            system=ANALYSIS_PROMPT,
+            system=eff_sys,
             messages=[{"role": "user", "content": f"GEO: {geo} | Вертикаль: {vertical}\n\nКонтент:\n{content}"}],
         )
 
@@ -127,7 +129,8 @@ class TrendScraper:
         logger.info("trend_scraper | url=%s geo=%s score=%d", url, geo, signal.trend_score)
         return signal
 
-    async def find_trends(self, vertical: str, geo: str, limit: int = 5) -> list[TrendSignal]:
+    async def find_trends(self, vertical: str, geo: str, limit: int = 5,
+                          kb_context: str = "") -> list[TrendSignal]:
         queries = {
             "nutra": f"weight loss supplement review {geo} site:tiktok.com OR site:instagram.com",
             "betting": f"sports betting tips {geo} site:tiktok.com OR site:instagram.com",
@@ -136,7 +139,7 @@ class TrendScraper:
         results = await self.firecrawl.search(query, limit=limit)
 
         tasks = [
-            self.analyze_url(r["url"], geo=geo, vertical=vertical)
+            self.analyze_url(r["url"], geo=geo, vertical=vertical, kb_context=kb_context)
             for r in results if r.get("url")
         ]
         return await asyncio.gather(*tasks)

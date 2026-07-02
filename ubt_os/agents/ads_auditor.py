@@ -181,6 +181,7 @@ class AdsAuditor:
         vertical: str,
         account_data: dict,
         geo: str = "US",
+        kb_context: str = "",
     ) -> AuditResult:
         checklist = self._build_checklist(platform)
 
@@ -196,10 +197,11 @@ GEO: {geo}
 
 Проведи полный аудит и верни JSON."""
 
+        eff_sys = SYSTEM_PROMPT + (f"\n\n{kb_context}" if kb_context else "")
         response = await self.llm.messages.create(
             model="claude-sonnet-5",
             max_tokens=2048,
-            system=SYSTEM_PROMPT,
+            system=eff_sys,
             messages=[{"role": "user", "content": user_msg}],
         )
 
