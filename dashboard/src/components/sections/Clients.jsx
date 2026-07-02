@@ -174,14 +174,6 @@ export default function Clients({ onCreateTask }) {
           <div className="card">
             <div className="card-header">
               <div className="card-title">💬 Чат с оркестратором</div>
-              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                <span className={`badge ${token ? 'badge-green' : 'badge-red'}`}>
-                  {token ? '✓ авторизован' : '⚠ нет токена'}
-                </span>
-                <button onClick={() => { setTokenEdit(token); setTokenOpen(true); window.scrollTo(0,0) }}
-                  style={{ fontSize:11, padding:'3px 8px', borderRadius:6, border:'1px solid var(--border)',
-                    background:'transparent', color:'var(--faint)', cursor:'pointer' }}>⚙ Токен</button>
-              </div>
             </div>
             <div className="card-body">
               <div ref={logRef} className="chat-log" style={{ marginBottom:12 }}>
@@ -228,10 +220,9 @@ export default function Clients({ onCreateTask }) {
               <div style={{ display:'flex', gap:8 }}>
                 <textarea value={input} onChange={e => setInput(e.target.value)}
                   onKeyDown={e => e.key==='Enter' && !e.shiftKey && (e.preventDefault(), send())}
-                  rows={2} placeholder={token ? 'Спроси оркестратора об этом проекте…' : '⚠ Сначала задай токен API выше…'}
-                  disabled={!token}
+                  rows={2} placeholder="Спроси оркестратора об этом проекте…"
                   className="form-control" style={{ flex:1, resize:'vertical' }} />
-                <button onClick={send} disabled={sending || !input.trim() || !token}
+                <button onClick={send} disabled={sending || !input.trim()}
                   className="btn btn-primary" style={{ alignSelf:'flex-end', padding:'8px 18px' }}>
                   {sending ? '…' : 'Отправить'}
                 </button>
