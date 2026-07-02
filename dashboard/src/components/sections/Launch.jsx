@@ -229,6 +229,7 @@ function AgentResult({ data, agent }) {
 }
 
 function AgentCard({ id, name, desc, children }) {
+  const [open,    setOpen]    = useState(false) // свёрнута по умолчанию — ровная сетка
   const [result,  setResult]  = useState(null)
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState(null)
@@ -243,19 +244,23 @@ function AgentCard({ id, name, desc, children }) {
   }
 
   return (
-    <div className="agent-card">
-      <div className="agent-card-head">
+    <div className={`agent-card${open ? '' : ' collapsed'}`}>
+      <button className="agent-card-head agent-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
         <span className="agent-id-tag">{id}</span>
         <span className="agent-name">{name}</span>
-      </div>
+        {loading && <span style={{ fontSize:11 }}>⏳</span>}
+        <span className="agent-chevron">{open ? '▾' : '▸'}</span>
+      </button>
       <div className="agent-desc">{desc}</div>
-      {typeof children === 'function' ? children(run, loading) : children}
-      {error && <div className="agent-result"><span style={{ color:'var(--red)' }}>⚠️ {error}</span></div>}
-      {result && (
-        <div className="agent-result">
-          <AgentResult data={result.data} agent={result.agent} params={result.params} />
-        </div>
-      )}
+      {open && <>
+        {typeof children === 'function' ? children(run, loading) : children}
+        {error && <div className="agent-result"><span style={{ color:'var(--red)' }}>⚠️ {error}</span></div>}
+        {result && (
+          <div className="agent-result">
+            <AgentResult data={result.data} agent={result.agent} params={result.params} />
+          </div>
+        )}
+      </>}
     </div>
   )
 }
