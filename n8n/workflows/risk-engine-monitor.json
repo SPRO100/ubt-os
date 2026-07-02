@@ -199,7 +199,9 @@
       "main": [
         [
           {
-            "node": "FIX#3 — Lock"
+            "node": "FIX#3 — Lock",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -208,7 +210,9 @@
       "main": [
         [
           {
-            "node": "IF acquired"
+            "node": "IF acquired",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -217,12 +221,16 @@
       "main": [
         [
           {
-            "node": "Skip"
+            "node": "Skip",
+            "type": "main",
+            "index": 0
           }
         ],
         [
           {
-            "node": "Запустить Risk Engine"
+            "node": "Запустить Risk Engine",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -231,7 +239,9 @@
       "main": [
         [
           {
-            "node": "Получить аккаунты в зоне риска"
+            "node": "Получить аккаунты в зоне риска",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -240,7 +250,9 @@
       "main": [
         [
           {
-            "node": "Есть STOP-аккаунты?"
+            "node": "Есть STOP-аккаунты?",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -249,12 +261,16 @@
       "main": [
         [
           {
-            "node": "Telegram — Ежедневный дайджест"
+            "node": "Telegram — Ежедневный дайджест",
+            "type": "main",
+            "index": 0
           }
         ],
         [
           {
-            "node": "Приостановить STOP-аккаунты"
+            "node": "Приостановить STOP-аккаунты",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -263,7 +279,9 @@
       "main": [
         [
           {
-            "node": "Telegram — CRITICAL алерт"
+            "node": "Telegram — CRITICAL алерт",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -272,7 +290,9 @@
       "main": [
         [
           {
-            "node": "Release Lock"
+            "node": "Release Lock",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -281,7 +301,9 @@
       "main": [
         [
           {
-            "node": "Release Lock"
+            "node": "Release Lock",
+            "type": "main",
+            "index": 0
           }
         ]
       ]

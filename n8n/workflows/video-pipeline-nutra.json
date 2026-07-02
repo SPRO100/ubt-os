@@ -110,7 +110,9 @@
       "main": [
         [
           {
-            "node": "FIX#3 — Pipeline Lock"
+            "node": "FIX#3 — Pipeline Lock",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -119,7 +121,9 @@
       "main": [
         [
           {
-            "node": "Пропустить если lock занят?"
+            "node": "Пропустить если lock занят?",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -128,12 +132,16 @@
       "main": [
         [
           {
-            "node": "Конец (пропущено)"
+            "node": "Конец (пропущено)",
+            "type": "main",
+            "index": 0
           }
         ],
         [
           {
-            "node": "Запустить NUTRA пайплайн"
+            "node": "Запустить NUTRA пайплайн",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -142,7 +150,9 @@
       "main": [
         [
           {
-            "node": "FIX#3 — Освободить Lock"
+            "node": "FIX#3 — Освободить Lock",
+            "type": "main",
+            "index": 0
           }
         ]
       ]

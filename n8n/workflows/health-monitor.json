@@ -187,7 +187,9 @@
       "main": [
         [
           {
-            "node": "Запустить Health Checks"
+            "node": "Запустить Health Checks",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -196,7 +198,9 @@
       "main": [
         [
           {
-            "node": "Разобрать результаты"
+            "node": "Разобрать результаты",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -205,7 +209,9 @@
       "main": [
         [
           {
-            "node": "Уровень деградации?"
+            "node": "Уровень деградации?",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -214,22 +220,30 @@
       "main": [
         [
           {
-            "node": "Всё в порядке"
+            "node": "Всё в порядке",
+            "type": "main",
+            "index": 0
           }
         ],
         [
           {
-            "node": "Telegram — WARNING"
+            "node": "Telegram — WARNING",
+            "type": "main",
+            "index": 0
           }
         ],
         [
           {
-            "node": "Telegram — HIGH"
+            "node": "Telegram — HIGH",
+            "type": "main",
+            "index": 0
           }
         ],
         [
           {
-            "node": "Telegram — CRITICAL"
+            "node": "Telegram — CRITICAL",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -238,7 +252,9 @@
       "main": [
         [
           {
-            "node": "Остановить пайплайны"
+            "node": "Остановить пайплайны",
+            "type": "main",
+            "index": 0
           }
         ]
       ]

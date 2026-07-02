@@ -237,7 +237,9 @@
       "main": [
         [
           {
-            "node": "Mode: daily"
+            "node": "Mode: daily",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -246,7 +248,9 @@
       "main": [
         [
           {
-            "node": "Mode: weekly"
+            "node": "Mode: weekly",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -255,7 +259,9 @@
       "main": [
         [
           {
-            "node": "FIX#3 — Lock"
+            "node": "FIX#3 — Lock",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -264,7 +270,9 @@
       "main": [
         [
           {
-            "node": "FIX#3 — Lock"
+            "node": "FIX#3 — Lock",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -273,7 +281,9 @@
       "main": [
         [
           {
-            "node": "IF acquired"
+            "node": "IF acquired",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -282,12 +292,16 @@
       "main": [
         [
           {
-            "node": "Skip"
+            "node": "Skip",
+            "type": "main",
+            "index": 0
           }
         ],
         [
           {
-            "node": "Запустить синтез"
+            "node": "Запустить синтез",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -296,7 +310,9 @@
       "main": [
         [
           {
-            "node": "Записать в Obsidian"
+            "node": "Записать в Obsidian",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -305,7 +321,9 @@
       "main": [
         [
           {
-            "node": "Append → learnings-log"
+            "node": "Append → learnings-log",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -314,7 +332,9 @@
       "main": [
         [
           {
-            "node": "Telegram — Дайджест"
+            "node": "Telegram — Дайджест",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -323,7 +343,9 @@
       "main": [
         [
           {
-            "node": "Release Lock"
+            "node": "Release Lock",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
