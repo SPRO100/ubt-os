@@ -219,44 +219,6 @@ export default function Dashboard({ health }) {
         </div>
       </div>
 
-      {/* ── COMPARISON ── */}
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">🏆 Позиционирование vs конкурентов</div>
-          <span className="ref-tag">справка</span>
-        </div>
-        <div className="card-body" style={{ paddingTop: 8 }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Фактор</th>
-                <th>GeeLark</th>
-                <th>Conbersa</th>
-                <th>NoimosAI</th>
-                <th style={{ color:'var(--indigo)' }}>UBT OS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ['Claude как оркестратор', false, false, false, true],
-                ['Higgsfield видео', false, false, false, true],
-                ['Direction-based workflow', false, false, false, true],
-                ['Obsidian как память', false, false, false, true],
-                ['Человек одобряет действия', false, false, false, true],
-              ].map(([f, ...vals]) => (
-                <tr key={f}>
-                  <td className="primary">{f}</td>
-                  {vals.map((v, i) => (
-                    <td key={i} style={i === 3 ? { color: 'var(--green)', fontWeight: 600 } : {}}>
-                      {v ? '✓' : '—'}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </>
   )
 }
