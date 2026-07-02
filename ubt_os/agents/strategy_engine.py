@@ -13,7 +13,7 @@ from typing import Any
 from supabase import create_client, Client
 from anthropic import AsyncAnthropic
 
-from ubt_os.utils.llm_utils import extract_json as _extract_json
+from ubt_os.utils.llm_utils import extract_json as _extract_json, response_text
 from ubt_os.utils.supabase_utils import one_row
 
 logger = logging.getLogger("ubt_os.strategy_engine")
@@ -162,7 +162,7 @@ class StrategyAnalyst:
             }],
         )
 
-        brief = _extract_json(resp.content[0].text)
+        brief = _extract_json(response_text(resp))
         brief["raw_json"]  = brief.copy()
         brief["week_label"] = f"{year}-W{week_num:02d}"
         return brief

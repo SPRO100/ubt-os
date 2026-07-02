@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from supabase import create_client, Client
 
+from ubt_os.utils.llm_utils import response_text
 from ubt_os.utils.supabase_utils import one_row
 from anthropic import AsyncAnthropic
 
@@ -160,7 +161,7 @@ class RevenueReportGenerator:
             system     = self.SYSTEM_PROMPT,
             messages   = [{"role": "user", "content": json.dumps(payload, ensure_ascii=False, default=str)}],
         )
-        result = json.loads(resp.content[0].text)
+        result = json.loads(response_text(resp))
         result["markdown_report"] = self._to_markdown(result)
         return result
 

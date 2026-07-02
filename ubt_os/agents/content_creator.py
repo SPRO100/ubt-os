@@ -11,7 +11,7 @@ from enum import Enum
 from anthropic import AsyncAnthropic
 
 from ubt_os.agents.text_humanizer import TextHumanizer, HumanizeResult
-from ubt_os.utils.llm_utils import extract_json as _extract_json
+from ubt_os.utils.llm_utils import extract_json as _extract_json, response_text
 
 logger = logging.getLogger("ubt_os.content_creator")
 
@@ -159,7 +159,7 @@ class ContentCreator:
             messages=[{"role": "user", "content": f"{prompt}\n\n{user_msg}"}],
         )
 
-        raw = _extract_json(response.content[0].text, fallback={"script": response.content[0].text})
+        raw = _extract_json(response_text(response), fallback={"script": response_text(response)})
 
         main_text = raw.get("script") or raw.get("caption") or str(raw)
         humanized: HumanizeResult = await self.humanizer.humanize(main_text, geo=geo, vertical=vertical.value)

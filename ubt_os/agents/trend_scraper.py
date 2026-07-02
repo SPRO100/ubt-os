@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 from anthropic import AsyncAnthropic
 
-from ubt_os.utils.llm_utils import extract_json as _extract_json
+from ubt_os.utils.llm_utils import extract_json as _extract_json, response_text
 
 logger = logging.getLogger("ubt_os.trend_scraper")
 
@@ -107,7 +107,7 @@ class TrendScraper:
             messages=[{"role": "user", "content": f"GEO: {geo} | Вертикаль: {vertical}\n\nКонтент:\n{content}"}],
         )
 
-        data = _extract_json(response.content[0].text, fallback={
+        data = _extract_json(response_text(response), fallback={
             "hooks": [], "content_formats": [], "audience_pains": [],
             "cta_patterns": [], "trend_score": 0, "action_items": [],
         })

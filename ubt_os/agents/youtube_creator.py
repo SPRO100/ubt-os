@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from anthropic import AsyncAnthropic
 
-from ubt_os.utils.llm_utils import extract_json as _extract_json
+from ubt_os.utils.llm_utils import extract_json as _extract_json, response_text
 
 logger = logging.getLogger("ubt_os.youtube_creator")
 
@@ -222,7 +222,7 @@ class YoutubeCreator:
             messages=[{"role": "user", "content": f"{context}\n\nСоздай контент и верни JSON."}],
         )
 
-        data = _extract_json(response.content[0].text, fallback={"error": "parse_failed", "raw": response.content[0].text})
+        data = _extract_json(response_text(response), fallback={"error": "parse_failed", "raw": response_text(response)})
 
         result = YTContent(format=fmt.value, vertical=vertical, geo=geo, content=data)
         logger.info("youtube_creator | fmt=%s vertical=%s geo=%s", fmt.value, vertical, geo)

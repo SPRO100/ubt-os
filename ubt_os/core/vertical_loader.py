@@ -9,6 +9,7 @@ import yaml
 from supabase import create_client, Client
 from anthropic import AsyncAnthropic
 
+from ubt_os.utils.llm_utils import response_text
 from ubt_os.utils.supabase_utils import rows
 
 logger = logging.getLogger("ubt_os.vertical_loader")
@@ -129,7 +130,7 @@ class VerticalConfigGenerator:
             messages   = [{"role": "user", "content": prompt}],
         )
 
-        raw_yaml = resp.content[0].text.strip()
+        raw_yaml = response_text(resp).strip()
         # Убираем markdown-блоки если вдруг вернул
         if raw_yaml.startswith("```"):
             raw_yaml = "\n".join(raw_yaml.split("\n")[1:-1])

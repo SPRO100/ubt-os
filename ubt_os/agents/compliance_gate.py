@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from anthropic import AsyncAnthropic
 
-from ubt_os.utils.llm_utils import extract_json as _extract_json
+from ubt_os.utils.llm_utils import extract_json as _extract_json, response_text
 
 logger = logging.getLogger("ubt_os.compliance_gate")
 
@@ -144,7 +144,7 @@ class ComplianceGate:
             messages=[{"role": "user", "content": user_msg}],
         )
 
-        data = _extract_json(resp.content[0].text, fallback={
+        data = _extract_json(response_text(resp), fallback={
             "risk_level": "warning", "score": 50, "violations": fast_violations,
             "suggestions": [], "clean_version": None, "reason": "parse_error",
         })

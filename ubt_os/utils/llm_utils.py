@@ -10,6 +10,21 @@ from typing import Any
 logger = logging.getLogger("ubt_os.llm_utils")
 
 
+def response_text(resp: Any) -> str:
+    """Склеивает все текстовые блоки ответа Claude.
+
+    resp.content[0] не всегда TextBlock — модель может первым вернуть
+    ThinkingBlock или ToolUseBlock без атрибута .text. Берём только блоки
+    с текстом, чтобы не падать с AttributeError.
+    """
+    parts = []
+    for block in getattr(resp, "content", None) or []:
+        t = getattr(block, "text", None)
+        if isinstance(t, str):
+            parts.append(t)
+    return "".join(parts)
+
+
 def _find_balanced_json(text: str) -> str | None:
     """Находит первый сбалансированный JSON-объект или массив в тексте.
 

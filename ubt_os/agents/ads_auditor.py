@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from anthropic import AsyncAnthropic
 
-from ubt_os.utils.llm_utils import extract_json as _extract_json
+from ubt_os.utils.llm_utils import extract_json as _extract_json, response_text
 
 logger = logging.getLogger("ubt_os.ads_auditor")
 
@@ -203,7 +203,7 @@ GEO: {geo}
             messages=[{"role": "user", "content": user_msg}],
         )
 
-        data = _extract_json(response.content[0].text, fallback={
+        data = _extract_json(response_text(response), fallback={
             "platform": platform, "vertical": vertical,
             "health_score": 0, "grade": "F",
             "checks": {}, "critical_issues": ["parse_error"],

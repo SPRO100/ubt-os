@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from anthropic import AsyncAnthropic
 
-from ubt_os.utils.llm_utils import extract_json as _extract_json
+from ubt_os.utils.llm_utils import extract_json as _extract_json, response_text
 
 logger = logging.getLogger("ubt_os.obsidian_brain")
 
@@ -180,7 +180,7 @@ class ObsidianBrain:
             messages=[{"role": "user", "content": user_msg}],
         )
 
-        data = _extract_json(response.content[0].text, fallback={"pages": [], "hot_cache_update": "", "summary": "parse_error"})
+        data = _extract_json(response_text(response), fallback={"pages": [], "hot_cache_update": "", "summary": "parse_error"})
         pages = data.get("pages", [])
         filenames = []
 
@@ -227,8 +227,8 @@ class ObsidianBrain:
             messages=[{"role": "user", "content": user_msg}],
         )
 
-        data = _extract_json(response.content[0].text, fallback={
-            "answer": response.content[0].text,
+        data = _extract_json(response_text(response), fallback={
+            "answer": response_text(response),
             "sources": [], "confidence": "low", "missing_knowledge": "",
         })
 
@@ -251,7 +251,7 @@ class ObsidianBrain:
             messages=[{"role": "user", "content": f"Мёртвые ссылки (уже найдены): {dead_links}\n\nИндекс wiki:\n{wiki_index}"}],
         )
 
-        data = _extract_json(response.content[0].text, fallback={
+        data = _extract_json(response_text(response), fallback={
             "dead_links": dead_links, "empty_pages": [], "no_tags": [],
             "contradictions": [], "stale_pages": [], "health_score": 50, "action_items": [],
         })

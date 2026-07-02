@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
 from anthropic import AsyncAnthropic
 
-from ubt_os.utils.llm_utils import extract_json as _extract_json
+from ubt_os.utils.llm_utils import extract_json as _extract_json, response_text
 from ubt_os.utils.supabase_utils import first_row, one_row
 
 logger = logging.getLogger("ubt_os.knowledge_synthesizer")
@@ -143,7 +143,7 @@ class KnowledgeAnalyst:
                 )
             }],
         )
-        return _extract_json(resp.content[0].text)
+        return _extract_json(response_text(resp))
 
     async def synthesize_weekly(self, data: dict) -> dict:
         resp = await self.client.messages.create(
@@ -154,7 +154,7 @@ class KnowledgeAnalyst:
                 )
             }],
         )
-        return _extract_json(resp.content[0].text)
+        return _extract_json(response_text(resp))
 
 
 # ── Writer ────────────────────────────────────────────────
