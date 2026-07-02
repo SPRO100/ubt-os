@@ -46,6 +46,10 @@ MCP_URL              = os.getenv("HIGGSFIELD_MCP_URL", "https://mcp.higgsfield.a
 MCP_PROTOCOL_VERSION = "2025-06-18"
 STATUS_POLL_SEC      = 20
 
+# Модель из каталога models_explore. marketing_studio_video — «one-click
+# product ads, TikTok/Reels ready», 12–15 сек, 9:16, звук — наш кейс UGC.
+DEFAULT_VIDEO_MODEL  = os.getenv("HIGGSFIELD_MODEL", "marketing_studio_video")
+
 # Приоритеты (меньше = выше приоритет в Sorted Set)
 PRIORITY = {
     "betting": 1,
@@ -65,7 +69,7 @@ class VideoJob:
     mcsla_prompt:   str       # готовый промпт
     account_id:     str
     content_plan_id: str
-    model:          str = "kling3_0_turbo"  # быстрый text-to-video без reference-медиа
+    model:          str = ""  # пусто → DEFAULT_VIDEO_MODEL воркера
     retry_count:    int = 0
     created_at:     float = 0.0
 
@@ -348,7 +352,7 @@ class HiggsFieldWorker:
             session_id = await self._mcp_session(client)
             text = await self._mcp_tool(client, session_id, "generate_video", {
                 "params": {
-                    "model":        job.model,
+                    "model":        job.model or DEFAULT_VIDEO_MODEL,
                     "prompt":       job.mcsla_prompt,
                     "aspect_ratio": "9:16",
                 },
