@@ -484,28 +484,14 @@ class WebhookHandler(BaseHTTPRequestHandler):
             (v for v in _VERTS if v not in ("both", "any") and v in vertical_id.lower()),
             None
         )
-        kb_learnings = (
-            db.table("kb_entries")
-            .select("entry_key,title,content,created_at")
-            .eq("is_current", True)
-            .order("created_at", desc=True)
-            .limit(20)
-            .execute()
-        ).data
-        # Сортируем по релевантности: совпадение vertical/platform/process в entry_key — выше
-        def _relevance(e):
-            key = e.get("entry_key", "")
-            score = 0
-            if _proj_vertical and _proj_vertical in key:
-                score += 4
-            if _detected_platform and _detected_platform in key:
-                score += 3
-            if _detected_process and _detected_process in key:
-                score += 2
-            if _detected_scheme and _detected_scheme in key:
-                score += 1
-            return score
-        kb_learnings = sorted(kb_learnings, key=_relevance, reverse=True)[:8]
+        kb_learnings = _load_kb(
+            db,
+            process=_detected_process,
+            platform=_detected_platform,
+            vertical=_proj_vertical,
+            scheme=_detected_scheme,
+            limit=8,
+        )
 
         history = (
             db.table("chat_messages")
@@ -562,12 +548,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "Не фиксируй общие фразы и то, что уже есть в записях выше."
         )
 
-        kb_section = ""
-        if kb_learnings:
-            kb_section = "\n\nБАЗА ЗНАНИЙ (зафиксированные рабочие схемы, отсортированы по релевантности):\n" + "\n".join(
-                f"- [{k['entry_key']}] {k['title']}:\n  {k['content'][:500]}"
-                for k in kb_learnings
-            )
+        kb_section = f"\n\n{kb_learnings}" if kb_learnings else ""
 
         system_prompt = (
             f"Ты — ORCHESTRATOR проекта «{project['name']}» в системе UBT OS.\n"
