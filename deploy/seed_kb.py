@@ -1374,7 +1374,7 @@ def run(dry_run: bool = False, reset: bool = False):
             continue
 
         try:
-            db.table("kb_entries").delete().eq("entry_key", key).eq("changed_by", "seed_kb").execute()
+            db.table("kb_entries").delete().eq("entry_key", key).execute()
             db.table("kb_entries").insert(e).execute()
             print(f"  ✓ {key}")
             ok += 1
