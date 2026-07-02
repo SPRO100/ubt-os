@@ -17,6 +17,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 from dataclasses import dataclass, asdict
 from typing import Optional
@@ -36,9 +37,14 @@ FAILED_KEY         = "higgsfield:failed"         # упавшие
 CREDIT_PAUSE_KEY   = "higgsfield:credit_pause"   # флаг паузы при нехватке кредитов
 
 MAX_CONCURRENT     = 3     # максимум параллельных генераций
-GENERATION_TIMEOUT = 300   # 5 минут
+GENERATION_TIMEOUT = 600   # 10 минут (генерация видео + опрос статуса)
 MAX_RETRIES        = 2
 CREDIT_PAUSE_SEC   = 3600  # 1 час при ошибке кредитов
+
+# Higgsfield MCP (JSON-RPC поверх streamable HTTP, НЕ обычный REST)
+MCP_URL              = os.getenv("HIGGSFIELD_MCP_URL", "https://mcp.higgsfield.ai/mcp")
+MCP_PROTOCOL_VERSION = "2025-06-18"
+STATUS_POLL_SEC      = 20
 
 # Приоритеты (меньше = выше приоритет в Sorted Set)
 PRIORITY = {
@@ -59,7 +65,7 @@ class VideoJob:
     mcsla_prompt:   str       # готовый промпт
     account_id:     str
     content_plan_id: str
-    model:          str = "seedance_2_0"
+    model:          str = "kling3_0_turbo"  # быстрый text-to-video без reference-медиа
     retry_count:    int = 0
     created_at:     float = 0.0
 
@@ -250,19 +256,125 @@ class HiggsFieldWorker:
         except Exception as e:
             await self.queue.fail(job, str(e))
 
+    # ── MCP-клиент (Higgsfield говорит на MCP, не на REST) ──
+
+    def _mcp_headers(self, session_id: str | None = None) -> dict:
+        h = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type":  "application/json",
+            # без text/event-stream сервер отвечает 406 Not Acceptable
+            "Accept":        "application/json, text/event-stream",
+        }
+        if session_id:
+            h["Mcp-Session-Id"] = session_id
+        return h
+
+    @staticmethod
+    def _parse_mcp_response(resp: httpx.Response) -> dict:
+        """Ответ MCP приходит либо чистым JSON, либо SSE-потоком data:-строк."""
+        if "text/event-stream" in resp.headers.get("content-type", ""):
+            message: dict | None = None
+            for line in resp.text.splitlines():
+                if not line.startswith("data:"):
+                    continue
+                payload = line[5:].strip()
+                if not payload:
+                    continue
+                try:
+                    msg = json.loads(payload)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(msg, dict) and ("result" in msg or "error" in msg):
+                    message = msg
+            if message is None:
+                raise RuntimeError(f"пустой SSE-ответ MCP: {resp.text[:200]}")
+            return message
+        return resp.json()
+
+    async def _mcp_session(self, client: httpx.AsyncClient) -> str:
+        """initialize + notifications/initialized → Mcp-Session-Id."""
+        resp = await client.post(MCP_URL, headers=self._mcp_headers(), json={
+            "jsonrpc": "2.0", "id": 0, "method": "initialize",
+            "params": {
+                "protocolVersion": MCP_PROTOCOL_VERSION,
+                "capabilities": {},
+                "clientInfo": {"name": "ubt-os-higgsfield-worker", "version": "1.0"},
+            },
+        })
+        resp.raise_for_status()
+        session_id = resp.headers.get("mcp-session-id", "")
+        await client.post(MCP_URL, headers=self._mcp_headers(session_id), json={
+            "jsonrpc": "2.0", "method": "notifications/initialized",
+        })
+        return session_id
+
+    async def _mcp_tool(self, client: httpx.AsyncClient, session_id: str,
+                        name: str, arguments: dict) -> str:
+        """tools/call → склеенный текст content-блоков ответа."""
+        resp = await client.post(MCP_URL, headers=self._mcp_headers(session_id), json={
+            "jsonrpc": "2.0", "id": int(time.time() * 1000) % 10**9,
+            "method": "tools/call",
+            "params": {"name": name, "arguments": arguments},
+        })
+        resp.raise_for_status()
+        msg = self._parse_mcp_response(resp)
+        if msg.get("error"):
+            raise RuntimeError(f"MCP {name}: {msg['error']}")
+        result = msg.get("result") or {}
+        text = "\n".join(
+            b.get("text", "") for b in (result.get("content") or [])
+            if isinstance(b, dict) and b.get("type") == "text"
+        )
+        if result.get("isError"):
+            raise RuntimeError(f"MCP {name}: {text[:300]}")
+        return text
+
+    @staticmethod
+    def _find_video_url(text: str) -> str | None:
+        m = re.search(r"https://[^\s\"'\)\]]+\.(?:mp4|mov|webm)[^\s\"'\)\]]*", text)
+        return m.group(0) if m else None
+
+    @staticmethod
+    def _find_generation_id(text: str) -> str | None:
+        m = re.search(
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+            text, re.IGNORECASE,
+        )
+        return m.group(0) if m else None
+
     async def _generate_video(self, job: VideoJob) -> dict:
-        """Вызывает Higgsfield MCP API."""
-        async with httpx.AsyncClient(timeout=GENERATION_TIMEOUT) as client:
-            resp = await client.post(
-                "https://mcp.higgsfield.ai/mcp",
-                headers={"Authorization": f"Bearer {self.api_key}"},
-                json={
-                    "model":  job.model,
-                    "prompt": job.mcsla_prompt,
-                }
-            )
-            resp.raise_for_status()
-            return resp.json()
+        """Генерация через Higgsfield MCP: generate_video → опрос до готовности."""
+        async with httpx.AsyncClient(timeout=120) as client:
+            session_id = await self._mcp_session(client)
+            text = await self._mcp_tool(client, session_id, "generate_video", {
+                "params": {
+                    "model":        job.model,
+                    "prompt":       job.mcsla_prompt,
+                    "aspect_ratio": "9:16",
+                },
+            })
+            logger.info(f"[Worker] generate_video → {text[:400]}")
+
+            url = self._find_video_url(text)
+            if url:
+                return {"video_url": url}
+
+            gen_id = self._find_generation_id(text)
+            if not gen_id:
+                raise RuntimeError(f"нет job_id в ответе generate_video: {text[:300]}")
+
+            # Генерация асинхронная — опрашиваем статус до дедлайна
+            deadline = time.time() + GENERATION_TIMEOUT - 60
+            while time.time() < deadline:
+                await asyncio.sleep(STATUS_POLL_SEC)
+                status = await self._mcp_tool(client, session_id, "job_display", {"id": gen_id})
+                url = self._find_video_url(status)
+                if url:
+                    logger.info(f"[Worker] генерация {gen_id[:8]} готова: {url[:80]}")
+                    return {"video_url": url, "higgsfield_job_id": gen_id}
+                if re.search(r"\b(failed|error|nsfw|rejected)\b", status, re.IGNORECASE):
+                    raise RuntimeError(f"генерация {gen_id[:8]} упала: {status[:200]}")
+            raise RuntimeError(f"генерация {gen_id[:8]} не успела за {GENERATION_TIMEOUT}s")
 
     async def _save_result(self, job_id: str, result: dict):
         """Сохраняет результат в Supabase videos таблицу."""
