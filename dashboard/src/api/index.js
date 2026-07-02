@@ -6,7 +6,7 @@ const stripSlash = (u) => (u || "").replace(/\/+$/, "");
 
 export const SUPABASE_URL = stripSlash(env.VITE_SUPABASE_URL || "https://ricuoztdelapexfpqsux.supabase.co");
 export const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY || "sb_publishable_f_z6goLZoPN68j2N71wX6g_r6jNjrJt";
-export const AGENTS_SERVER = env.VITE_AGENTS_SERVER !== undefined ? stripSlash(env.VITE_AGENTS_SERVER) : "http://88.218.121.108:8080";
+export const AGENTS_SERVER = env.VITE_AGENTS_SERVER !== undefined ? stripSlash(env.VITE_AGENTS_SERVER) : "http://88.218.121.108";
 export const N8N_URL = env.VITE_N8N_URL !== undefined ? stripSlash(env.VITE_N8N_URL) : "http://88.218.121.108:5678";
 // Set N8N_API_KEY in localStorage: localStorage.setItem('n8n_api_key', 'your-key')
 export const getN8nApiKey = () => localStorage.getItem('n8n_api_key') || '';
