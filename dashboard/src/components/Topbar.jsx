@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-export default function Topbar({ title, sub, supaOk, redisOk }) {
+export default function Topbar({ title, sub, supaOk, redisOk, onMenu }) {
   const [now, setNow] = useState(new Date())
 
   useEffect(() => {
@@ -14,8 +14,11 @@ export default function Topbar({ title, sub, supaOk, redisOk }) {
   return (
     <div className="topbar">
       <div className="topbar-left">
-        <div className="topbar-title">{title}</div>
-        <div className="topbar-sub">{sub}</div>
+        <button className="menu-btn" onClick={onMenu} aria-label="Открыть меню">☰</button>
+        <div>
+          <div className="topbar-title">{title}</div>
+          <div className="topbar-sub">{sub}</div>
+        </div>
       </div>
       <div className="topbar-right">
         <div className="topbar-btn">

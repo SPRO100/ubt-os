@@ -38,7 +38,9 @@ jobs:
             git checkout main
             git pull origin main
             cd dashboard
-            npm ci --omit=dev
+            # vite лежит в devDependencies — ставим всё, без --omit=dev
+            npm ci
             npm run build
-            sudo systemctl restart ubt-dashboard
+            # nginx (docker) и ubt-dashboard (systemd) раздают dashboard-static/
+            cp -r dist/* ../dashboard-static/
             echo "Dashboard deployed OK"

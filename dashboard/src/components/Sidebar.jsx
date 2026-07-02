@@ -7,14 +7,16 @@ const SERVER_HOST = (() => {
   catch { return AGENTS_SERVER || '—' }
 })()
 
-export default function Sidebar({ nav, active, onSelect, allOk, badges = {} }) {
+export default function Sidebar({ nav, active, onSelect, allOk, badges = {}, open = false, onClose }) {
   const grouped = SECTIONS.map(s => ({
     label: s,
     items: nav.filter(n => n.section === s),
   }))
 
   return (
-    <aside className="sidebar">
+    <>
+    {open && <div className="sidebar-backdrop" onClick={onClose} aria-hidden="true" />}
+    <aside className={`sidebar${open ? ' open' : ''}`}>
       <div className="sidebar-logo">
         <div className="logo-icon">U</div>
         <div>
@@ -62,5 +64,6 @@ export default function Sidebar({ nav, active, onSelect, allOk, badges = {} }) {
         </div>
       </div>
     </aside>
+    </>
   )
 }
