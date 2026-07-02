@@ -253,7 +253,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
         # Пути без авторизации (доступ закрыт файрволлом на уровне сети)
         _PUBLIC_PATHS = {"/orchestrator/chat", "/health/check-all", "/metrics"}
-        if self.path not in _PUBLIC_PATHS and not self._authorized(raw_body):
+        _clean_path = self.path.split("?")[0].rstrip("/") or "/"
+        if _clean_path not in _PUBLIC_PATHS and not self._authorized(raw_body):
             _METRICS["webhook_requests_unauthorized"] += 1
             self._respond(403, {"error": "unauthorized"})
             logger.warning("Webhook: отклонён — провал аутентификации", extra={"path": self.path})
