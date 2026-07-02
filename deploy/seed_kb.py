@@ -31,8 +31,6 @@ def _e(key: str, title: str, content: str, tags: list[str] | None = None) -> Non
         "content":    content.strip(),
         "category":   process,
         "vertical":   vertical if vertical != "any" else None,
-        "platform":   platform if platform != "any" else None,
-        "scheme":     scheme   if scheme   != "any" else None,
         "tags":       (tags or []) + [process, platform, vertical, scheme],
         "version":    1,
         "is_current": True,
