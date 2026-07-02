@@ -122,13 +122,8 @@ export default function Clients({ onCreateTask }) {
             {token ? '✓ настроен' : '⚠ не задан — чат недоступен'}
           </span>
         </div>
-        {(tokenOpen || !token) && (
+        {tokenOpen && (
           <div className="card-body">
-            {!token && (
-              <div className="note-box" style={{ marginBottom:10 }}>
-                Для работы чата нужен токен, который совпадает с <code>AGENTS_API_TOKEN</code> в <code>.env</code> сервера.
-              </div>
-            )}
             <div style={{ display:'flex', gap:8 }}>
               <input className="form-control" type="password"
                 placeholder="Вставь AGENTS_API_TOKEN…"
@@ -137,7 +132,7 @@ export default function Clients({ onCreateTask }) {
                 onKeyDown={e => e.key === 'Enter' && saveToken()}
                 style={{ flex:1, fontFamily:"'IBM Plex Mono',monospace" }} />
               <button className="btn btn-primary" onClick={saveToken}>Сохранить</button>
-              {token && <button className="btn btn-outline" onClick={() => setTokenOpen(false)}>Отмена</button>}
+              <button className="btn btn-outline" onClick={() => setTokenOpen(false)}>Отмена</button>
             </div>
           </div>
         )}
