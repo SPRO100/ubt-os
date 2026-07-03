@@ -75,6 +75,12 @@ If neither key is set, the server runs in **dev mode** (no auth) and logs a
 warning. CORS origin is configurable via `CORS_ALLOW_ORIGIN` (default `*`;
 restrict to the dashboard domain in production).
 
+**Public routes (`_PUBLIC_PATHS` in `do_POST`):** `/orchestrator/chat`,
+`/health/check-all`, `/metrics` bypass auth entirely — the dashboard chat must
+work without a token (the server is firewalled, only nginx :80 is exposed). The
+path is normalized (`split("?")[0].rstrip("/")`) before the check. Do not add
+write/side-effecting routes to this set.
+
 ### Python Package Structure (`ubt_os/`)
 
 ```
@@ -259,6 +265,38 @@ plus `strategy_`, `revenue_`, `risk_`, `vertical_`, `creative_vault_`,
 `account_type`. Existing DBs are migrated by `06_patch_accounts_align.sql`
 (part of `make db-init`) — it changes `id` UUID→TEXT (dropping/re-adding the
 account_id FKs), expands the platform CHECK, and adds the missing columns.
+
+### Knowledge base — `kb_entries` (versioned, `08_patch_kb_entries.sql`)
+
+The professional knowledge library the orchestrator and agents draw on lives in
+**`kb_entries`** — a versioned, append-only table. Columns: `entry_key,
+category, vertical, title, content, tags, version, is_current, changed_by`.
+There is **no `platform`/`scheme` column** — those are encoded in `entry_key`
+and mirrored into `tags`.
+
+- `entry_key` format: **`<process>.<platform>.<vertical>.<scheme>`**
+  (e.g. `content.tiktok.betting.grey`, `white_funnel.telegram.auto.white`).
+  Missing segments default to `any`.
+- Partial unique index `WHERE is_current = TRUE` — you **cannot** use
+  `upsert on_conflict`; seed scripts do `delete().eq("entry_key", key)` then
+  `insert()`.
+- This is a **different table** from the legacy `knowledge_entries` — the
+  dashboard "Записи знаний" tile and Knowledge section read `kb_entries`
+  (`is_current = true`).
+
+**Seed scripts (`deploy/seed_kb*.py`)** — additive, each writes via
+delete+insert, run with `docker compose exec agents python /tmp/<script>.py`:
+- `seed_kb.py` — 40 base entries (process × platform × vertical × scheme).
+- `seed_kb_affiliate.py` — 30, Block A: CPA-network maps, per-vertical guides,
+  compliance matrix, funnels, benchmarks.
+- `seed_kb_white.py` — 16, Block B: white-niche funnels, Telegram organic
+  growth + monetization, YouTube/Shorts.
+- `seed_kb_content.py` — 13: hooks, formats, copywriting, stop-slop, trends,
+  neural production.
+
+Total ≈ **99 entries**. To extend, add a new `seed_kb_*.py` following the same
+`_e(key, title, content, tags)` shape and category taxonomy; add new category
+labels to `dashboard/src/components/sections/Knowledge.jsx` (`CATEGORY_LABELS`).
 
 ---
 
