@@ -1389,7 +1389,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             if bot and chat:
                 import urllib.request as _ur, urllib.parse as _up
                 msg = f"⛔ EMERGENCY PAUSE\nПричина: {reason}\nУровень: {level}\nАккаунтов приостановлено: {paused}"
-                _ur.urlopen(
+                _ur.urlopen(  # nosec B310 — жёстко https Telegram API, схема не пользовательская
                     f"https://api.telegram.org/bot{bot}/sendMessage"
                     f"?chat_id={chat}&text={_up.quote(msg)}",
                     timeout=5,

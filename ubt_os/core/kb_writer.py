@@ -9,8 +9,11 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime, timezone
+from typing import TypeVar, cast
 
 logger = logging.getLogger("kb_writer")
+
+_T = TypeVar("_T")
 
 _LEARN_RE = re.compile(r"\[LEARN:\s*([^|\]]+)\|([^|\]]+)\|([^\]]+)\]", re.DOTALL)
 
@@ -44,10 +47,10 @@ def strip_learn_markers(text: str) -> str:
     return _LEARN_RE.sub("", text).strip()
 
 
-def scan_and_strip(result: object) -> tuple[object, list[dict]]:
+def scan_and_strip(result: _T) -> tuple[_T, list[dict]]:
     """
     Рекурсивно обходит dict/list/str, извлекает [LEARN:] маркеры и
-    возвращает (очищенный_result, список_learnings).
+    возвращает (очищенный_result, список_learnings). Тип result сохраняется.
     """
     learnings: list[dict] = []
 
@@ -64,7 +67,7 @@ def scan_and_strip(result: object) -> tuple[object, list[dict]]:
             return {k: _process(v) for k, v in obj.items()}
         return obj
 
-    return _process(result), learnings
+    return cast(_T, _process(result)), learnings
 
 
 def save_kb_entry(
