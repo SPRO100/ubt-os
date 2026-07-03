@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { fetchRows, insertRows, SUPABASE_URL, SUPABASE_ANON_KEY, AGENTS_SERVER } from '../../api'
+import { fetchRows, insertRows, postAgents, SUPABASE_URL, SUPABASE_ANON_KEY, AGENTS_SERVER } from '../../api'
 import CollapsibleCard from '../CollapsibleCard'
 
 const SB_HEADERS = {
@@ -103,6 +103,10 @@ export default function Projects({ onCreateTask }) {
   const [deleteId,    setDeleteId]    = useState(null)
   const [deleting,    setDeleting]    = useState(false)
 
+  // Запуск пайплайна из чата (предложение оркестратора)
+  const [runAction,   setRunAction]   = useState(null)
+  const [running,     setRunning]     = useState(false)
+
   const logRef = useRef(null)
 
   // Close menu on outside click
@@ -192,7 +196,7 @@ export default function Projects({ onCreateTask }) {
     if (!input.trim() || !current) return
     const msg = input.trim()
     setHistory(h => [...h, { role: 'user', content: msg }])
-    setInput(''); setSending(true); setPendingTask(null)
+    setInput(''); setSending(true); setPendingTask(null); setRunAction(null)
     try {
       const res = await fetch(`${AGENTS_SERVER}/orchestrator/chat`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -205,11 +209,37 @@ export default function Projects({ onCreateTask }) {
       const data  = await res.json()
       const reply = data.reply || data.error || 'Ошибка ответа'
       setHistory(h => [...h, { role: 'assistant', content: reply }])
-      if (reply.length > 80) setPendingTask(reply)
+      if (data.run_action) setRunAction(data.run_action)
+      else if (reply.length > 80) setPendingTask(reply)
     } catch (e) {
       setHistory(h => [...h, { role: 'assistant', content: '⚠️ Ошибка: ' + e.message }])
     }
     setSending(false)
+  }
+
+  // Запуск пайплайна, предложенного оркестратором (после подтверждения)
+  async function runPipeline() {
+    if (!runAction) return
+    setRunning(true)
+    try {
+      const data = await postAgents(runAction.path, {
+        geo:    runAction.geo,
+        output: runAction.output,
+        count:  runAction.count,
+        offer:  '',
+        provider: '',
+      }, 300000)
+      const n = data.created ?? 0
+      const kind = data.video_generated ? 'видео в очереди' : 'скриптов готово'
+      setHistory(h => [...h, {
+        role: 'assistant',
+        content: `✅ Пайплайн запущен: ${runAction.vertical}/${runAction.geo}, профиль ${runAction.output} — ${n} ${kind}` +
+                 (data.blocked ? `, заблокировано ${data.blocked}` : ''),
+      }])
+    } catch (e) {
+      setHistory(h => [...h, { role: 'assistant', content: '⚠️ Не удалось запустить пайплайн: ' + e.message }])
+    }
+    setRunAction(null); setRunning(false)
   }
 
   function createTask() {
@@ -455,6 +485,32 @@ export default function Projects({ onCreateTask }) {
                   </div>
                 ))}
               </div>
+
+              {runAction && (
+                <div style={{ marginBottom: 12, padding: '12px 14px', borderRadius: 8,
+                  background: 'var(--green-bg, rgba(34,197,94,.1))', border: '1px solid rgba(34,197,94,.35)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text)' }}>
+                    🚀 Запустить пайплайн: <b>{runAction.vertical}</b> · {runAction.geo} ·
+                    профиль <b>{runAction.output}</b> · {runAction.count} шт
+                    {runAction.output === 'text' && <span style={{ color: 'var(--faint)' }}> (без видео)</span>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    <button onClick={runPipeline} disabled={running}
+                      style={{ fontSize: 12, padding: '6px 14px', borderRadius: 6,
+                        background: 'var(--green, #22c55e)', border: 'none', color: '#fff',
+                        cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      {running ? '⏳ Запуск…' : '▶ Запустить'}
+                    </button>
+                    <button onClick={() => setRunAction(null)}
+                      style={{ fontSize: 12, padding: '6px 10px', borderRadius: 6,
+                        background: 'transparent', border: '1px solid var(--border)',
+                        color: 'var(--faint)', cursor: 'pointer' }}>
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {pendingTask && (
                 <div style={{ marginBottom: 12, padding: '12px 14px', borderRadius: 8,

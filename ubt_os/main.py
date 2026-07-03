@@ -47,6 +47,39 @@ def _get_db():
     )
 
 
+# ── Определение вертикали проекта для оркестратора ──────────────────────────
+# Алиасы синхронизированы с dashboard/src/components/sections/Clients.jsx
+# (deriveVertical) — чтобы проекты вроде «Авто из Кореи»/«Турагент» получали
+# правильные записи kb_entries. Slug'и — это значения kb_entries.vertical.
+_VERTICAL_ALIASES: list[tuple[str, tuple[str, ...]]] = [
+    ("betting",      ("беттинг", "betting", "ставк", "букмекер")),
+    ("gambling",     ("гемблинг", "gambling", "казино", "casino", "слот")),
+    ("nutra",        ("нутра", "nutra", "бад", "похуден")),
+    ("finance",      ("финанс", "finance", "займ", "кредит", "мфо", "карт")),
+    ("crypto",       ("крипт", "crypto", "форекс", "forex", "бирж")),
+    ("dating",       ("дейтинг", "dating", "знакомств")),
+    ("edtech",       ("edtech", "образован", "обучен", "курс", "инфобиз", "школ")),
+    ("auto",         ("авто", "auto", "машин", "car", "корея", "кита", "япони", "пригон")),
+    ("tourism",      ("тур", "туризм", "travel", "путешеств")),
+    ("realty",       ("недвиж", "realty", "квартир", "застройщик")),
+    ("construction", ("строит", "ремонт", "construction")),
+    ("beauty",       ("красот", "beauty", "салон", "бьюти")),
+    ("fitness",      ("фитнес", "fitness", "спортзал")),
+    ("ecommerce",    ("магазин", "ecommerce", "commerce", "товар", "shop")),
+    ("b2b",          ("b2b", "услуг")),
+    ("food",         ("доставк", "еда", "food", "ресторан")),
+]
+
+
+def _derive_project_vertical(project: dict) -> str | None:
+    """Slug вертикали kb_entries по названию/конфигу/id проекта или None."""
+    hay = " ".join(str(project.get(k, "")) for k in ("name", "config_yaml", "id")).lower()
+    for slug, aliases in _VERTICAL_ALIASES:
+        if any(a in hay for a in aliases):
+            return slug
+    return None
+
+
 # ── Парсер файлов аккаунтов (/accounts/parse-file) ───────────────────────────
 
 _ACC_PLATFORMS = {'tiktok', 'facebook', 'instagram', 'pinterest', 'youtube', 'threads'}
@@ -483,12 +516,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
         _detected_platform = next((p for p in PLATFORMS if p != "any" and p in _msg_lower), None)
         _detected_process   = next((p for p in PROCESSES if p in _msg_lower), None)
         _detected_scheme    = next((s for s in SCHEMES   if s in _msg_lower), None)
-        # Вертикаль из vertical_id: "nutra_joints_pl" → "nutra", "betting_ru" → "betting"
-        from ubt_os.core.knowledge_taxonomy import VERTICALS as _VERTS
-        _proj_vertical = next(
-            (v for v in _VERTS if v not in ("both", "any") and v in vertical_id.lower()),
-            None
-        )
+        # Вертикаль проекта по названию/конфигу/id (алиасы как в дашборде):
+        # «Авто из Кореи» → auto, «Турагент» → tourism, «Нутра» → nutra и т.д.
+        _proj_vertical = _derive_project_vertical(project)
         kb_learnings = _load_kb(
             db,
             process=_detected_process,
@@ -544,6 +574,15 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "[AGENT_SUGGEST: agent_id|Что именно агент сделает для этой задачи]\n"
             "Пример: [AGENT_SUGGEST: content_creator|Создать 3 варианта hook для нутра GEO US]\n"
             "Добавляй не более 2 предложений. Если агент не нужен — ничего не добавляй.\n\n"
+            "ЗАПУСК ПАЙПЛАЙНА. Если пользователь ЯВНО просит запустить/сгенерировать партию "
+            "контента для вертикали nutra или betting — добавь в конец ответа ОДИН маркер:\n"
+            "[RUN_PIPELINE: vertical|geo|output|count]\n"
+            "  vertical: nutra|betting (только эти — другие вертикали пока без видео-пайплайна)\n"
+            "  geo: US|BR|MX|DE|PL  ·  output: text|video|carousel|full  ·  count: 1-10\n"
+            "Пример: [RUN_PIPELINE: nutra|US|text|3] — 3 текстовых скрипта без видео.\n"
+            "Выбирай output по правилу профиля выше (белое/текст → text). Пользователь ещё раз "
+            "подтвердит запуск кнопкой — маркер лишь предлагает. Не добавляй маркер, если "
+            "пользователь просто спрашивает/уточняет, а не просит запуск.\n\n"
             "Если в ответе уместна ссылка на внешний сервис (PiPiAds, AdHeart, Publer, Higgsfield, Keitaro и т.д.) — "
             "добавь в конец ответа: [QUICK_LINK: Название|https://url]\n"
             "Примеры: [QUICK_LINK: PiPiAds|https://www.pipiads.com] или [QUICK_LINK: Publer|https://app.publer.io]\n"
@@ -592,8 +631,10 @@ class WebhookHandler(BaseHTTPRequestHandler):
         suggestions = []
         quick_links = []
         learnings = []
+        run_action: dict | None = None
 
         def _extract_markers(text):
+            nonlocal run_action
             for m in _re.finditer(r"\[AGENT_SUGGEST:\s*([^\|]+)\|([^\]]+)\]", text):
                 suggestions.append({"agent": m.group(1).strip(), "description": m.group(2).strip()})
             for m in _re.finditer(r"\[QUICK_LINK:\s*([^\|]+)\|([^\]]+)\]", text):
@@ -605,9 +646,26 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     "title":     m.group(2).strip(),
                     "content":   m.group(3).strip(),
                 })
+            # [RUN_PIPELINE: vertical|geo|output|count] — предложение запуска (первое)
+            _rp = _re.search(r"\[RUN_PIPELINE:\s*([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\]]+)\]", text)
+            if _rp:
+                _vert = _rp.group(1).strip().lower()
+                if _vert in ("nutra", "betting"):
+                    try:
+                        _cnt = max(1, min(int(_rp.group(4).strip()), 10))
+                    except ValueError:
+                        _cnt = 1
+                    run_action = {
+                        "vertical": _vert,
+                        "geo":      _rp.group(2).strip().upper(),
+                        "output":   _rp.group(3).strip().lower(),
+                        "count":    _cnt,
+                        "path":     "/run/ubt" if _vert == "betting" else "/run/nutra",
+                    }
             text = _re.sub(r"\[AGENT_SUGGEST:[^\]]+\]", "", text)
             text = _re.sub(r"\[QUICK_LINK:[^\]]+\]", "", text)
             text = _re.sub(r"\[LEARN:[^\]]+\]", "", text)
+            text = _re.sub(r"\[RUN_PIPELINE:[^\]]+\]", "", text)
             return text.strip()
 
         reply = _extract_markers(raw_reply)
@@ -648,6 +706,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "agent_suggestions": suggestions,
             "quick_links": quick_links,
             "learnings_saved": saved_learnings,
+            "run_action": run_action,
         }
 
     @staticmethod
