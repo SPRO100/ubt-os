@@ -17,6 +17,11 @@ const CATEGORY_LABELS = {
   compliance:     '⚖️ Compliance',
   funnel:         '🔻 Воронки',
   benchmarks:     '📐 Бенчмарки',
+  white_funnel:   '🏢 Белые воронки',
+  tg_growth:      '📣 Рост Telegram',
+  tg_monetize:    '💰 Монетизация TG',
+  yt_growth:      '▶️ Рост YouTube',
+  yt_monetize:    '💵 Монетизация YouTube',
 }
 
 const SCHEME_COLOR = {
