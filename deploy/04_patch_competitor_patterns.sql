@@ -12,4 +12,4 @@ CREATE TABLE IF NOT EXISTS competitor_patterns (
 
 CREATE INDEX IF NOT EXISTS idx_competitor_patterns_created ON competitor_patterns(created_at);
 
-COMMENT ON TABLE competitor_patterns IS 'Patch 4: добавлена для совместимости с strategy_engine.py (отсутствовала в исходных схемах)';
+COMMENT ON TABLE competitor_patterns IS 'Patch 4: добавлена для совместимости со strategy_engine.py (удалён при пересборке агентов — таблица осиротела, никто её не пишет/не читает)';

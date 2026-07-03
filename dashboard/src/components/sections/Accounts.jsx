@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { fetchRows, insertRows, AGENTS_SERVER, agentsHeaders } from '../../api'
+import { fetchRows, insertRows, deleteRow, AGENTS_SERVER, agentsHeaders } from '../../api'
 import CollapsibleCard from '../CollapsibleCard'
 
 const PLATFORMS_TABS = [
@@ -36,6 +36,7 @@ export default function Accounts() {
   const [acctType, setAcctType] = useState('aged')
   const [projectId, setProjectId] = useState('')
   const [doWarmup, setDoWarmup] = useState(true)
+  const [deletingId, setDeletingId] = useState(null)
 
   // bulk CSV
   const [bulkCsv,    setBulkCsv]    = useState('')
@@ -189,6 +190,18 @@ export default function Accounts() {
     setFileImporting(false)
   }
 
+  async function deleteAccount(id) {
+    if (!window.confirm(`Удалить аккаунт «${id}»? Это действие необратимо.`)) return
+    setDeletingId(id)
+    try {
+      await deleteRow('accounts', id)
+      setAccounts(prev => prev.filter(a => a.id !== id))
+    } catch (e) {
+      alert('Не удалось удалить (возможно, есть связанные видео/публикации): ' + e.message)
+    }
+    setDeletingId(null)
+  }
+
   const byCounts = id => accounts.filter(a => a.platform === id).length
 
   return (
@@ -220,7 +233,7 @@ export default function Accounts() {
           ) : (
             <table>
               <thead>
-                <tr><th>ID</th><th>Платформа</th><th>Проект</th><th>Статус</th><th>Прокси</th><th>Publer ID</th><th>Добавлен</th></tr>
+                <tr><th>ID</th><th>Платформа</th><th>Проект</th><th>Статус</th><th>Прокси</th><th>Publer ID</th><th>Добавлен</th><th></th></tr>
               </thead>
               <tbody>
                 {visible.map(a => (
@@ -242,6 +255,15 @@ export default function Accounts() {
                     <td className="mono">{a.proxy || '—'}</td>
                     <td className="mono">{a.publer_profile_id || '—'}</td>
                     <td className="mono">{(a.created_at || '').slice(0,10)}</td>
+                    <td>
+                      <button onClick={() => deleteAccount(a.id)} disabled={deletingId === a.id}
+                        title="Удалить аккаунт"
+                        style={{ fontSize:12, padding:'3px 8px', borderRadius:6, cursor:'pointer',
+                          background:'transparent', border:'1px solid var(--border)', color:'var(--red)',
+                          opacity: deletingId === a.id ? .5 : 1 }}>
+                        {deletingId === a.id ? '…' : '🗑'}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -1047,7 +1047,7 @@ utm_content=hook_type&utm_term=account_name
 - sub1: вертикаль | sub2: схема | sub3: площадка | sub4: аккаунт
 - sub5: хук-тип | sub6: формат | sub7: гео | sub8: дата
 
-### Атрибуция в UBT OS (revenue_analyst)
+### Атрибуция в UBT OS (utils/attribution.py)
 - Окно атрибуции: 7 дней для органики, 1 день для платного
 - Модель: last-click (дефолт) или linear (для ретаргетинга)
 - Отчёт: /run/daily-report — ежедневная сводка по источникам

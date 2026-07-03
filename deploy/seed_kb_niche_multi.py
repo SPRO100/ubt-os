@@ -251,7 +251,7 @@ A21 content_creator → A19 text_humanizer → A25 compliance_gate
 | text/native | белый текстовый пост, прогнозы, статьи, Telegram-контент | — (БЕЗ видео/Higgsfield/TTS/прелендинга) |
 | video | нужен UGC-ролик | +A30 Higgsfield |
 | carousel | нужна карусель | +A30 |
-| full | видео + прелендинг | +A30 +A29 |
+| full | видео (мульти-платформенно) | +A30 |
 | — озвучка | нужен голос к видео | +A35 TTS |
 | — субтитры | нужны сабы к видео | +A34 caption |
 

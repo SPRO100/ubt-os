@@ -452,8 +452,8 @@ SELECT
   'Ключевые метрики: CTR (крип→LP), CR (LP→Purchase), EPC (доход на клик), ROAS, LTV. '
   'Keitaro: трекер UTM-цепочки + attribution + A/B тест LP. '
   'Атрибуция: last-click для быстрых решений; data-driven (Google Ads / Meta) для масштаба. '
-  'Ежедневный срез (A16): 10:00 — CPA, ROAS, бюджет/расход, статус кампаний. '
-  'Еженедельный отчёт (A15): стратегический срез — топ/провал крипы, GEO, аудитории. '
+  'Ежедневный синтез (A18, 21:00): что сработало/провалилось, гипотеза на завтра → kb_entries. '
+  'Еженедельный синтез (A18, воскресенье): паттерны за неделю, приоритет на следующую → kb_entries. '
   'Cohort LTV: нутра без подписки — считаем повторные покупки за 30/60/90 дней.',
   ARRAY['analytics','any','nutra','white'], 'seed', 'начальное заполнение базы знаний'
 WHERE NOT EXISTS (SELECT 1 FROM kb_entries WHERE entry_key = 'analytics.any.nutra.white' AND is_current = TRUE);

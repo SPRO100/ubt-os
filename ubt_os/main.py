@@ -736,7 +736,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
         return saved
 
     async def _run_agent(self, body: dict):
-        """POST /agents/run — запуск A19–A24 напрямую из браузера."""
+        """POST /agents/run — запуск любого agents-агента напрямую из браузера (дашборд)."""
         agent  = body.get("agent", "")
         params = body.get("params", {})
 

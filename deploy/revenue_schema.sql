@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS revenue_events (
     currency            TEXT DEFAULT 'USD',
     paid_at             TIMESTAMPTZ,
 
-    -- Обогащение (заполняет A16)
+    -- Обогащение видео-метриками (сейчас ничем не заполняется — A16
+    -- revenue_analyst удалён как мёртвый код при пересборке агентов)
     video_views         BIGINT,
     video_ctr           FLOAT,
     video_completion    FLOAT,

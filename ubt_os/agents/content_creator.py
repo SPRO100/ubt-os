@@ -2,7 +2,7 @@
 A21 — CONTENT_CREATOR
 Генерирует готовый контент для betting/nutra по шаблонам Marketing Skills.
 Brand Voice + SEO + Stop-Slop пост-обработка.
-Запускается по расписанию из strategy_engine или вручную.
+Запускается из video_pipeline (n8n cron) или вручную через /agents/run.
 """
 from __future__ import annotations
 import asyncio, logging, os
