@@ -142,7 +142,7 @@ async def run_video_pipeline(
             })
             continue
 
-        video = VideoWriter.create(str(plan["id"]))
+        video = VideoWriter.create(str(plan["id"]), account_id=str(acc["id"]))
         assert queue is not None  # want_video → очередь инициализирована
         await queue.enqueue(VideoJob(
             job_id=str(video["id"]),

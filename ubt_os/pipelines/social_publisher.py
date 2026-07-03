@@ -55,43 +55,17 @@ def _get_db() -> Client:
     )
 
 
-# ── Presigned S3 Upload (как у DOHOO) ─────────────────────
+# ── Загрузка в Supabase Storage ────────────────────────────
 
 async def upload_to_s3_presigned(file_url: str) -> str:
     """
-    Загружает медиафайл в Supabase Storage через presigned URL.
-    Возвращает публичный CDN URL.
-    Нужен если оригинальный URL временный (Higgsfield, etc.).
+    Перекладывает временный CDN URL (Higgsfield/fal/etc.) в наше Supabase
+    Storage. Тонкая обёртка над media_storage.upload_video — единая точка
+    загрузки, чтобы видео не терялись после истечения провайдерского URL.
     """
-    supabase_url  = os.environ["SUPABASE_URL"]
-    service_key   = os.environ["SUPABASE_SERVICE_KEY"]
-    bucket        = os.getenv("MEDIA_BUCKET", "media")
-    filename      = f"pub_{int(datetime.now().timestamp())}.mp4"
-
-    async with httpx.AsyncClient(timeout=300) as client:
-        # 1. Получаем presigned URL от Supabase Storage
-        resp = await client.post(
-            f"{supabase_url}/storage/v1/object/upload/sign/{bucket}/{filename}",
-            headers={"Authorization": f"Bearer {service_key}"},
-            json={"expiresIn": 3600},
-        )
-        resp.raise_for_status()
-        signed_url = resp.json()["signedURL"]
-
-        # 2. Качаем оригинал
-        source = await client.get(file_url, follow_redirects=True, timeout=120)
-        source.raise_for_status()
-
-        # 3. Заливаем в S3
-        await client.put(
-            signed_url,
-            content=source.content,
-            headers={"Content-Type": "video/mp4"},
-        )
-
-    public_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{filename}"
-    logger.info(f"S3 upload: {filename} → {public_url}")
-    return public_url
+    from ubt_os.core.media_storage import upload_video
+    filename = f"pub_{int(datetime.now().timestamp())}.mp4"
+    return await upload_video(file_url, folder="direct_publish", filename=filename)
 
 
 # ── Базовый класс платформенного клиента ──────────────────

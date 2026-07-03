@@ -119,11 +119,13 @@ ubt_os/
 │   ├── risk_engine.py       # Risk scoring for active accounts
 │   ├── creative_vault.py    # Creative scoring and storage
 │   ├── vertical_loader.py   # Loads vertical YAML configs
+│   ├── media_storage.py     # upload_video() — Supabase Storage, organized by project/account folder
 │   └── logging_config.py    # Structured JSON logging + request_id context var
 ├── agents/                  # A13–A36 (13 agents) — see table below
 ├── pipelines/
 │   ├── higgsfield_queue.py  # Redis priority queue for video generation jobs
 │   ├── higgsfield_worker.py # Worker that dequeues and calls Higgsfield API
+│   ├── video_uniqualizer.py # Light ffmpeg jitter — one variant per other account in the project
 │   ├── social_publisher.py  # Direct native-API publishing to 8 platforms
 │   └── blotato_dlq.py       # Dead Letter Queue with retry
 └── utils/
@@ -174,6 +176,37 @@ account_id, …)` looks them up by `account_id`. To onboard an account, insert i
 row into `direct_publish_accounts`. Only `MEDIA_BUCKET` (Supabase Storage) is
 env-configured. All DB tables are created by `make db-init`
 (`deploy/dohoo_features_schema.sql`).
+
+### Video storage + uniqualizer (1 account = 1 project)
+
+`accounts.project_id` (FK → `vertical_configs.id`, `deploy/11_patch_video_uniqualizer.sql`)
+ties each account to exactly one project — the same "project" the dashboard's
+Проекты section manages. `videos.account_id` is the authoritative link from a
+video to its account (set for both originals, via `VideoWriter.create(plan_id,
+account_id)`, and uniqualized copies); `videos.content_plan_id` is nullable
+because copies don't get their own content plan, and `videos.parent_video_id`
+points a copy back at its source.
+
+**Own storage, not the provider's temp CDN:** `ubt_os/core/media_storage.py`
+(`upload_video(source, folder, filename)`) is the single point that uploads
+into Supabase Storage (`MEDIA_BUCKET`, direct object-upload endpoint — both
+`Authorization` and `apikey` headers required for `sb_secret_*` keys).
+`HiggsFieldWorker._save_result` calls it right after generation to move the
+Higgsfield/fal/Pexels temp URL into `projects/{project_id}/{account_id}/…`
+before writing `videos.storage_url` — so clips don't expire and don't end up
+in one undifferentiated pile.
+
+**Uniqualizer** (`ubt_os/pipelines/video_uniqualizer.py`, `POST
+/video/uniqualize {"video_id": "..."}`): takes one ready video, resolves its
+account's project, and for every *other* active account in that project
+produces a separate re-encoded copy (light ffmpeg jitter — speed ±3%, 1–4%
+zoom-crop, brightness/contrast wobble, 50% mirror flip, stripped metadata) so
+platforms don't flag them as duplicate content. Each copy is a new `videos`
+row (`account_id` = target, `parent_video_id` = source, own Storage path).
+Requires `ffmpeg` on the host; best-effort per account (one failure doesn't
+block the rest). **Publishing stays a separate manual step** — this endpoint
+only prepares per-account files, same principle as the rest of UBT OS (user is
+the final decision-maker).
 
 ### Post analytics (`post_analytics_agent.py`, `deploy/06_patch_post_metrics.sql`)
 
@@ -239,6 +272,7 @@ LiteLLM spend before each call. Global daily cap via `LITELLM_DAILY_BUDGET`
 | POST | `/publish/direct`, `/publish/bulk` | Direct native-API publishing |
 | POST | `/analytics/sync` | A36 sync native post metrics (impressions/reach/likes/comments/shares) |
 | POST | `/video/stock` | Free stock video pipeline (Pexels + edge-tts + ffmpeg) |
+| POST | `/video/uniqualize` | Uniqualize a ready video onto every other account in its project |
 | POST | `/knowledge/kb` | Structured KB search by taxonomy |
 | POST | `/accounts/parse-file` | Parse account files (txt/csv/zip) into records |
 | POST | `/system/emergency-pause` | Pause all active accounts (n8n health-monitor) |
@@ -287,14 +321,17 @@ plus `strategy_`, `revenue_`, `risk_`, `vertical_`, `creative_vault_`,
 `account_type`. Existing DBs are migrated by `06_patch_accounts_align.sql`
 (part of `make db-init`) — it changes `id` UUID→TEXT (dropping/re-adding the
 account_id FKs), expands the platform CHECK, and adds the missing columns.
-`10_patch_warmup_accounts.sql` (also part of `make db-init`, 16 steps total)
-adds A28's own infra columns (`device_type`, `proxy_type`, `has_local_sim`,
-`bio_link_enabled`, `warmup_notes`) — A28 now persists all warmup state
-directly on this table (`AccountReader`/`AccountWriter`) instead of a local
-JSON file, so state survives container rebuilds. `_PROTECTED_STATUSES`
+`10_patch_warmup_accounts.sql` (part of `make db-init`) adds A28's own infra
+columns (`device_type`, `proxy_type`, `has_local_sim`, `bio_link_enabled`,
+`warmup_notes`) — A28 now persists all warmup state directly on this table
+(`AccountReader`/`AccountWriter`) instead of a local JSON file, so state
+survives container rebuilds. `_PROTECTED_STATUSES`
 (`shadow_banned`/`hard_banned`/`replaced`/`paused`) in `warmup_manager.py`
 guard against a routine warmup check overwriting another agent's ban/pause
-decision.
+decision. `11_patch_video_uniqualizer.sql` (also part of `make db-init`, 17
+steps total) adds `accounts.project_id` and `videos.account_id` /
+`videos.parent_video_id` (and drops the `NOT NULL` on
+`videos.content_plan_id`) — see "Video storage + uniqualizer" above.
 
 ### Knowledge base — `kb_entries` (versioned, `08_patch_kb_entries.sql`)
 
@@ -343,6 +380,8 @@ pytest tests/test_circuit_breaker.py -v       # circuit breaker state transition
 pytest tests/test_vault_path.py -v            # path traversal protection
 pytest tests/test_warmup_manager.py -v        # A28 Supabase-backed warmup state
 pytest tests/test_knowledge_synthesizer.py -v # A18 writes into kb_entries
+pytest tests/test_video_uniqualizer.py -v     # per-project uniqualize + jitter bounds
+pytest tests/test_media_storage.py -v         # Supabase Storage folder path building
 ```
 
 Use `monkeypatch.setenv(...)` for env-dependent tests; don't hit real services

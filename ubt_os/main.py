@@ -329,6 +329,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/analytics/sync":        self._run_analytics_sync,
             # Бесплатный стоковый видео-конвейер (Pexels + edge-tts + ffmpeg)
             "/video/stock":           self._run_video_stock,
+            # Уникализация готового видео на все аккаунты того же проекта
+            "/video/uniqualize":      self._run_video_uniqualize,
             # Структурированная база знаний по таксономии
             "/knowledge/kb":          self._run_kb_search,
             # Парсинг файлов аккаунтов (txt/csv/zip → список записей)
@@ -1069,6 +1071,14 @@ class WebhookHandler(BaseHTTPRequestHandler):
             max_clips=int(body.get("max_clips", 4)),
             keywords=body.get("keywords"),
         )
+
+    async def _run_video_uniqualize(self, body: dict):
+        """Уникализация готового видео на все другие аккаунты того же проекта."""
+        from ubt_os.pipelines.video_uniqualizer import uniqualize_video
+        video_id = body.get("video_id", "")
+        if not video_id:
+            return {"error": "video_id обязателен"}
+        return await uniqualize_video(video_id)
 
     async def _run_kb_search(self, body: dict):
         """Поиск по структурированной базе знаний kb_entries (таксономия)."""

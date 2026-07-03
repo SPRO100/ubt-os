@@ -268,7 +268,7 @@ class HiggsFieldWorker:
                 timeout=GENERATION_TIMEOUT
             )
             await self.queue.complete(job.job_id)
-            await self._save_result(job.job_id, result)
+            await self._save_result(job, result)
         except asyncio.TimeoutError:
             await self.queue.fail(job, f"Timeout после {GENERATION_TIMEOUT}s")
         except Exception as e:
@@ -461,16 +461,34 @@ class HiggsFieldWorker:
                     raise RuntimeError(f"генерация {gen_id[:8]} упала: {status[:200]}")
             raise RuntimeError(f"генерация {gen_id[:8]} не успела за {GENERATION_TIMEOUT}s")
 
-    async def _save_result(self, job_id: str, result: dict):
-        """Сохраняет результат в Supabase videos таблицу."""
-        from ubt_os.core.agent_api_layer import VideoWriter
-        storage_url = result.get("output_url") or result.get("video_url")
-        if storage_url:
-            VideoWriter.set_ready(
-                video_id=job_id,
-                storage_url=storage_url,
-                duration_sec=result.get("duration", 0),
-            )
+    async def _save_result(self, job: VideoJob, result: dict):
+        """
+        Сохраняет результат в Supabase videos таблицу. Провайдерский URL
+        (Higgsfield/fal/Pexels) временный — перекладываем в наше Storage
+        под папку проекта аккаунта, чтобы видео не терялись/не путались.
+        """
+        from ubt_os.core.agent_api_layer import AccountReader, VideoWriter
+        from ubt_os.core.media_storage import upload_video
+
+        provider_url = result.get("output_url") or result.get("video_url")
+        if not provider_url:
+            return
+
+        account = AccountReader.get_by_id(job.account_id)
+        project = (account or {}).get("project_id") or "unassigned"
+        folder = f"projects/{project}/{job.account_id}"
+        try:
+            storage_url = await upload_video(provider_url, folder=folder)
+        except Exception as e:
+            logger.warning("[Worker] не удалось перенести видео в своё хранилище (%s) — "
+                           "оставляю провайдерский URL как есть", e)
+            storage_url = provider_url
+
+        VideoWriter.set_ready(
+            video_id=job.job_id,
+            storage_url=storage_url,
+            duration_sec=result.get("duration", 0),
+        )
 
 
 # ══════════════════════════════════════════════════════════
