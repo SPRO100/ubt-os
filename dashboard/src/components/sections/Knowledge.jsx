@@ -2,16 +2,21 @@ import { useEffect, useState } from 'react'
 import { fetchRows, countOf } from '../../api'
 
 const CATEGORY_LABELS = {
-  content:       '🎬 Контент',
-  zaliv:         '🚀 Залив',
-  warmup:        '🔥 Прогрев',
-  antiban:       '🛡 Антибан',
-  prelanding:    '🏠 Прелендинг',
-  publishing:    '📤 Публикация',
-  master_prompt: '🧠 Мастер-промпт',
-  analytics:     '📊 Аналитика',
-  infra:         '⚙️ Инфра',
-  scaling:       '📈 Масштаб',
+  content:        '🎬 Контент',
+  zaliv:          '🚀 Залив',
+  warmup:         '🔥 Прогрев',
+  antiban:        '🛡 Антибан',
+  prelanding:     '🏠 Прелендинг',
+  publishing:     '📤 Публикация',
+  master_prompt:  '🧠 Мастер-промпт',
+  analytics:      '📊 Аналитика',
+  infra:          '⚙️ Инфра',
+  scaling:        '📈 Масштаб',
+  affiliate:      '🤝 Партнёрки',
+  vertical_guide: '📗 Гайд по вертикали',
+  compliance:     '⚖️ Compliance',
+  funnel:         '🔻 Воронки',
+  benchmarks:     '📐 Бенчмарки',
 }
 
 const SCHEME_COLOR = {
