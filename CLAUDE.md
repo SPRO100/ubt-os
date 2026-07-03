@@ -286,3 +286,37 @@ Production: FirstVDS Amsterdam, Ubuntu 22.04, `docker compose up -d`.
 `deploy/nginx.conf` is the reverse proxy (TLS via certbot once a domain is set).
 The dashboard is a React 18 + Vite SPA in `dashboard/`. n8n workflows are JSON
 files in `n8n/workflows/`, imported via the n8n UI.
+
+---
+
+## Dashboard UI Conventions
+
+**RULE — collapsible lists everywhere.** Any card whose body is a list or
+table (reference data, agent/skill listings, knowledge entries, service
+tables, partner conditions, etc.) MUST be collapsible. Use the shared
+`dashboard/src/components/CollapsibleCard.jsx` component — never hand-roll a
+plain `<div className="card">` around a long list. This applies to every new
+section and every existing one going forward.
+
+Guidelines:
+- Reference / static lists → `defaultOpen` **omitted** (collapsed by default).
+- Primary live/interactive tables (accounts, post analytics, server status,
+  n8n workflows) → `defaultOpen` (open, but still collapsible).
+- Always pass `count={rows.length}` so the header shows how many items are
+  hidden inside.
+- Interactive controls in the header (sync buttons, links) go in the
+  `headerRight` prop — clicks there don't toggle the card.
+- For grouped lists inside a single card (e.g. Knowledge grouped by category),
+  make each group header individually collapsible (see `Knowledge.jsx`).
+
+**Dashboard deploy:** the built SPA is committed to `dashboard-static/` (tracked
+in git, served by nginx). After any dashboard change: `cd dashboard && npm run
+build && cp -r dist/* ../dashboard-static/`, then commit both `dashboard/src`
+and `dashboard-static/`. On the server a plain `git pull` updates the live UI —
+no rebuild needed. All dashboard API calls go through nginx on port 80
+(`AGENTS_SERVER` has no `:8080`).
+
+**Knowledge base:** the dashboard "Записи знаний" tile and the Knowledge section
+read `kb_entries` (versioned, `is_current = true`), NOT the legacy
+`knowledge_entries` table. Research is loaded via `deploy/seed_kb*.py` scripts
+(`entry_key` = `process.platform.vertical.scheme`).
