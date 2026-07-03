@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchN8nWorkflows, toggleN8nWorkflow, N8N_URL, getN8nApiKey } from '../../api'
+import CollapsibleCard from '../CollapsibleCard'
 
 // Known workflows — merged with live n8n data by name match
 const KNOWN = [
@@ -153,24 +154,20 @@ export default function Pipeline() {
           )}
 
           {/* Main workflows table */}
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">🔄 Воркфлоу</div>
-              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                {loading && <span style={{ fontSize:11, color:'var(--faint)' }}>обновление…</span>}
-                <button onClick={load} disabled={loading}
-                  style={{ fontSize:11, padding:'3px 10px', borderRadius:6, background:'var(--surface2)',
-                    border:'1px solid var(--border)', color:'var(--muted)', cursor:'pointer' }}>
-                  ↻ Обновить
-                </button>
-                <a href={`${N8N_URL}/workflows`} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize:11, padding:'3px 10px', borderRadius:6, background:'var(--indigo-bg)',
-                    border:'1px solid var(--indigo-bd)', color:'var(--indigo)', textDecoration:'none' }}>
-                  Открыть n8n →
-                </a>
-              </div>
-            </div>
-            <div className="card-body" style={{ paddingTop:8 }}>
+          <CollapsibleCard title="🔄 Воркфлоу" defaultOpen count={merged.length + unknown.length}
+            headerRight={<>
+              {loading && <span style={{ fontSize:11, color:'var(--faint)' }}>обновление…</span>}
+              <button onClick={load} disabled={loading}
+                style={{ fontSize:11, padding:'3px 10px', borderRadius:6, background:'var(--surface2)',
+                  border:'1px solid var(--border)', color:'var(--muted)', cursor:'pointer' }}>
+                ↻ Обновить
+              </button>
+              <a href={`${N8N_URL}/workflows`} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize:11, padding:'3px 10px', borderRadius:6, background:'var(--indigo-bg)',
+                  border:'1px solid var(--indigo-bd)', color:'var(--indigo)', textDecoration:'none' }}>
+                Открыть n8n →
+              </a>
+            </>}>
               <table>
                 <thead>
                   <tr>
@@ -234,29 +231,22 @@ export default function Pipeline() {
                   ))}
                 </tbody>
               </table>
-            </div>
-          </div>
+          </CollapsibleCard>
 
           {/* Key management */}
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">🔑 API ключ n8n</div>
-              <span className="badge badge-green">● подключён</span>
+          <CollapsibleCard title="🔑 API ключ n8n" tag="● подключён" tagClass="badge badge-green">
+            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+              <span style={{ fontSize:12, color:'var(--faint)', fontFamily:"'IBM Plex Mono',monospace" }}>
+                {apiKey.slice(0,8)}{'*'.repeat(Math.max(0, apiKey.length - 8))}
+              </span>
+              <button onClick={clearKey}
+                style={{ fontSize:11, padding:'4px 10px', borderRadius:6,
+                  background:'#ef444418', border:'1px solid #ef444444',
+                  color:'var(--red)', cursor:'pointer' }}>
+                Сбросить ключ
+              </button>
             </div>
-            <div className="card-body">
-              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                <span style={{ fontSize:12, color:'var(--faint)', fontFamily:"'IBM Plex Mono',monospace" }}>
-                  {apiKey.slice(0,8)}{'*'.repeat(Math.max(0, apiKey.length - 8))}
-                </span>
-                <button onClick={clearKey}
-                  style={{ fontSize:11, padding:'4px 10px', borderRadius:6,
-                    background:'#ef444418', border:'1px solid #ef444444',
-                    color:'var(--red)', cursor:'pointer' }}>
-                  Сбросить ключ
-                </button>
-              </div>
-            </div>
-          </div>
+          </CollapsibleCard>
         </>
       )}
     </>

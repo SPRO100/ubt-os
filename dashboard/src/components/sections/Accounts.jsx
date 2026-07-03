@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { fetchRows, insertRows, AGENTS_SERVER, agentsHeaders } from '../../api'
+import CollapsibleCard from '../CollapsibleCard'
 
 const PLATFORMS_TABS = [
   { id: 'all',       label: 'Все',       color: 'var(--muted)' },
@@ -237,26 +238,20 @@ export default function Accounts() {
       </div>
 
       {/* Warmup protocol */}
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">🔥 Протокол прогрева (aged аккаунты)</div>
-          <span className="ref-tag">A28 WarmupManager</span>
-        </div>
-        <div className="card-body" style={{ paddingTop: 8 }}>
-          <table>
-            <thead><tr><th>День</th><th>TikTok (aged, 7 дней)</th><th>Facebook (aged, 5 дней)</th></tr></thead>
-            <tbody>
-              {WARMUP_ROWS.map(([d,tt,fb]) => (
-                <tr key={d}>
-                  <td className="primary mono">{d}</td>
-                  <td>{tt}</td>
-                  <td>{fb}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <CollapsibleCard title="🔥 Протокол прогрева (aged аккаунты)" tag="A28 WarmupManager" count={WARMUP_ROWS.length}>
+        <table>
+          <thead><tr><th>День</th><th>TikTok (aged, 7 дней)</th><th>Facebook (aged, 5 дней)</th></tr></thead>
+          <tbody>
+            {WARMUP_ROWS.map(([d,tt,fb]) => (
+              <tr key={d}>
+                <td className="primary mono">{d}</td>
+                <td>{tt}</td>
+                <td>{fb}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </CollapsibleCard>
 
       {/* Add account form */}
       <div className="card">
@@ -414,22 +409,16 @@ export default function Accounts() {
       </div>
 
       {/* Alert thresholds */}
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">⚠️ Пороги тревоги Account Checker</div>
-          <span className="ref-tag">A14</span>
-        </div>
-        <div className="card-body" style={{ paddingTop:8 }}>
-          <table>
-            <thead><tr><th>Метрика</th><th>Действие</th></tr></thead>
-            <tbody>
-              {[['ER < 2%','Алерт в Telegram'],['ER < 1%','Стоп публикаций + замена прокси'],['Бан зафиксирован','Запись в Knowledge Base'],['Proxy timeout','Автосмена прокси (IPRoyal)']].map(([m,a])=>(
-                <tr key={m}><td className="primary">{m}</td><td>{a}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <CollapsibleCard title="⚠️ Пороги тревоги Account Checker" tag="A14" count={4}>
+        <table>
+          <thead><tr><th>Метрика</th><th>Действие</th></tr></thead>
+          <tbody>
+            {[['ER < 2%','Алерт в Telegram'],['ER < 1%','Стоп публикаций + замена прокси'],['Бан зафиксирован','Запись в Knowledge Base'],['Proxy timeout','Автосмена прокси (IPRoyal)']].map(([m,a])=>(
+              <tr key={m}><td className="primary">{m}</td><td>{a}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </CollapsibleCard>
     </>
   )
 }

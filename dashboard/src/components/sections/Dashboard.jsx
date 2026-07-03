@@ -49,7 +49,7 @@ export default function Dashboard({ health }) {
     async function load() {
       const [accounts, videos, revenue, knowledge, strategy] = await Promise.all([
         countOf('accounts'), countOf('videos'), countOf('revenue_events'),
-        countOf('knowledge_entries'), countOf('strategy_briefs'),
+        countOf('kb_entries', '&is_current=eq.true'), countOf('strategy_briefs'),
       ])
       setCounts({ accounts, videos, revenue, knowledge, strategy })
 
@@ -87,7 +87,7 @@ export default function Dashboard({ health }) {
         />
         <StatCard label="Агенты" value="27" note="A12–A36 в системе" color="c-indigo" icon="🤖" iconBg="var(--indigo-bg)" />
         <StatCard label="Revenue Events" value={counts.revenue} note="net_amount events" color="c-green" icon="💰" iconBg="var(--green-bg)" />
-        <StatCard label="Записи знаний" value={counts.knowledge} note="knowledge_entries" color="c-amber" icon="🧠" iconBg="var(--amber-bg)" />
+        <StatCard label="Записи знаний" value={counts.knowledge} note="kb_entries" color="c-amber" icon="🧠" iconBg="var(--amber-bg)" />
         <StatCard label="Стратегий" value={counts.strategy} note="strategy_briefs" color="c-pink" icon="📊" iconBg="rgba(236,72,153,.12)" />
       </div>
 

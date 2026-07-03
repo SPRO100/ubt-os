@@ -1,4 +1,5 @@
 import { AGENTS_SERVER } from '../../api'
+import CollapsibleCard from '../CollapsibleCard'
 
 const SERVER_IP = (() => {
   try { return AGENTS_SERVER ? new URL(AGENTS_SERVER).hostname : window.location.hostname }
@@ -27,44 +28,31 @@ export default function Infra({ health }) {
 
   return (
     <>
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">🖥️ Сервер</div>
-          <span className="ref-tag">реально развёрнут</span>
-        </div>
-        <div className="card-body" style={{ paddingTop:8 }}>
-          <table>
-            <thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
-            <tbody>
-              {[
-                ['Провайдер','FirstVDS «Улёт»'],
-                ['Локация','Амстердам (EU для Claude API)'],
-                ['Конфигурация','8 CPU / 12 GB RAM / 120 GB NVMe'],
-                ['OS','Ubuntu 22.04 LTS'],
-                ['IP',SERVER_IP],
-              ].map(([k,v]) => (
-                <tr key={k}>
-                  <td className="primary">{k}</td>
-                  <td className="mono">{v}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <CollapsibleCard title="🖥️ Сервер" tag="реально развёрнут">
+        <table>
+          <thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
+          <tbody>
+            {[
+              ['Провайдер','FirstVDS «Улёт»'],
+              ['Локация','Амстердам (EU для Claude API)'],
+              ['Конфигурация','8 CPU / 12 GB RAM / 120 GB NVMe'],
+              ['OS','Ubuntu 22.04 LTS'],
+              ['IP',SERVER_IP],
+            ].map(([k,v]) => (
+              <tr key={k}>
+                <td className="primary">{k}</td>
+                <td className="mono">{v}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </CollapsibleCard>
 
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">🔧 Развёрнутые сервисы</div>
-          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            {agentsOk
-              ? <span className="badge badge-green">● сервер доступен</span>
-              : <span className="badge badge-red">● сервер недоступен</span>
-            }
-          </div>
-        </div>
-        <div className="card-body" style={{ paddingTop:8 }}>
-          <div style={{ marginBottom:12, display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+      <CollapsibleCard title="🔧 Развёрнутые сервисы" defaultOpen
+        headerRight={agentsOk
+          ? <span className="badge badge-green">● сервер доступен</span>
+          : <span className="badge badge-red">● сервер недоступен</span>}>
+        <div style={{ marginBottom:12, display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
             <div style={{ padding:'10px 14px', background:'var(--surface2)', borderRadius:8, borderLeft:`3px solid ${supaOk ? 'var(--green)' : 'var(--red)'}` }}>
               <div style={{ fontSize:11, color:'var(--faint)' }}>Supabase</div>
               <div style={{ fontWeight:600, color: supaOk ? 'var(--green)' : 'var(--red)', fontSize:13, marginTop:2 }}>
@@ -96,39 +84,32 @@ export default function Infra({ health }) {
               ))}
             </tbody>
           </table>
-          <div style={{ fontSize:11, color:'var(--faint)', marginTop:8 }}>
-            Статус UBT Agents определяется по health-check эндпоинту каждые 60 сек.
-          </div>
+        <div style={{ fontSize:11, color:'var(--faint)', marginTop:8 }}>
+          Статус UBT Agents определяется по health-check эндпоинту каждые 60 сек.
         </div>
-      </div>
+      </CollapsibleCard>
 
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">🌐 nginx reverse proxy</div>
-          <span className="ref-tag">deploy/nginx.conf</span>
+      <CollapsibleCard title="🌐 nginx reverse proxy" tag="deploy/nginx.conf">
+        <table>
+          <thead><tr><th>Путь</th><th>Сервис</th><th>Особенности</th></tr></thead>
+          <tbody>
+            {[
+              ['/','статика dashboard-static/','gzip, SPA fallback (index.html), кэш статики 1ч'],
+              ['/run/, /agents/run, /publish/, /orchestrator/…','agents:8080 (docker, внутренняя сеть)','rate 30r/m, 180s timeout (LLM)'],
+            ].map(([path,svc,note]) => (
+              <tr key={path}>
+                <td className="primary mono" style={{ fontSize:11 }}>{path}</td>
+                <td>{svc}</td>
+                <td style={{ color:'var(--faint)', fontSize:12 }}>{note}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ fontSize:11, color:'var(--faint)', marginTop:8 }}>
+          n8n и LiteLLM через nginx не проксируются — n8n доступен напрямую на :5678,
+          LiteLLM используется только внутри docker-сети агентами.
         </div>
-        <div className="card-body" style={{ paddingTop:8 }}>
-          <table>
-            <thead><tr><th>Путь</th><th>Сервис</th><th>Особенности</th></tr></thead>
-            <tbody>
-              {[
-                ['/','статика dashboard-static/','gzip, SPA fallback (index.html), кэш статики 1ч'],
-                ['/run/, /agents/run, /publish/, /orchestrator/…','agents:8080 (docker, внутренняя сеть)','rate 30r/m, 180s timeout (LLM)'],
-              ].map(([path,svc,note]) => (
-                <tr key={path}>
-                  <td className="primary mono" style={{ fontSize:11 }}>{path}</td>
-                  <td>{svc}</td>
-                  <td style={{ color:'var(--faint)', fontSize:12 }}>{note}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div style={{ fontSize:11, color:'var(--faint)', marginTop:8 }}>
-            n8n и LiteLLM через nginx не проксируются — n8n доступен напрямую на :5678,
-            LiteLLM используется только внутри docker-сети агентами.
-          </div>
-        </div>
-      </div>
+      </CollapsibleCard>
     </>
   )
 }

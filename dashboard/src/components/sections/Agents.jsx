@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import CollapsibleCard from '../CollapsibleCard'
 
 const PIPELINE_NODES = [
   { id:'A27', name:'spy_analyzer',  color:'var(--pink)', bg:'rgba(236,72,153,.08)' },
@@ -106,111 +107,84 @@ export default function Agents() {
   return (
     <>
       {/* Pipeline diagram */}
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">🔗 Пайплайн A27 → A26</div>
-          <span className="ref-tag">схема</span>
+      <CollapsibleCard title="🔗 Пайплайн A27 → A26" tag="схема" defaultOpen>
+        <div className="pipeline-flow">
+          {PIPELINE_NODES.map((n, i) =>
+            n.id === '→' ? (
+              <div key={i} className="pipe-arrow">→</div>
+            ) : (
+              <div key={i} className="pipe-node" style={{ borderColor: n.color + '44', background: n.bg }}>
+                <div className="pipe-id" style={{ color: n.color }}>{n.id}</div>
+                <div className="pipe-name">{n.name}</div>
+              </div>
+            )
+          )}
         </div>
-        <div className="card-body">
-          <div className="pipeline-flow">
-            {PIPELINE_NODES.map((n, i) =>
-              n.id === '→' ? (
-                <div key={i} className="pipe-arrow">→</div>
-              ) : (
-                <div key={i} className="pipe-node" style={{ borderColor: n.color + '44', background: n.bg }}>
-                  <div className="pipe-id" style={{ color: n.color }}>{n.id}</div>
-                  <div className="pipe-name">{n.name}</div>
-                </div>
-              )
-            )}
-          </div>
-          <div style={{ marginTop:12, fontSize:12, color:'var(--faint)' }}>
-            A20 trend_scraper параллельно: ежедн. 06:00 → A24 Obsidian Brain → обновление trend_windows
-          </div>
+        <div style={{ marginTop:12, fontSize:12, color:'var(--faint)' }}>
+          A20 trend_scraper параллельно: ежедн. 06:00 → A24 Obsidian Brain → обновление trend_windows
         </div>
-      </div>
+      </CollapsibleCard>
 
       {/* Core */}
-      <div className="card">
-        <div className="card-header"><div className="card-title">⚙️ Ядро системы (A12–A18)</div><span className="ref-tag">ubt_os/agents/</span></div>
-        <div className="card-body" style={{ paddingTop:8 }}>
-          <AgentTable rows={CORE_AGENTS} cols={['ID','Файл','Роль','Статус']} />
-        </div>
-      </div>
+      <CollapsibleCard title="⚙️ Ядро системы (A12–A18)" tag="ubt_os/agents/" count={CORE_AGENTS.length}>
+        <AgentTable rows={CORE_AGENTS} cols={['ID','Файл','Роль','Статус']} />
+      </CollapsibleCard>
 
       {/* Content pipeline */}
-      <div className="card">
-        <div className="card-header"><div className="card-title">📝 Контент-пайплайн (A19–A21)</div><span className="ref-tag">добавлены 29 июня</span></div>
-        <div className="card-body" style={{ paddingTop:8 }}>
-          <table>
-            <thead><tr><th>ID</th><th>Файл</th><th>Роль</th><th>Требует</th></tr></thead>
-            <tbody>
-              {[
-                { id:'A21', file:'content_creator.py',  role:'Before/After, хуки, UGC для US/BR/MX/DE/PL', need:'ANTHROPIC_API_KEY' },
-                { id:'A19', file:'text_humanizer.py',   role:'Stop-Slop фильтр. Оценка 0–50 по 5 параметрам.', need:'ANTHROPIC_API_KEY' },
-                { id:'A20', file:'trend_scraper.py',    role:'Мониторинг конкурентов через Firecrawl.',       need:'FIRECRAWL_API_KEY' },
-              ].map(r=>(
-                <tr key={r.id}>
-                  <td className="mono" style={{ color:'var(--faint)' }}>{r.id}</td>
-                  <td className="primary mono">{r.file}</td>
-                  <td>{r.role}</td>
-                  <td><EnvBadge envKey={r.need} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <CollapsibleCard title="📝 Контент-пайплайн (A19–A21)" tag="добавлены 29 июня" count={3}>
+        <table>
+          <thead><tr><th>ID</th><th>Файл</th><th>Роль</th><th>Требует</th></tr></thead>
+          <tbody>
+            {[
+              { id:'A21', file:'content_creator.py',  role:'Before/After, хуки, UGC для US/BR/MX/DE/PL', need:'ANTHROPIC_API_KEY' },
+              { id:'A19', file:'text_humanizer.py',   role:'Stop-Slop фильтр. Оценка 0–50 по 5 параметрам.', need:'ANTHROPIC_API_KEY' },
+              { id:'A20', file:'trend_scraper.py',    role:'Мониторинг конкурентов через Firecrawl.',       need:'FIRECRAWL_API_KEY' },
+            ].map(r=>(
+              <tr key={r.id}>
+                <td className="mono" style={{ color:'var(--faint)' }}>{r.id}</td>
+                <td className="primary mono">{r.file}</td>
+                <td>{r.role}</td>
+                <td><EnvBadge envKey={r.need} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </CollapsibleCard>
 
       {/* New A22-A24 */}
-      <div className="card">
-        <div className="card-header"><div className="card-title">🆕 Новые агенты (A22–A24)</div><span className="ref-tag">29 июня</span></div>
-        <div className="card-body" style={{ paddingTop:8 }}>
-          <AgentTable rows={NEW_AGENTS} cols={['ID','Файл','Роль','Основан на']} />
-        </div>
-      </div>
+      <CollapsibleCard title="🆕 Новые агенты (A22–A24)" tag="29 июня" count={NEW_AGENTS.length}>
+        <AgentTable rows={NEW_AGENTS} cols={['ID','Файл','Роль','Основан на']} />
+      </CollapsibleCard>
 
       {/* Publish */}
-      <div className="card">
-        <div className="card-header"><div className="card-title">📤 Публикация (A25–A26)</div><span className="ref-tag">29 июня</span></div>
-        <div className="card-body" style={{ paddingTop:8 }}>
-          <AgentTable rows={PUBLISH_AGENTS} cols={['ID','Файл','Роль','Статус']} />
-        </div>
-      </div>
+      <CollapsibleCard title="📤 Публикация (A25–A26)" tag="29 июня" count={PUBLISH_AGENTS.length}>
+        <AgentTable rows={PUBLISH_AGENTS} cols={['ID','Файл','Роль','Статус']} />
+      </CollapsibleCard>
 
       {/* Affiliate */}
-      <div className="card">
-        <div className="card-header"><div className="card-title">🕵️ Affiliate Intelligence (A27–A29)</div><span className="live-tag">29 июня</span></div>
-        <div className="card-body" style={{ paddingTop:8 }}>
-          <AgentTable rows={AFFILIATE_AGENTS} cols={['ID','Файл','Роль','Статус']} />
-        </div>
-      </div>
+      <CollapsibleCard title="🕵️ Affiliate Intelligence (A27–A29)" tag="29 июня" tagClass="live-tag" count={AFFILIATE_AGENTS.length}>
+        <AgentTable rows={AFFILIATE_AGENTS} cols={['ID','Файл','Роль','Статус']} />
+      </CollapsibleCard>
 
       {/* Media */}
-      <div className="card">
-        <div className="card-header"><div className="card-title">🎥 Медиа-генерация (A30)</div><span className="live-tag">30 июня</span></div>
-        <div className="card-body" style={{ paddingTop:8 }}>
-          <AgentTable rows={MEDIA_AGENTS} cols={['ID','Файл','Роль','Статус']} />
-          <div style={{ marginTop:12, fontSize:12, color:'var(--faint)' }}>
-            Пайплайн: A21 (скрипт) → A30 (медиа) → A26 Publer (публикация) · Форматы: seedance_2_0 / Higgsfield Image API
-          </div>
+      <CollapsibleCard title="🎥 Медиа-генерация (A30)" tag="30 июня" tagClass="live-tag" count={MEDIA_AGENTS.length}>
+        <AgentTable rows={MEDIA_AGENTS} cols={['ID','Файл','Роль','Статус']} />
+        <div style={{ marginTop:12, fontSize:12, color:'var(--faint)' }}>
+          Пайплайн: A21 (скрипт) → A30 (медиа) → A26 Publer (публикация) · Форматы: seedance_2_0 / Higgsfield Image API
         </div>
-      </div>
+      </CollapsibleCard>
 
       {/* Skills */}
-      <div className="card">
-        <div className="card-header"><div className="card-title">🛠️ Claude Code Skills (.claude/skills/)</div><span className="ref-tag">11 скиллов</span></div>
-        <div className="card-body" style={{ paddingTop:8 }}>
-          <table>
-            <thead><tr><th>Команда</th><th>Что делает</th></tr></thead>
-            <tbody>
-              {SKILLS.map(([cmd, desc]) => (
-                <tr key={cmd}><td className="primary mono">{cmd}</td><td>{desc}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <CollapsibleCard title="🛠️ Claude Code Skills (.claude/skills/)" tag="11 скиллов" count={SKILLS.length}>
+        <table>
+          <thead><tr><th>Команда</th><th>Что делает</th></tr></thead>
+          <tbody>
+            {SKILLS.map(([cmd, desc]) => (
+              <tr key={cmd}><td className="primary mono">{cmd}</td><td>{desc}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </CollapsibleCard>
     </>
   )
 }

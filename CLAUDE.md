@@ -75,6 +75,12 @@ If neither key is set, the server runs in **dev mode** (no auth) and logs a
 warning. CORS origin is configurable via `CORS_ALLOW_ORIGIN` (default `*`;
 restrict to the dashboard domain in production).
 
+**Public routes (`_PUBLIC_PATHS` in `do_POST`):** `/orchestrator/chat`,
+`/health/check-all`, `/metrics` bypass auth entirely — the dashboard chat must
+work without a token (the server is firewalled, only nginx :80 is exposed). The
+path is normalized (`split("?")[0].rstrip("/")`) before the check. Do not add
+write/side-effecting routes to this set.
+
 ### Python Package Structure (`ubt_os/`)
 
 ```
@@ -260,6 +266,38 @@ plus `strategy_`, `revenue_`, `risk_`, `vertical_`, `creative_vault_`,
 (part of `make db-init`) — it changes `id` UUID→TEXT (dropping/re-adding the
 account_id FKs), expands the platform CHECK, and adds the missing columns.
 
+### Knowledge base — `kb_entries` (versioned, `08_patch_kb_entries.sql`)
+
+The professional knowledge library the orchestrator and agents draw on lives in
+**`kb_entries`** — a versioned, append-only table. Columns: `entry_key,
+category, vertical, title, content, tags, version, is_current, changed_by`.
+There is **no `platform`/`scheme` column** — those are encoded in `entry_key`
+and mirrored into `tags`.
+
+- `entry_key` format: **`<process>.<platform>.<vertical>.<scheme>`**
+  (e.g. `content.tiktok.betting.grey`, `white_funnel.telegram.auto.white`).
+  Missing segments default to `any`.
+- Partial unique index `WHERE is_current = TRUE` — you **cannot** use
+  `upsert on_conflict`; seed scripts do `delete().eq("entry_key", key)` then
+  `insert()`.
+- This is a **different table** from the legacy `knowledge_entries` — the
+  dashboard "Записи знаний" tile and Knowledge section read `kb_entries`
+  (`is_current = true`).
+
+**Seed scripts (`deploy/seed_kb*.py`)** — additive, each writes via
+delete+insert, run with `docker compose exec agents python /tmp/<script>.py`:
+- `seed_kb.py` — 40 base entries (process × platform × vertical × scheme).
+- `seed_kb_affiliate.py` — 30, Block A: CPA-network maps, per-vertical guides,
+  compliance matrix, funnels, benchmarks.
+- `seed_kb_white.py` — 16, Block B: white-niche funnels, Telegram organic
+  growth + monetization, YouTube/Shorts.
+- `seed_kb_content.py` — 13: hooks, formats, copywriting, stop-slop, trends,
+  neural production.
+
+Total ≈ **99 entries**. To extend, add a new `seed_kb_*.py` following the same
+`_e(key, title, content, tags)` shape and category taxonomy; add new category
+labels to `dashboard/src/components/sections/Knowledge.jsx` (`CATEGORY_LABELS`).
+
 ---
 
 ## Testing
@@ -286,3 +324,37 @@ Production: FirstVDS Amsterdam, Ubuntu 22.04, `docker compose up -d`.
 `deploy/nginx.conf` is the reverse proxy (TLS via certbot once a domain is set).
 The dashboard is a React 18 + Vite SPA in `dashboard/`. n8n workflows are JSON
 files in `n8n/workflows/`, imported via the n8n UI.
+
+---
+
+## Dashboard UI Conventions
+
+**RULE — collapsible lists everywhere.** Any card whose body is a list or
+table (reference data, agent/skill listings, knowledge entries, service
+tables, partner conditions, etc.) MUST be collapsible. Use the shared
+`dashboard/src/components/CollapsibleCard.jsx` component — never hand-roll a
+plain `<div className="card">` around a long list. This applies to every new
+section and every existing one going forward.
+
+Guidelines:
+- Reference / static lists → `defaultOpen` **omitted** (collapsed by default).
+- Primary live/interactive tables (accounts, post analytics, server status,
+  n8n workflows) → `defaultOpen` (open, but still collapsible).
+- Always pass `count={rows.length}` so the header shows how many items are
+  hidden inside.
+- Interactive controls in the header (sync buttons, links) go in the
+  `headerRight` prop — clicks there don't toggle the card.
+- For grouped lists inside a single card (e.g. Knowledge grouped by category),
+  make each group header individually collapsible (see `Knowledge.jsx`).
+
+**Dashboard deploy:** the built SPA is committed to `dashboard-static/` (tracked
+in git, served by nginx). After any dashboard change: `cd dashboard && npm run
+build && cp -r dist/* ../dashboard-static/`, then commit both `dashboard/src`
+and `dashboard-static/`. On the server a plain `git pull` updates the live UI —
+no rebuild needed. All dashboard API calls go through nginx on port 80
+(`AGENTS_SERVER` has no `:8080`).
+
+**Knowledge base:** the dashboard "Записи знаний" tile and the Knowledge section
+read `kb_entries` (versioned, `is_current = true`), NOT the legacy
+`knowledge_entries` table. Research is loaded via `deploy/seed_kb*.py` scripts
+(`entry_key` = `process.platform.vertical.scheme`).
