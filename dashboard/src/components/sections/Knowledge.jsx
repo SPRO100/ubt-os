@@ -22,6 +22,12 @@ const CATEGORY_LABELS = {
   tg_monetize:    '💰 Монетизация TG',
   yt_growth:      '▶️ Рост YouTube',
   yt_monetize:    '💵 Монетизация YouTube',
+  hooks:          '🪝 Хуки',
+  format:         '🎞 Форматы',
+  copywriting:    '✍️ Копирайтинг',
+  humanize:       '🧬 Стоп-слоп',
+  trends:         '📡 Тренды',
+  production:     '🎥 Производство',
 }
 
 const SCHEME_COLOR = {
