@@ -28,6 +28,7 @@ const CATEGORY_LABELS = {
   humanize:       '🧬 Стоп-слоп',
   trends:         '📡 Тренды',
   production:     '🎥 Производство',
+  multiacc:       '👥 Мультиаккаунтинг',
 }
 
 const SCHEME_COLOR = {

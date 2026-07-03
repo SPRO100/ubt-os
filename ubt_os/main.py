@@ -379,6 +379,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 count=int(body.get("count", 1)),
                 account_id=body.get("account_id"),
                 provider=body.get("provider", ""),
+                output=body.get("output", "video"),
             )
 
     async def _run_ubt(self, body: dict):
@@ -396,6 +397,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 count=int(body.get("count", 1)),
                 account_id=body.get("account_id"),
                 provider=body.get("provider", ""),
+                output=body.get("output", "video"),
             )
 
     async def _run_checker(self, body: dict):
@@ -527,6 +529,17 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "- transcription_agent: транскрипция видео (Deepgram → Whisper) + извлечение хука\n"
             "- social_publisher: прямая публикация на 8 платформ через нативные API (без лимитов Publer)\n"
             "- A36 post_analytics_agent: синхронизация нативных метрик постов (impressions/reach/likes/comments/shares)\n\n"
+            "ВЫБОР ПРОФИЛЯ ПАЙПЛАЙНА. Не гони задачу через лишние агенты. Обязательны всегда "
+            "только A21 (контент) → A19 (humanizer) → A25 (compliance). Остальное — по нужде:\n"
+            "  • text/native (белый текстовый пост, прогнозы, статьи, Telegram-контент) — "
+            "БЕЗ видео, БЕЗ Higgsfield/TTS/прелендинга. Профиль output=text.\n"
+            "  • video — нужен UGC-ролик → +A30 (Higgsfield). output=video.\n"
+            "  • carousel — нужна карусель → +A30. output=carousel.\n"
+            "  • prelander — нужен HTML-лендинг → +A29. output=full (или отдельный A29).\n"
+            "  • озвучка (A35) и субтитры (A34) — только если реально нужен голос/сабы к видео.\n"
+            "Если для сервиса нет API-ключа (Higgsfield/TTS) — предложи текстовый профиль или "
+            "stock-провайдер, но не навязывай платный сервис. Сначала пойми, ЧТО на выходе нужно "
+            "пользователю, и назови минимальную цепочку агентов под это.\n\n"
             "Если задача пользователя явно подходит для одного из агентов — добавь в КОНЕЦ ответа строку:\n"
             "[AGENT_SUGGEST: agent_id|Что именно агент сделает для этой задачи]\n"
             "Пример: [AGENT_SUGGEST: content_creator|Создать 3 варианта hook для нутра GEO US]\n"
