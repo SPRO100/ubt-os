@@ -5,7 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What This Is
 
 UBT OS is a multi-agent AI system that generates organic traffic to affiliate
-offers via short-form video and prelanders. It runs **27 agents (A12–A36)**
+offers via short-form video. It runs a lean roster of **13 numbered agents
+(A13–A36)** — generation + safe delivery only, no research/search layer —
 across TikTok, Facebook, Instagram, Pinterest, and YouTube Shorts, orchestrated
 by n8n, powered by Claude Sonnet 5 (orchestrator) and Haiku 4.5 (routine
 tasks), and deployed on a single Linux server (FirstVDS Amsterdam).
@@ -73,15 +74,15 @@ always:** A21 content_creator → A19 humanizer → A25 compliance_gate.
 | `text` / `native` / `script` | — | **skipped** (no Redis video queue touched) |
 | `video` (default) | UGC 9:16 | enqueued |
 | `carousel` | carousel | enqueued |
-| `full` | video (+ prelander via A29 when wired) | enqueued |
+| `full` | video (multi-platform) | enqueued |
 
-A white/text campaign must NOT be forced through Higgsfield/TTS/prelanding.
-`/run/nutra` and `/run/ubt` read `output` from the request body (default
-`video` for backward compat with n8n crons). The orchestrator system prompt
-(and KB entry `master_prompt.orchestrator.any.any`) tell the orchestrator to
-pick the minimal chain and degrade gracefully when a paid service's key is
-missing (offer `text` or the stock provider — `VIDEO_PROVIDER_CHAIN:
-stock → fal → higgsfield` — never hard-fail).
+A white/text campaign must NOT be forced through Higgsfield/TTS. `/run/nutra`
+and `/run/ubt` read `output` from the request body (default `video` for
+backward compat with n8n crons). The orchestrator system prompt (and KB entry
+`master_prompt.orchestrator.any.any`) tell the orchestrator to pick the
+minimal chain and degrade gracefully when a paid service's key is missing
+(offer `text` or the stock provider — `VIDEO_PROVIDER_CHAIN: stock → fal →
+higgsfield` — never hard-fail).
 
 ### Authentication (main.py `_authorized`)
 
@@ -113,14 +114,17 @@ ubt_os/
 │   ├── pipeline_lock.py     # Redis distributed lock (async context manager)
 │   ├── budget_guard.py      # BudgetGuard + @budget_guarded decorator
 │   ├── knowledge_base.py    # Append-only knowledge entries
+│   ├── knowledge_taxonomy.py # entry_key taxonomy (process.platform.vertical.scheme)
+│   ├── kb_writer.py         # save_kb_entry() — deactivate-then-insert into kb_entries
 │   ├── risk_engine.py       # Risk scoring for active accounts
 │   ├── creative_vault.py    # Creative scoring and storage
 │   ├── vertical_loader.py   # Loads vertical YAML configs
 │   └── logging_config.py    # Structured JSON logging + request_id context var
-├── agents/                  # A12–A36 (27 agents) — see table below
+├── agents/                  # A13–A36 (13 agents) — see table below
 ├── pipelines/
 │   ├── higgsfield_queue.py  # Redis priority queue for video generation jobs
 │   ├── higgsfield_worker.py # Worker that dequeues and calls Higgsfield API
+│   ├── social_publisher.py  # Direct native-API publishing to 8 platforms
 │   └── blotato_dlq.py       # Dead Letter Queue with retry
 └── utils/
     ├── llm_utils.py          # extract_json() — robust JSON parsing of Claude responses
@@ -130,52 +134,36 @@ ubt_os/
     └── obsidian_cron.py      # Hourly cron entry point for sync
 ```
 
-### Agents (A12–A30)
+### Agents (A13–A36)
+
+The roster was deliberately cut down to **generation + safe delivery only** —
+no competitor/trend/search research layer. Removed entirely (dead code or cut
+by explicit decision): A12 `warming_state_machine` (dead, folded into A28),
+A15 `strategy_engine`, A16 `revenue_analyst` (dead), A17 `failure_recovery`
+(dead — DLQ is handled by `blotato_dlq.py`), A20 `trend_scraper`, A22
+`ads_auditor`, A24 `obsidian_brain`, A27 `spy_analyzer`, A29
+`prelanding_generator`, A31 `competitor_analyst`, A32 `trend_radar`, A33
+`competitor_scraper`, and `transcription_agent`.
 
 | ID | File | Role |
 |----|------|------|
-| A12 | `warming_state_machine.py` | Account warming FSM |
 | A13 | `telegram_jitter.py` | Human-like posting delays |
 | A14 | `account_checker.py` | Account health, ER, proxy, ban detection |
-| A15 | `strategy_engine.py` | Weekly strategy brief |
-| A16 | `revenue_analyst.py` | Attribution, funnel leak detection |
-| A17 | `failure_recovery.py` | Health checks, DLQ, fallback |
-| A18 | `knowledge_synthesizer.py` | Daily/weekly knowledge synthesis |
+| A18 | `knowledge_synthesizer.py` | Daily (21:00) + weekly synthesis of our own results → `kb_entries` |
 | A19 | `text_humanizer.py` | Stop-Slop: strips AI markers |
-| A20 | `trend_scraper.py` | Trends & competitor hooks (Firecrawl) |
 | A21 | `content_creator.py` | Before/After, hooks, UGC by Brand Voice |
-| A22 | `ads_auditor.py` | TikTok/Meta audit, Health Score |
 | A23 | `youtube_creator.py` | Shorts/Long-form scripts |
-| A24 | `obsidian_brain.py` | Self-organizing AI wiki |
 | A25 | `compliance_gate.py` | Content check: regex L1 → Haiku L2/L3 |
 | A26 | `publer_publisher.py` | Publer API publishing + UTM |
-| A27 | `spy_analyzer.py` | PiPiAds/AdHeart creative analysis |
-| A28 | `warmup_manager.py` | 14-day warmup, activity limits, infra validation |
-| A29 | `prelanding_generator.py` | HTML prelanders (quiz/story/article/vsl) |
+| A28 | `warmup_manager.py` | 14-day warmup, activity limits, infra validation (state in Supabase `accounts`) |
 | A30 | `higgsfield_agent.py` | UGC video / Shorts / carousels |
-| A31 | `competitor_analyst.py` | Competitor hook analysis (complements A27) |
-| A32 | `trend_radar.py` | Ranks trending sounds/hashtags per vertical/GEO → `trend_signals` |
-| A33 | `competitor_scraper.py` | Scrapes crips into `competitor_signals` (feeds A31) |
 | A34 | `caption_agent.py` | Styled subtitles (ASS/SRT) from word timings + ffmpeg burn |
 | A35 | `tts_agent.py` | Voiceover: self-hosted TTS → ElevenLabs → Supabase Storage |
-| — | `transcription_agent.py` | Video transcription (Deepgram → Whisper) + hook extraction |
 | — | `pipelines/social_publisher.py` | Direct native-API publishing to 8 platforms |
 | A36 | `post_analytics_agent.py` | Native per-post metrics (impressions/reach/likes/comments/shares) → `post_metrics` |
 
-### Competitor analysis: A27 vs A31 (NOT duplicates)
-
-Two competitor agents exist on purpose — they are **complementary**, не merge them:
-
-- **A27 `spy_analyzer`** — *reactive, on-demand.* You feed it crips manually
-  (PiPiAds/AdHeart text or URLs); it returns a creative brief +
-  `a21_prompt_extension` that drives A21 `content_creator`.
-- **A31 `competitor_analyst`** — *proactive, scheduled.* Pulls scraped videos
-  from the `competitor_signals` table, classifies hooks (Claude Vision when a
-  thumbnail is present), writes to `competitor_patterns` / `hook_templates`, and
-  builds weekly aggregate hook-trend reports.
-
-A27 = "analyse these specific crips now", A31 = "monitor the competitive field
-over time". Keep both.
+Pipeline order for a video: **A21 → A19 → A25 → A30 → A26/social_publisher**,
+with A34/A35 feeding into A30's output when captions/voiceover are needed.
 
 ### Direct publishing credentials (`social_publisher.py`)
 
@@ -197,6 +185,19 @@ credentials as the publisher. Writes time-series snapshots to `post_metrics`
 count). `v_post_metrics_latest` and `v_platform_engagement` views give the
 dashboard the latest snapshot and per-platform aggregates without re-deriving
 DISTINCT ON logic client-side.
+
+### Daily knowledge synthesis (A18 `knowledge_synthesizer.py`)
+
+Runs at **21:00 daily** + Sunday 22:00 weekly (`n8n/workflows/knowledge-synthesizer.json`
+— trigger node name and the `connections` dict key must be changed together
+when rescheduling, n8n keys connections by node name). It analyzes **our own**
+results (not competitors) — what worked/failed today, why, and a hypothesis
+for tomorrow — then writes ONE consolidated markdown report per run straight
+into `kb_entries` via `save_kb_entry()` (`ubt_os/core/kb_writer.py`), same
+mechanism used by `[LEARN:]` chat markers, so the dashboard/orchestrator see
+it immediately. `entry_key` is date-suffixed
+(`analytics.any.any.white.<date>` / `...weekly-W<week>`) so each day/week adds
+a *new* entry — knowledge accumulates, it never overwrites the previous day.
 
 ### Key Architectural Patterns
 
@@ -228,22 +229,23 @@ LiteLLM spend before each call. Global daily cap via `LITELLM_DAILY_BUDGET`
 | POST | `/run/account-check` | Account checker |
 | POST | `/run/obsidian-sync` | Obsidian vault git sync |
 | POST | `/run/daily-report` | DLQ daily summary |
-| POST | `/strategy/collect` | A15: collect data + write vault |
 | POST | `/risk/run` | Risk scoring for active accounts |
-| POST | `/knowledge/synthesize` | A18: daily or weekly (`mode` param) |
+| POST | `/knowledge/synthesize` | A18: daily or weekly (`mode` param) → `kb_entries` |
 | POST | `/obsidian/write`, `/obsidian/append` | Write/append vault file |
 | POST | `/orchestrator/chat` | Chat with orchestrator (vertical context) |
-| POST | `/agents/run` | Run any A19–A30 agent directly (dashboard) |
-| POST | `/competitor/analyze`, `/hooks/top` | A31 competitor hook analysis |
-| POST | `/trends/radar` | A32 trend radar (ranks sounds/hashtags) |
-| POST | `/competitor/scrape` | A33 scrape crips into `competitor_signals` |
+| POST | `/agents/run` | Run any agent directly (dashboard) |
 | POST | `/caption` | A34 styled subtitles (ASS/SRT) + ffmpeg burn |
 | POST | `/tts` | A35 voiceover (self-hosted TTS → ElevenLabs) |
-| POST | `/transcribe` | Video transcription + hook extraction |
 | POST | `/publish/direct`, `/publish/bulk` | Direct native-API publishing |
 | POST | `/analytics/sync` | A36 sync native post metrics (impressions/reach/likes/comments/shares) |
-| GET | `/health/check-all` | Supabase + Redis connectivity |
+| POST | `/video/stock` | Free stock video pipeline (Pexels + edge-tts + ffmpeg) |
+| POST | `/knowledge/kb` | Structured KB search by taxonomy |
+| POST | `/accounts/parse-file` | Parse account files (txt/csv/zip) into records |
+| POST | `/system/emergency-pause` | Pause all active accounts (n8n health-monitor) |
+| POST | `/risk/pause-accounts` | Pause accounts with `risk_level=stop` (n8n risk-engine-monitor) |
+| GET/POST | `/health/check-all` | Supabase + Redis connectivity |
 | GET | `/metrics` | Prometheus-format counters |
+| GET | `/health/env` | Env var presence check |
 
 `_safe_vault_path()` protects against path traversal on the Obsidian routes.
 
@@ -267,8 +269,7 @@ Security: `WEBHOOK_SECRET`, `AGENTS_API_TOKEN`, `CORS_ALLOW_ORIGIN`,
 `AGENTS_HOST` (default `0.0.0.0`).
 
 Functionality: `HIGGSFIELD_API_KEY` (A30), `PUBLER_API_KEY` + profile IDs (A26),
-`FIRECRAWL_API_KEY` (A20), `KEITARO_*`, `TELEGRAM_ALERT_*`, `OBSIDIAN_*`,
-`LITELLM_*`.
+`KEITARO_*`, `TELEGRAM_ALERT_*`, `OBSIDIAN_*`, `LITELLM_*`.
 
 ---
 
@@ -286,6 +287,14 @@ plus `strategy_`, `revenue_`, `risk_`, `vertical_`, `creative_vault_`,
 `account_type`. Existing DBs are migrated by `06_patch_accounts_align.sql`
 (part of `make db-init`) — it changes `id` UUID→TEXT (dropping/re-adding the
 account_id FKs), expands the platform CHECK, and adds the missing columns.
+`10_patch_warmup_accounts.sql` (also part of `make db-init`, 16 steps total)
+adds A28's own infra columns (`device_type`, `proxy_type`, `has_local_sim`,
+`bio_link_enabled`, `warmup_notes`) — A28 now persists all warmup state
+directly on this table (`AccountReader`/`AccountWriter`) instead of a local
+JSON file, so state survives container rebuilds. `_PROTECTED_STATUSES`
+(`shadow_banned`/`hard_banned`/`replaced`/`paused`) in `warmup_manager.py`
+guard against a routine warmup check overwriting another agent's ban/pause
+decision.
 
 ### Knowledge base — `kb_entries` (versioned, `08_patch_kb_entries.sql`)
 
@@ -327,11 +336,13 @@ Tests live in `tests/`. `pytest.ini` sets `asyncio_mode = auto`, so
 `async def test_*` works without explicit decorators.
 
 ```bash
-pytest tests/test_compliance_regex.py -v   # A25 L1 regex (nutra/betting/trademark)
-pytest tests/test_extract_json.py -v       # LLM JSON parsing robustness
-pytest tests/test_webhook_auth.py -v       # dual auth (HMAC + Bearer)
-pytest tests/test_circuit_breaker.py -v    # circuit breaker state transitions
-pytest tests/test_vault_path.py -v         # path traversal protection
+pytest tests/test_compliance_regex.py -v      # A25 L1 regex (nutra/betting/trademark)
+pytest tests/test_extract_json.py -v          # LLM JSON parsing robustness
+pytest tests/test_webhook_auth.py -v          # dual auth (HMAC + Bearer)
+pytest tests/test_circuit_breaker.py -v       # circuit breaker state transitions
+pytest tests/test_vault_path.py -v            # path traversal protection
+pytest tests/test_warmup_manager.py -v        # A28 Supabase-backed warmup state
+pytest tests/test_knowledge_synthesizer.py -v # A18 writes into kb_entries
 ```
 
 Use `monkeypatch.setenv(...)` for env-dependent tests; don't hit real services

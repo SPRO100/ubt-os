@@ -130,9 +130,7 @@ services:
       PUBLER_INSTAGRAM_PROFILE_IDS: ${PUBLER_INSTAGRAM_PROFILE_IDS:-}
       PUBLER_PINTEREST_PROFILE_IDS: ${PUBLER_PINTEREST_PROFILE_IDS:-}
       PUBLER_PINTEREST_BOARD_IDS:  ${PUBLER_PINTEREST_BOARD_IDS:-}
-      FIRECRAWL_API_KEY:    ${FIRECRAWL_API_KEY:-}
       DEEPGRAM_API_KEY:     ${DEEPGRAM_API_KEY:-}
-      OPENAI_API_KEY:       ${OPENAI_API_KEY:-}
       MEDIA_BUCKET:         ${MEDIA_BUCKET:-media}
       TTS_SERVER_URL:       ${TTS_SERVER_URL:-}
       # Переключатель видео-провайдеров (stock=бесплатно, fal=дёшево)

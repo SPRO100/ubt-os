@@ -3,7 +3,7 @@
   "nodes": [
     {
       "id": "trigger_daily",
-      "name": "Ежедневно 23:45",
+      "name": "Ежедневно 21:00",
       "type": "n8n-nodes-base.cron",
       "position": [
         200,
@@ -14,7 +14,7 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "45 23 * * *"
+              "expression": "0 21 * * *"
             }
           ]
         }
@@ -233,17 +233,6 @@
     }
   ],
   "connections": {
-    "Ежедневно 23:45": {
-      "main": [
-        [
-          {
-            "node": "Mode: daily",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Воскресенье 22:00": {
       "main": [
         [
@@ -344,6 +333,17 @@
         [
           {
             "node": "Release Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ежедневно 21:00": {
+      "main": [
+        [
+          {
+            "node": "Mode: daily",
             "type": "main",
             "index": 0
           }
