@@ -25,6 +25,35 @@ async function sbDelete(table, id) {
   if (!res.ok) throw new Error(await res.text())
 }
 
+// Сопоставление проекта (название + категория) с вертикалью kb_entries.
+// Возвращает slug вертикали или null.
+const VERTICAL_ALIASES = [
+  ['betting',      ['беттинг', 'betting', 'ставк', 'букмекер']],
+  ['gambling',     ['гемблинг', 'gambling', 'казино', 'casino', 'слот']],
+  ['nutra',        ['нутра', 'nutra', 'бад', 'похуден']],
+  ['finance',      ['финанс', 'finance', 'займ', 'кредит', 'мфо', 'карт']],
+  ['crypto',       ['крипт', 'crypto', 'форекс', 'forex', 'бирж']],
+  ['dating',       ['дейтинг', 'dating', 'знакомств']],
+  ['edtech',       ['edtech', 'образован', 'обучен', 'курс', 'инфобиз', 'школ']],
+  ['auto',         ['авто', 'auto', 'машин', 'car', 'корея', 'кита', 'япони', 'пригон']],
+  ['tourism',      ['тур', 'туризм', 'travel', 'путешеств']],
+  ['realty',       ['недвиж', 'realty', 'квартир', 'застройщик']],
+  ['construction', ['строит', 'ремонт', 'construction']],
+  ['beauty',       ['красот', 'beauty', 'салон', 'бьюти']],
+  ['fitness',      ['фитнес', 'fitness', 'спортзал']],
+  ['ecommerce',    ['магазин', 'ecommerce', 'commerce', 'товар', 'shop']],
+  ['b2b',          ['b2b', 'услуг']],
+  ['food',         ['доставк', 'еда', 'food', 'ресторан']],
+]
+
+function deriveVertical(project) {
+  const hay = `${project?.name || ''} ${project?.category || ''}`.toLowerCase()
+  for (const [slug, aliases] of VERTICAL_ALIASES) {
+    if (aliases.some(a => hay.includes(a))) return slug
+  }
+  return null
+}
+
 function parseTaskFromReply(reply, verticalName) {
   const geoMatch    = reply.match(/\b(US|BR|MX|DE|PL|UK|RU)\b/i)
   const countMatch  = reply.match(/(\d+)\s*(видео|роликов|video)/i)
@@ -94,9 +123,13 @@ export default function Projects({ onCreateTask }) {
   async function openProject(p) {
     if (editId || deleteId || menuId) return
     setCurrent(p); setPendingTask(null); setCfgOpen(false)
+    const vert = deriveVertical(p)
+    const kbQuery = vert
+      ? `select=entry_key,title,category,vertical&is_current=eq.true&vertical=eq.${vert}&order=category.asc,entry_key.asc&limit=100`
+      : `select=entry_key,title,category,vertical&is_current=eq.true&order=created_at.desc&limit=30`
     const [k, h] = await Promise.all([
-      fetchRows('knowledge_entries', `select=type,content,created_at&vertical=eq.${p.id}&order=created_at.desc&limit=5`),
-      fetchRows('chat_messages',     `select=role,content,created_at&vertical_id=eq.${p.id}&order=created_at.asc&limit=30`),
+      fetchRows('kb_entries', kbQuery),
+      fetchRows('chat_messages', `select=role,content,created_at&vertical_id=eq.${p.id}&order=created_at.asc&limit=30`),
     ])
     setKnowledge(k); setHistory(h)
   }
@@ -382,19 +415,24 @@ export default function Projects({ onCreateTask }) {
           <div className="card">
             <div className="card-header">
               <div className="card-title">🧠 База знаний проекта</div>
-              <span className="live-tag">live · {knowledge.length}</span>
+              <span className="live-tag">
+                {deriveVertical(current) ? `${deriveVertical(current)} · ${knowledge.length}` : `общая · ${knowledge.length}`}
+              </span>
             </div>
             <div className="card-body" style={{ paddingTop: 8 }}>
               {knowledge.length === 0
-                ? <div className="note-box">Нет записей для этого проекта.</div>
+                ? <div className="note-box">
+                    Нет записей по вертикали этого проекта. Знания лежат в <code>kb_entries</code> —
+                    проверь раздел «База знаний».
+                  </div>
                 : <table>
-                    <thead><tr><th>Тип</th><th>Содержание</th><th>Дата</th></tr></thead>
+                    <thead><tr><th>Категория</th><th>Заголовок</th><th>Ключ</th></tr></thead>
                     <tbody>
                       {knowledge.map((k, i) => (
                         <tr key={i}>
-                          <td><span className="badge badge-indigo">{k.type}</span></td>
-                          <td style={{ fontSize: 12 }}>{(k.content || '').slice(0, 90)}…</td>
-                          <td className="mono">{(k.created_at || '').slice(0, 10)}</td>
+                          <td><span className="badge badge-indigo" style={{ fontSize: 10 }}>{k.category}</span></td>
+                          <td style={{ fontSize: 12 }}>{k.title}</td>
+                          <td className="mono" style={{ fontSize: 11, color: 'var(--faint)' }}>{k.entry_key}</td>
                         </tr>
                       ))}
                     </tbody>
