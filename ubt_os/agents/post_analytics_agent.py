@@ -6,8 +6,8 @@ direct_publish_jobs. Пишет снапшоты в post_metrics.
 
 Закрывает пробел: до этого агента в системе не было ни одной живой
 метрики вовлечённости с самих платформ — только revenue_events (деньги)
-и ручной ввод в ads_auditor. Идея — как у Postiz: unified per-post
-analytics dashboard, только через прямые нативные API вместо агрегатора.
+и ручной ввод. Идея — как у Postiz: unified per-post analytics dashboard,
+только через прямые нативные API вместо агрегатора.
 
 Запуск: POST /analytics/sync  или  agent="post_analytics" в /agents/run
 """

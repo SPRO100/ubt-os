@@ -11,11 +11,9 @@ const STATUS_META = {
 }
 
 const PIPELINE_STEPS = [
-  { id:'spy',       label:'A27 spy_analyzer',    icon:'🕵️', agent:'spy_analyzer' },
   { id:'content',   label:'A21 content_creator', icon:'📝', agent:'content_creator' },
   { id:'humanize',  label:'A19 text_humanizer',  icon:'🧹', agent:'text_humanizer' },
   { id:'comply',    label:'A25 compliance_gate', icon:'🛡️', agent:'compliance_gate' },
-  { id:'prelanding',label:'A29 prelanding_gen',  icon:'🏗️', agent:'prelanding_generator' },
   { id:'publish',   label:'A26 publer_publisher',icon:'📤', agent:'publer_publisher' },
 ]
 
@@ -182,46 +180,27 @@ export default function Tasks({ tasks = [], onUpdate }) {
     onUpdate(id, { status: 'in_progress', step: 0, approvedAt: new Date().toISOString() })
 
     try {
-      // Step 0: Spy analyzer — gather hook patterns
-      let brief = ''
-      try {
-        const spy = await runAgentAPI('spy_analyzer', {
-          creatives: [], vertical: vert, geo, platform: 'tiktok', focus: 'all',
-        })
-        brief = spy.creative_brief || ''
-      } catch { /* spy is optional, continue if it fails */ }
-      onUpdate(id, { step: 1 })
-
-      // Step 1: Content creator
+      // Step 0: Content creator
       const contentRes = await runAgentAPI('content_creator', {
         format: fmt, vertical: vert, geo,
-        ...(brief ? { brief } : {}),
       })
       const rawText = contentRes.result || contentRes.content || task.title
-      onUpdate(id, { step: 2 })
+      onUpdate(id, { step: 1 })
 
-      // Step 2: Text humanizer
+      // Step 1: Text humanizer
       const humanRes = await runAgentAPI('text_humanizer', {
         text: rawText, geo, vertical: vert,
       })
       const cleanText = humanRes.result || rawText
-      onUpdate(id, { step: 3 })
+      onUpdate(id, { step: 2 })
 
-      // Step 3: Compliance gate
+      // Step 2: Compliance gate
       await runAgentAPI('compliance_gate', {
         text: cleanText, vertical: vert, geo,
       })
-      onUpdate(id, { step: 4 })
+      onUpdate(id, { step: 3 })
 
-      // Step 4: Prelanding generator
-      await runAgentAPI('prelanding_generator', {
-        offer_name: task.params?.vertical || 'Product',
-        vertical: vert, geo, billing_model: 'COD', format: 'story',
-        product_benefits: [], lander_url: 'https://example.com',
-      })
-      onUpdate(id, { step: 5 })
-
-      // Step 5: Publisher (dry run — real publish requires PUBLER_API_KEY)
+      // Step 3: Publisher (dry run — real publish requires PUBLER_API_KEY)
       await runAgentAPI('publer_publisher', {
         text: cleanText, platform: 'tiktok',
         affiliate_url: '', vertical: vert, geo, dry_run: true,

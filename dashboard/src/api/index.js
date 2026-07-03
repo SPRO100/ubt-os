@@ -162,3 +162,15 @@ export async function insertRows(table, body, prefer = "return=minimal") {
   if (!res.ok) throw new Error(await res.text());
   return res;
 }
+
+// Удаляет строку по id (PK-колонка по умолчанию "id" — переопредели для
+// таблиц с текстовым PK другого имени через idColumn).
+export async function deleteRow(table, id, idColumn = "id") {
+  const res = await fetchWithTimeout(
+    `${SUPABASE_URL}/rest/v1/${table}?${idColumn}=eq.${encodeURIComponent(id)}`,
+    { method: "DELETE", headers },
+    20000
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res;
+}

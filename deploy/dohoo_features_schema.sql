@@ -165,7 +165,10 @@ WHERE dpj.status IN ('pending', 'failed')
 ORDER BY dpj.scheduled_at ASC;
 
 -- ─────────────────────────────────────────────────────────
--- trend_signals — A32 TREND_RADAR: ранжированные тренды звуков/хэштегов
+-- trend_signals — было для A32 trend_radar (агент удалён при пересборке
+-- ролей "только генерация + доставка"); таблица осталась в схеме, но её
+-- никто не пишет и не читает — оставлена на случай, если понадобится
+-- вернуть исследование трендов
 -- ─────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS trend_signals (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),

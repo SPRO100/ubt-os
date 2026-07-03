@@ -6,7 +6,7 @@ const PRIORITIES = [
   'Купить готовые aged аккаунты TikTok + Instagram → зарегистрировать в A28 (5–7 дней прогрева)',
   'Зарегистрировать партнёрки (1win, Dr.Cash) → получить affiliate links для Keitaro',
   'Подключить Higgsfield API → запустить A21+A19 пайплайн → первый UGC-ролик через Publer',
-  'Запустить A29 Prelanding Generator → создать HTML прелендинг → подключить воронку',
+  'Привязать аккаунты к проекту (project_id) → уникализировать готовое видео на все аккаунты сразу',
 ]
 
 const PLATFORMS = [
@@ -85,7 +85,7 @@ export default function Dashboard({ health }) {
         <StatCard label="Redis" value={redisOk ? 'OK' : 'ERR'} note="Upstash" color={redisOk ? 'c-cyan' : 'c-red'}
           icon="⚡" iconBg="rgba(6,182,212,.12)"
         />
-        <StatCard label="Агенты" value="27" note="A12–A36 в системе" color="c-indigo" icon="🤖" iconBg="var(--indigo-bg)" />
+        <StatCard label="Агенты" value="13" note="A13–A36: генерация + доставка" color="c-indigo" icon="🤖" iconBg="var(--indigo-bg)" />
         <StatCard label="Revenue Events" value={counts.revenue} note="net_amount events" color="c-green" icon="💰" iconBg="var(--green-bg)" />
         <StatCard label="Записи знаний" value={counts.knowledge} note="kb_entries" color="c-amber" icon="🧠" iconBg="var(--amber-bg)" />
         <StatCard label="Стратегий" value={counts.strategy} note="strategy_briefs" color="c-pink" icon="📊" iconBg="rgba(236,72,153,.12)" />
