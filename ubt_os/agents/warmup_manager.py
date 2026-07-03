@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from ubt_os.core.agent_api_layer import get_db, AccountReader, AccountWriter, _warming_phase_for_day
+from ubt_os.utils.supabase_utils import rows as _rows
 
 logger = logging.getLogger("ubt_os.warmup_manager")
 
@@ -326,14 +327,14 @@ class WarmupManager:
 
     def list_accounts(self) -> list[dict]:
         """Возвращает список всех аккаунтов, когда-либо поставленных на прогрев."""
-        rows = (
+        account_rows = _rows(
             get_db().table("accounts")
             .select("id")
             .not_.is_("warming_started_at", "null")
             .execute()
-        ).data or []
+        )
         results = []
-        for row in rows:
+        for row in account_rows:
             account_id = row["id"]
             r = self.check(account_id)
             results.append({
