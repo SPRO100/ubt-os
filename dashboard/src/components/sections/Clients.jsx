@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { fetchRows, insertRows, SUPABASE_URL, SUPABASE_ANON_KEY, AGENTS_SERVER } from '../../api'
+import CollapsibleCard from '../CollapsibleCard'
 
 const SB_HEADERS = {
   apikey: SUPABASE_ANON_KEY,
@@ -412,34 +413,29 @@ export default function Projects({ onCreateTask }) {
             )}
           </div>
 
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">🧠 База знаний проекта</div>
-              <span className="live-tag">
-                {deriveVertical(current) ? `${deriveVertical(current)} · ${knowledge.length}` : `общая · ${knowledge.length}`}
-              </span>
-            </div>
-            <div className="card-body" style={{ paddingTop: 8 }}>
-              {knowledge.length === 0
-                ? <div className="note-box">
-                    Нет записей по вертикали этого проекта. Знания лежат в <code>kb_entries</code> —
-                    проверь раздел «База знаний».
-                  </div>
-                : <table>
-                    <thead><tr><th>Категория</th><th>Заголовок</th><th>Ключ</th></tr></thead>
-                    <tbody>
-                      {knowledge.map((k, i) => (
-                        <tr key={i}>
-                          <td><span className="badge badge-indigo" style={{ fontSize: 10 }}>{k.category}</span></td>
-                          <td style={{ fontSize: 12 }}>{k.title}</td>
-                          <td className="mono" style={{ fontSize: 11, color: 'var(--faint)' }}>{k.entry_key}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-              }
-            </div>
-          </div>
+          <CollapsibleCard
+            title="🧠 База знаний проекта"
+            tag={deriveVertical(current) ? `${deriveVertical(current)} · ${knowledge.length}` : `общая · ${knowledge.length}`}
+            tagClass="live-tag">
+            {knowledge.length === 0
+              ? <div className="note-box">
+                  Нет записей по вертикали этого проекта. Знания лежат в <code>kb_entries</code> —
+                  проверь раздел «База знаний».
+                </div>
+              : <table>
+                  <thead><tr><th>Категория</th><th>Заголовок</th><th>Ключ</th></tr></thead>
+                  <tbody>
+                    {knowledge.map((k, i) => (
+                      <tr key={i}>
+                        <td><span className="badge badge-indigo" style={{ fontSize: 10 }}>{k.category}</span></td>
+                        <td style={{ fontSize: 12 }}>{k.title}</td>
+                        <td className="mono" style={{ fontSize: 11, color: 'var(--faint)' }}>{k.entry_key}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+            }
+          </CollapsibleCard>
 
           <div className="card">
             <div className="card-header">
