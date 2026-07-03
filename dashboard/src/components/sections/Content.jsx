@@ -27,6 +27,14 @@ export default function Content() {
   const [clips, setClips]     = useState([])
   const [plans, setPlans]     = useState({})
   const [loading, setLoading] = useState(true)
+  const [openClip, setOpenClip] = useState(null)
+
+  useEffect(() => {
+    if (!openClip) return
+    const onKey = e => { if (e.key === 'Escape') setOpenClip(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [openClip])
 
   async function loadGallery() {
     setLoading(true)
@@ -71,36 +79,38 @@ export default function Content() {
           </div>
         )}
         {!loading && clips.length > 0 && (
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:12 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(110px,1fr))', gap:8 }}>
             {clips.map(v => {
               const plan = plans[v.content_plan_id] || {}
               const st = STATUS_META[v.status] || { label: v.status, color: 'var(--faint)' }
+              const ready = v.status === 'ready' && v.storage_url
               return (
-                <div key={v.id} style={{ background:'var(--surface2)', border:'1px solid var(--border)',
-                  borderRadius:10, overflow:'hidden', display:'flex', flexDirection:'column' }}>
-                  {v.status === 'ready' && v.storage_url
-                    ? <video src={v.storage_url} controls preload="metadata"
-                        style={{ width:'100%', aspectRatio:'9/16', objectFit:'cover', background:'#000' }} />
+                <div key={v.id} onClick={() => setOpenClip(v)}
+                  role="button" tabIndex={0}
+                  title={plan.title || v.id}
+                  style={{ background:'var(--surface2)', border:'1px solid var(--border)',
+                    borderRadius:8, overflow:'hidden', cursor:'pointer', position:'relative' }}>
+                  {ready
+                    ? <video src={v.storage_url + '#t=0.5'} preload="metadata" muted
+                        style={{ width:'100%', aspectRatio:'9/16', objectFit:'cover', background:'#000', display:'block' }} />
                     : <div style={{ width:'100%', aspectRatio:'9/16', display:'flex', alignItems:'center',
-                        justifyContent:'center', background:'var(--surface3, #1a1a2e)', color:st.color, fontSize:13 }}>
+                        justifyContent:'center', background:'var(--surface3, #1a1a2e)', color:st.color, fontSize:10,
+                        textAlign:'center', padding:4 }}>
                         {st.label}
                       </div>}
-                  <div style={{ padding:'8px 10px' }}>
-                    <div style={{ fontSize:12, fontWeight:600, color:'var(--text)', overflow:'hidden',
-                      textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                      {plan.title || '—'}
+                  {ready && (
+                    <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center',
+                      justifyContent:'center', background:'rgba(0,0,0,.15)', opacity:0,
+                      transition:'opacity .15s', fontSize:20 }}
+                      onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                      onMouseLeave={e => e.currentTarget.style.opacity = 0}>
+                      ▶
                     </div>
-                    <div style={{ display:'flex', gap:5, flexWrap:'wrap', marginTop:5, alignItems:'center' }}>
-                      {plan.vertical && <span className="badge badge-indigo" style={{ fontSize:9 }}>{plan.vertical}</span>}
-                      {plan.format && <span style={{ fontSize:10, color:'var(--faint)' }}>{plan.format}</span>}
-                      <span style={{ fontSize:10, color:st.color, marginLeft:'auto' }}>{st.label}</span>
-                    </div>
-                    <div style={{ fontSize:10, color:'var(--faint)', marginTop:4 }}>
-                      {v.duration_sec ? `${v.duration_sec}с · ` : ''}{(v.created_at || '').slice(0,10)}
-                      {v.status === 'ready' && v.storage_url && (
-                        <> · <a href={v.storage_url} target="_blank" rel="noreferrer" style={{ color:'var(--indigo)' }}>↗</a></>
-                      )}
-                    </div>
+                  )}
+                  <div style={{ position:'absolute', bottom:0, left:0, right:0, padding:'3px 5px',
+                    background:'linear-gradient(transparent, rgba(0,0,0,.75))', fontSize:9, color:'#fff',
+                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    {plan.vertical || plan.title || '—'}
                   </div>
                 </div>
               )
@@ -109,7 +119,49 @@ export default function Content() {
         )}
       </CollapsibleCard>
 
-      <CollapsibleCard title="⚙️ Производственный пайплайн A19–A30" tag="архитектура" count={PIPELINE.length} defaultOpen>
+      {openClip && (() => {
+        const plan = plans[openClip.content_plan_id] || {}
+        const st = STATUS_META[openClip.status] || { label: openClip.status, color: 'var(--faint)' }
+        const ready = openClip.status === 'ready' && openClip.storage_url
+        return (
+          <div onClick={() => setOpenClip(null)}
+            style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.75)', zIndex:1000,
+              display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+            <div onClick={e => e.stopPropagation()}
+              style={{ background:'var(--surface)', borderRadius:12, overflow:'hidden',
+                maxWidth:420, width:'100%', maxHeight:'90vh', display:'flex', flexDirection:'column' }}>
+              {ready
+                ? <video src={openClip.storage_url} controls autoPlay
+                    style={{ width:'100%', maxHeight:'70vh', background:'#000', display:'block' }} />
+                : <div style={{ width:'100%', aspectRatio:'9/16', display:'flex', alignItems:'center',
+                    justifyContent:'center', background:'var(--surface3, #1a1a2e)', color:st.color, fontSize:16 }}>
+                    {st.label}
+                  </div>}
+              <div style={{ padding:'12px 16px' }}>
+                <div style={{ fontSize:14, fontWeight:600, color:'var(--text)' }}>{plan.title || '—'}</div>
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:6, alignItems:'center' }}>
+                  {plan.vertical && <span className="badge badge-indigo" style={{ fontSize:10 }}>{plan.vertical}</span>}
+                  {plan.format && <span style={{ fontSize:11, color:'var(--faint)' }}>{plan.format}</span>}
+                  <span style={{ fontSize:11, color:st.color }}>{st.label}</span>
+                </div>
+                <div style={{ fontSize:11, color:'var(--faint)', marginTop:6 }}>
+                  {openClip.duration_sec ? `${openClip.duration_sec}с · ` : ''}{(openClip.created_at || '').slice(0,10)}
+                  {ready && (
+                    <> · <a href={openClip.storage_url} target="_blank" rel="noreferrer" style={{ color:'var(--indigo)' }}>открыть в новой вкладке ↗</a></>
+                  )}
+                </div>
+              </div>
+              <button onClick={() => setOpenClip(null)}
+                style={{ position:'absolute', top:10, right:10, width:28, height:28, borderRadius:'50%',
+                  background:'rgba(0,0,0,.5)', border:'none', color:'#fff', fontSize:15, cursor:'pointer' }}>
+                ✕
+              </button>
+            </div>
+          </div>
+        )
+      })()}
+
+      <CollapsibleCard title="⚙️ Производственный пайплайн A19–A30" tag="архитектура" count={PIPELINE.length}>
         <table>
           <thead><tr><th>Этап</th><th>Инструмент</th><th>Платформы</th><th>Статус</th></tr></thead>
           <tbody>
