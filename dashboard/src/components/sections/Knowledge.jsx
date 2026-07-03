@@ -53,6 +53,15 @@ export default function Knowledge() {
   const [loading,  setLoading]  = useState(true)
   const [filter,   setFilter]   = useState({ vertical: '', scheme: '', category: '' })
   const [expanded, setExpanded] = useState(null)
+  const [openCats, setOpenCats] = useState(() => new Set())
+
+  function toggleCat(cat) {
+    setOpenCats(prev => {
+      const next = new Set(prev)
+      next.has(cat) ? next.delete(cat) : next.add(cat)
+      return next
+    })
+  }
 
   useEffect(() => {
     async function load() {
@@ -134,52 +143,61 @@ export default function Knowledge() {
             <div className="note-box">Нет записей по выбранным фильтрам.</div>
           )}
 
-          {!loading && Object.entries(byCategory).map(([cat, rows]) => (
-            <div key={cat} style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--indigo)',
-                marginBottom: 6, paddingBottom: 4, borderBottom: '1px solid var(--border)' }}>
-                {CATEGORY_LABELS[cat] || cat}
-                <span style={{ fontWeight: 400, color: 'var(--faint)', marginLeft: 6 }}>
-                  {rows.length} {rows.length === 1 ? 'запись' : 'записей'}
-                </span>
-              </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Ключ</th>
-                    <th>Заголовок</th>
-                    <th>Вертикаль</th>
-                    <th>Платформа</th>
-                    <th>Схема</th>
-                    <th>v</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(e => {
-                    const scheme   = extractScheme(e.entry_key)
-                    const platform = extractPlatform(e.entry_key)
-                    const isOpen   = expanded === e.entry_key
-                    return (
-                      <tr key={e.entry_key} onClick={() => setExpanded(isOpen ? null : e.entry_key)}
-                        style={{ cursor: 'pointer', background: isOpen ? 'var(--indigo-bg)' : undefined }}>
-                        <td className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>{e.entry_key}</td>
-                        <td style={{ fontSize: 12, fontWeight: 500 }}>{e.title}</td>
-                        <td><span className="badge badge-indigo" style={{ fontSize: 10 }}>{e.vertical || '—'}</span></td>
-                        <td style={{ fontSize: 11, color: 'var(--muted)' }}>{platform}</td>
-                        <td>
-                          <span style={{
-                            fontSize: 10, padding: '2px 7px', borderRadius: 10, fontWeight: 600,
-                            ...(SCHEME_COLOR[scheme] || SCHEME_COLOR.any),
-                          }}>{scheme}</span>
-                        </td>
-                        <td className="mono" style={{ fontSize: 11, color: 'var(--faint)' }}>v{e.version}</td>
+          {!loading && Object.entries(byCategory).map(([cat, rows]) => {
+            const catOpen = openCats.has(cat)
+            return (
+              <div key={cat} style={{ marginBottom: 10 }}>
+                <div onClick={() => toggleCat(cat)}
+                  role="button" aria-expanded={catOpen}
+                  style={{ fontWeight: 600, fontSize: 12, color: 'var(--indigo)', cursor: 'pointer',
+                    userSelect: 'none', marginBottom: 6, paddingBottom: 4,
+                    borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 12, color: 'var(--faint)', fontSize: 11 }}>{catOpen ? '▾' : '▸'}</span>
+                  {CATEGORY_LABELS[cat] || cat}
+                  <span style={{ fontWeight: 400, color: 'var(--faint)' }}>
+                    · {rows.length}
+                  </span>
+                </div>
+                {catOpen && (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Ключ</th>
+                        <th>Заголовок</th>
+                        <th>Вертикаль</th>
+                        <th>Платформа</th>
+                        <th>Схема</th>
+                        <th>v</th>
                       </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ))}
+                    </thead>
+                    <tbody>
+                      {rows.map(e => {
+                        const scheme   = extractScheme(e.entry_key)
+                        const platform = extractPlatform(e.entry_key)
+                        const isOpen   = expanded === e.entry_key
+                        return (
+                          <tr key={e.entry_key} onClick={() => setExpanded(isOpen ? null : e.entry_key)}
+                            style={{ cursor: 'pointer', background: isOpen ? 'var(--indigo-bg)' : undefined }}>
+                            <td className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>{e.entry_key}</td>
+                            <td style={{ fontSize: 12, fontWeight: 500 }}>{e.title}</td>
+                            <td><span className="badge badge-indigo" style={{ fontSize: 10 }}>{e.vertical || '—'}</span></td>
+                            <td style={{ fontSize: 11, color: 'var(--muted)' }}>{platform}</td>
+                            <td>
+                              <span style={{
+                                fontSize: 10, padding: '2px 7px', borderRadius: 10, fontWeight: 600,
+                                ...(SCHEME_COLOR[scheme] || SCHEME_COLOR.any),
+                              }}>{scheme}</span>
+                            </td>
+                            <td className="mono" style={{ fontSize: 11, color: 'var(--faint)' }}>v{e.version}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
 

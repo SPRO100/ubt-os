@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchRows, runAgentAPI } from '../../api'
+import CollapsibleCard from '../CollapsibleCard'
 
 function fmt(n) {
   const v = Number(n) || 0
@@ -158,31 +159,25 @@ export default function Analytics() {
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">🤝 Условия партнёрских программ</div>
-          <span className="ref-tag">аккаунты не зарегистрированы</span>
-        </div>
-        <div className="card-body" style={{ paddingTop:8 }}>
-          <table>
-            <thead><tr><th>Программа</th><th>Условия</th><th>Cookie</th><th>Выплаты</th></tr></thead>
-            <tbody>
-              {[
-                ['1win','RevShare до 60%, CPA до $250','365 дней','по вторникам'],
-                ['Mostbet','RevShare до 60%','—','—'],
-                ['Dr.Cash','$25–100 CPA (COD)','—','2×/неделю'],
-              ].map(([n,c,k,p]) => (
-                <tr key={n}>
-                  <td className="primary">{n}</td>
-                  <td>{c}</td>
-                  <td className="mono">{k}</td>
-                  <td>{p}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <CollapsibleCard title="🤝 Условия партнёрских программ" tag="аккаунты не зарегистрированы" count={3}>
+        <table>
+          <thead><tr><th>Программа</th><th>Условия</th><th>Cookie</th><th>Выплаты</th></tr></thead>
+          <tbody>
+            {[
+              ['1win','RevShare до 60%, CPA до $250','365 дней','по вторникам'],
+              ['Mostbet','RevShare до 60%','—','—'],
+              ['Dr.Cash','$25–100 CPA (COD)','—','2×/неделю'],
+            ].map(([n,c,k,p]) => (
+              <tr key={n}>
+                <td className="primary">{n}</td>
+                <td>{c}</td>
+                <td className="mono">{k}</td>
+                <td>{p}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </CollapsibleCard>
     </>
   )
 }

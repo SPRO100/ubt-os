@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { countOf } from '../../api'
+import CollapsibleCard from '../CollapsibleCard'
 
 const PIPELINE = [
   { step:'Spy-анализ крипов',      tool:'A27 spy_analyzer.py (PiPiAds/AdHeart)', plat:'TikTok/FB',     status:'готов',         color:'var(--green)' },
@@ -34,29 +35,23 @@ export default function Content() {
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">⚙️ Производственный пайплайн A19–A30</div>
-          <span className="ref-tag">архитектура</span>
-        </div>
-        <div className="card-body" style={{ paddingTop:8 }}>
-          <table>
-            <thead><tr><th>Этап</th><th>Инструмент</th><th>Платформы</th><th>Статус</th></tr></thead>
-            <tbody>
-              {PIPELINE.map(p => (
-                <tr key={p.step}>
-                  <td className="primary">{p.step}</td>
-                  <td style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:11.5 }}>{p.tool}</td>
-                  <td style={{ color:'var(--faint)', fontSize:12 }}>{p.plat}</td>
-                  <td>
-                    <span className="badge" style={{ color:p.color, background:p.color+'1a' }}>{p.status}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <CollapsibleCard title="⚙️ Производственный пайплайн A19–A30" tag="архитектура" count={PIPELINE.length} defaultOpen>
+        <table>
+          <thead><tr><th>Этап</th><th>Инструмент</th><th>Платформы</th><th>Статус</th></tr></thead>
+          <tbody>
+            {PIPELINE.map(p => (
+              <tr key={p.step}>
+                <td className="primary">{p.step}</td>
+                <td style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:11.5 }}>{p.tool}</td>
+                <td style={{ color:'var(--faint)', fontSize:12 }}>{p.plat}</td>
+                <td>
+                  <span className="badge" style={{ color:p.color, background:p.color+'1a' }}>{p.status}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </CollapsibleCard>
     </>
   )
 }
