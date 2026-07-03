@@ -9,11 +9,19 @@ const VIDEO_PROVIDERS = [
   { value: 'higgsfield', label: '💎 Higgsfield — кредиты' },
 ]
 
+const OUTPUT_PROFILES = [
+  { value: 'text',     label: '📝 Только текст — без видео (Higgsfield не нужен)' },
+  { value: 'video',    label: '🎬 Видео UGC 9:16 (+A30 Higgsfield)' },
+  { value: 'carousel', label: '🖼 Карусель (+A30)' },
+  { value: 'full',     label: '🧩 Полный — видео + прелендинг' },
+]
+
 function PipelineCard() {
   const [vert, setVert]         = useState('nutra')
   const [geo, setGeo]           = useState('US')
   const [offer, setOffer]       = useState('')
   const [count, setCount]       = useState('1')
+  const [output, setOutput]     = useState('video')
   const [provider, setProvider] = useState(localStorage.getItem('video_provider') || '')
   const [loading, setLoading]   = useState(false)
   const [result, setResult]     = useState(null)
@@ -24,11 +32,13 @@ function PipelineCard() {
     localStorage.setItem('video_provider', v)
   }
 
+  const needsVideo = ['video', 'carousel', 'full'].includes(output)
+
   async function launch() {
     setLoading(true); setResult(null); setError(null)
     try {
       const path = vert === 'betting' ? '/run/ubt' : '/run/nutra'
-      const data = await postAgents(path, { geo, offer, count: Number(count) || 1, provider }, 300000)
+      const data = await postAgents(path, { geo, offer, count: Number(count) || 1, provider, output }, 300000)
       setResult(data)
     } catch (e) { setError(e.message) }
     setLoading(false)
@@ -41,7 +51,8 @@ function PipelineCard() {
         <span className="agent-name">Видео-пайплайн: контент → compliance → генерация</span>
       </div>
       <div className="agent-desc">
-        A21 скрипт → A25 проверка → очередь генерации. Публикации нет — черновик на одобрение.
+        A21 скрипт → A19 humanizer → A25 проверка{needsVideo ? ' → очередь генерации видео (A30)' : ' (без видео — Higgsfield не задействован)'}.
+        Публикации нет — черновик на одобрение.
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:8 }}>
         <div>
@@ -65,11 +76,19 @@ function PipelineCard() {
           <input className="form-control" type="number" min="1" max="10" value={count} onChange={e=>setCount(e.target.value)} />
         </div>
         <div style={{ gridColumn:'1 / -1' }}>
-          <label className="form-label">Провайдер генерации видео</label>
-          <select className="form-control" value={provider} onChange={e=>changeProvider(e.target.value)}>
-            {VIDEO_PROVIDERS.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}
+          <label className="form-label">Профиль вывода</label>
+          <select className="form-control" value={output} onChange={e=>setOutput(e.target.value)}>
+            {OUTPUT_PROFILES.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
         </div>
+        {needsVideo && (
+          <div style={{ gridColumn:'1 / -1' }}>
+            <label className="form-label">Провайдер генерации видео</label>
+            <select className="form-control" value={provider} onChange={e=>changeProvider(e.target.value)}>
+              {VIDEO_PROVIDERS.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}
+            </select>
+          </div>
+        )}
       </div>
       <button className="btn btn-primary btn-block" disabled={loading} style={{ marginTop:10 }}
         onClick={launch}>

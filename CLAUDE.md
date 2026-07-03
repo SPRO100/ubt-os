@@ -62,6 +62,27 @@ Every pipeline handler wraps its work in `pipeline_lock()` (Redis SET NX EX) to
 prevent duplicate execution when n8n fires again before the previous run
 finishes.
 
+### Pipeline profiles (`output` param) — don't run agents you don't need
+
+`run_video_pipeline(..., output=...)` picks the chain dynamically. **Mandatory
+always:** A21 content_creator → A19 humanizer → A25 compliance_gate.
+**Optional by profile:**
+
+| `output` | Adds | Higgsfield (A30) |
+|----------|------|------------------|
+| `text` / `native` / `script` | — | **skipped** (no Redis video queue touched) |
+| `video` (default) | UGC 9:16 | enqueued |
+| `carousel` | carousel | enqueued |
+| `full` | video (+ prelander via A29 when wired) | enqueued |
+
+A white/text campaign must NOT be forced through Higgsfield/TTS/prelanding.
+`/run/nutra` and `/run/ubt` read `output` from the request body (default
+`video` for backward compat with n8n crons). The orchestrator system prompt
+(and KB entry `master_prompt.orchestrator.any.any`) tell the orchestrator to
+pick the minimal chain and degrade gracefully when a paid service's key is
+missing (offer `text` or the stock provider — `VIDEO_PROVIDER_CHAIN:
+stock → fal → higgsfield` — never hard-fail).
+
 ### Authentication (main.py `_authorized`)
 
 Two paths — a request passes if **either** succeeds:

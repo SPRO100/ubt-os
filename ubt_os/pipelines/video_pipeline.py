@@ -1,14 +1,23 @@
 """
-Видео-пайплайн nutra / ubt (betting): A21 → A25 → очередь A30.
+Пайплайн nutra / ubt (betting) с ДИНАМИЧЕСКИМ выбором профиля вывода.
 
-Цепочка на один запуск:
-  1. A21 CONTENT_CREATOR  — скрипт по Brand Voice (+ A19 humanizer внутри)
-  2. A25 COMPLIANCE_GATE  — блокирует запрещённые клеймы, warning → clean_version
-  3. SoT                  — content_plans (draft) + videos (queued) через Writer'ы
-  4. HiggsFieldQueue      — задание на генерацию видео (обрабатывает воркер A30)
+Обязательная часть (всегда): A21 CONTENT_CREATOR (+ A19 humanizer) → A25 COMPLIANCE_GATE.
+Опциональная часть — по профилю `output`:
 
-Пайплайн НИЧЕГО не публикует: результат — черновики в content_plans и
-сгенерированные видео в videos. Публикация остаётся за пользователем
+  Профиль      | Опциональные шаги            | Higgsfield (A30)
+  -------------|------------------------------|-----------------
+  text/native  | —                            | ПРОПУСКАЕТСЯ
+  video        | видео 9:16                   | очередь
+  carousel     | карусель                     | очередь (carousel)
+  full         | видео                        | очередь
+
+Смысл: белая/текстовая связка не тащится через Higgsfield и не требует его
+ключ/воркер. Если профиль просит видео, а провайдеров генерации нет — воркер
+сам деградирует (VIDEO_PROVIDER_CHAIN: stock → fal → higgsfield); текстовый
+профиль вообще не ставит задачу в очередь.
+
+Пайплайн НИЧЕГО не публикует: результат — черновики в content_plans (+ videos
+в очереди, если профиль этого требует). Публикация остаётся за пользователем
 (принцип UBT OS: user is always the final decision-maker).
 """
 from __future__ import annotations
@@ -31,6 +40,14 @@ DEFAULT_FORMATS = [
 ]
 
 MAX_BATCH = 10  # защита от случайного count=1000 из n8n
+
+# Профили, которым нужна генерация видео (очередь Higgsfield/провайдеры).
+# Всё остальное (text/native/script) — только скрипт, без очереди видео.
+_VIDEO_PROFILES = {"video", "carousel", "full", "shorts"}
+
+
+def _needs_video(output: str) -> bool:
+    return (output or "video").lower() in _VIDEO_PROFILES
 
 
 def _build_mcsla_prompt(script: str, vertical: str, geo: str) -> str:
@@ -61,15 +78,24 @@ async def run_video_pipeline(
     count: int = 1,
     account_id: str | None = None,
     provider: str = "",
+    output: str = "video",
 ) -> dict:
+    """
+    output — профиль вывода:
+      text | native | script → только скрипт (без видео, без очереди A30)
+      video | carousel | full | shorts → скрипт + задача в очередь генерации
+    """
     acc = _pick_account(vertical, account_id)
     if not acc:
         logger.warning("video_pipeline(%s): нет активных аккаунтов — пропуск", vertical)
         return {"status": "skipped", "reason": "нет активных аккаунтов"}
 
+    want_video = _needs_video(output)
+
     creator = ContentCreator()
     gate    = ComplianceGate()
-    queue   = HiggsFieldQueue(os.environ["REDIS_URL"])
+    # Очередь Higgsfield нужна только для видео-профилей — иначе не трогаем Redis-очередь
+    queue   = HiggsFieldQueue(os.environ["REDIS_URL"]) if want_video else None
 
     count = max(1, min(int(count), MAX_BATCH))
     created, blocked = 0, 0
@@ -105,8 +131,19 @@ async def run_video_pipeline(
             script=text,
             mcsla_prompt=mcsla,
         )
-        video = VideoWriter.create(str(plan["id"]))
 
+        if not want_video:
+            # Текстовый профиль: скрипт готов, видео не нужно — не трогаем A30
+            created += 1
+            items.append({
+                "format": fmt.value, "status": "script_ready",
+                "content_plan_id": plan["id"],
+                "compliance_score": check.score, "humanize_score": piece.humanize_score,
+            })
+            continue
+
+        video = VideoWriter.create(str(plan["id"]))
+        assert queue is not None  # want_video → очередь инициализирована
         await queue.enqueue(VideoJob(
             job_id=str(video["id"]),
             vertical=vertical,
@@ -124,11 +161,13 @@ async def run_video_pipeline(
         })
 
     logger.info(
-        "video_pipeline(%s/%s): в очереди %d, заблокировано %d",
-        vertical, geo, created, blocked,
+        "video_pipeline(%s/%s, output=%s): готово %d (%s), заблокировано %d",
+        vertical, geo, output, created,
+        "видео в очереди" if want_video else "скриптов без видео", blocked,
     )
     return {
-        "status": "ok", "vertical": vertical, "geo": geo,
+        "status": "ok", "vertical": vertical, "geo": geo, "output": output,
+        "video_generated": want_video,
         "account_id": acc["id"], "created": created, "blocked": blocked,
         "items": items,
     }
