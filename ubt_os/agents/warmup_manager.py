@@ -4,17 +4,26 @@ A28 — WARMUP_MANAGER
 14-дневный план для новых аккаунтов, 7-дневный для aged.
 Валидирует GEO-инфраструктуру (device fingerprint, proxy type, SIM).
 Блокирует публикацию через A26 если аккаунт не прошёл прогрев.
+
+Состояние живёт в Supabase (`accounts`), не в локальном файле — иначе прогресс
+прогрева терялся при каждой пересборке контейнера. Использует существующие
+колонки (warming_day/warming_phase/status) + добавленные в
+deploy/10_patch_warmup_accounts.sql (device_type/proxy_type/has_local_sim/
+bio_link_enabled/warmup_notes).
 """
 from __future__ import annotations
-import json, logging, os
+import logging
 from dataclasses import dataclass, asdict
-from datetime import date
+from datetime import datetime, timezone
 from enum import Enum
-from pathlib import Path
+
+from ubt_os.core.agent_api_layer import get_db, AccountReader, AccountWriter, _warming_phase_for_day
 
 logger = logging.getLogger("ubt_os.warmup_manager")
 
-_STATE_FILE = Path(os.environ.get("WARMUP_STATE_FILE", str(Path.home() / ".ubt_os" / "warmup_state.json")))
+# Статусы accounts.status, которые warmup_manager не имеет права затирать —
+# это решения других агентов (account_checker/risk_engine), не прогрева.
+_PROTECTED_STATUSES = {"shadow_banned", "hard_banned", "replaced", "paused"}
 
 # Лимиты активности по дням (new account, 14 days)
 _DAILY_LIMITS_NEW = {
@@ -91,23 +100,6 @@ class InfraIssue:
 
 
 @dataclass
-class AccountState:
-    account_id: str
-    geo: str
-    account_type: str           # new | aged
-    platform: str               # tiktok | instagram
-    device_type: str            # GLOBAL | US | RU | CN
-    proxy_type: str             # mobile | residential | datacenter | vpn
-    has_local_sim: bool
-    warmup_status: str
-    start_date: str             # ISO date
-    current_day: int
-    total_days: int
-    bio_link_enabled: bool
-    notes: str
-
-
-@dataclass
 class WarmupCheckResult:
     account_id: str
     status: WarmupStatus
@@ -123,24 +115,12 @@ class WarmupCheckResult:
     message: str
 
 
-def _load_state() -> dict:
-    if _STATE_FILE.exists():
-        try:
-            return json.loads(_STATE_FILE.read_text())
-        except Exception:
-            pass
-    return {}
-
-
-def _save_state(state: dict) -> None:
-    _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2))
-
-
-def _days_since(date_str: str) -> int:
+def _days_since(iso_ts: str | None) -> int:
+    if not iso_ts:
+        return 1
     try:
-        start = date.fromisoformat(date_str)
-        return (date.today() - start).days + 1
+        started = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
+        return (datetime.now(timezone.utc).date() - started.date()).days + 1
     except Exception:
         return 1
 
@@ -226,7 +206,7 @@ def _get_next_action(account_type: str, day: int, issues: list[InfraIssue]) -> s
 
 
 class WarmupManager:
-    """Менеджер прогрева TikTok/Instagram аккаунтов."""
+    """Менеджер прогрева TikTok/Instagram аккаунтов. Состояние — в accounts (Supabase)."""
 
     def register(
         self,
@@ -239,32 +219,40 @@ class WarmupManager:
         has_local_sim: bool = False,
         notes: str = "",
     ) -> WarmupCheckResult:
-        """Регистрирует новый аккаунт для прогрева."""
-        state = _load_state()
+        """Регистрирует аккаунт для прогрева (аккаунт должен уже существовать в accounts)."""
+        acc = AccountReader.get_by_id(account_id)
+        if not acc:
+            return WarmupCheckResult(
+                account_id=account_id, status=WarmupStatus.NOT_STARTED,
+                current_day=0, total_days=14, progress_pct=0.0,
+                today_limits={}, content_split={}, bio_link_allowed=False,
+                infra_issues=[], ready_to_publish=False,
+                next_action="Сначала добавь аккаунт в разделе «Аккаунты» дашборда.",
+                message=f"Аккаунт {account_id} не найден в accounts.",
+            )
+
         total_days = 7 if account_type == "aged" else 14
-        state[account_id] = {
-            "account_id": account_id,
+        now = datetime.now(timezone.utc).isoformat()
+        AccountWriter.update_status(account_id, "warming", {
             "geo": geo,
             "account_type": account_type,
             "platform": platform,
             "device_type": device_type,
             "proxy_type": proxy_type,
             "has_local_sim": has_local_sim,
-            "warmup_status": WarmupStatus.WARMING_UP,
-            "start_date": date.today().isoformat(),
-            "current_day": 1,
-            "total_days": total_days,
+            "warmup_notes": notes,
+            "warming_started_at": now,
+            "warming_day": 1,
+            "warming_phase": _warming_phase_for_day(1),
             "bio_link_enabled": False,
-            "notes": notes,
-        }
-        _save_state(state)
+        })
         logger.info(f"Аккаунт {account_id} зарегистрирован для {total_days}-дневного прогрева")
         return self.check(account_id)
 
     def check(self, account_id: str) -> WarmupCheckResult:
-        """Возвращает текущее состояние и рекомендации для аккаунта."""
-        state = _load_state()
-        if account_id not in state:
+        """Возвращает текущее состояние и рекомендации для аккаунта (читает accounts)."""
+        acc = AccountReader.get_by_id(account_id)
+        if not acc or not acc.get("warming_started_at"):
             return WarmupCheckResult(
                 account_id=account_id,
                 status=WarmupStatus.NOT_STARTED,
@@ -277,25 +265,22 @@ class WarmupManager:
                 message=f"Аккаунт {account_id} не найден в системе прогрева.",
             )
 
-        acc = state[account_id]
-        current_day = _days_since(acc["start_date"])
-        total_days = acc["total_days"]
-
-        # Обновляем текущий день
-        acc["current_day"] = current_day
-        state[account_id] = acc
-        _save_state(state)
+        account_type = acc.get("account_type") or "new"
+        total_days   = 7 if account_type == "aged" else 14
+        current_day  = _days_since(acc.get("warming_started_at"))
 
         infra_issues = _validate_infra(
-            acc["device_type"], acc["proxy_type"],
-            acc["has_local_sim"], acc["geo"]
+            acc.get("device_type") or "GLOBAL",
+            acc.get("proxy_type") or "mobile",
+            bool(acc.get("has_local_sim")),
+            acc.get("geo") or "US",
         )
 
         is_ready = (
             current_day > total_days
             and not any(i.severity == "critical" for i in infra_issues)
         )
-        bio_allowed = current_day >= 10 or (acc.get("bio_link_enabled", False))
+        bio_allowed = current_day >= 10 or bool(acc.get("bio_link_enabled"))
 
         if is_ready:
             status = WarmupStatus.READY
@@ -304,16 +289,19 @@ class WarmupManager:
         else:
             status = WarmupStatus.WARMING_UP
 
-        acc["warmup_status"] = status
-        state[account_id] = acc
-        _save_state(state)
+        # Не трогаем status, который выставили другие агенты (бан/пауза).
+        if acc.get("status") not in _PROTECTED_STATUSES:
+            AccountWriter.update_status(account_id, "active" if is_ready else "warming", {
+                "warming_day": min(current_day, total_days),
+                "warming_phase": _warming_phase_for_day(current_day),
+            })
 
-        today_limits = _get_today_limits(acc["account_type"], current_day)
-        content_split = _get_content_split(acc["account_type"], current_day)
-        next_action = _get_next_action(acc["account_type"], current_day, infra_issues)
+        today_limits  = _get_today_limits(account_type, current_day)
+        content_split = _get_content_split(account_type, current_day)
+        next_action   = _get_next_action(account_type, current_day, infra_issues)
 
         effective_day = min(current_day, total_days)
-        progress_pct = round((effective_day / total_days) * 100, 1)
+        progress_pct  = round((effective_day / total_days) * 100, 1)
 
         message = (
             f"День {current_day}/{total_days} прогрева. "
@@ -337,10 +325,16 @@ class WarmupManager:
         )
 
     def list_accounts(self) -> list[dict]:
-        """Возвращает список всех аккаунтов с их статусами."""
-        state = _load_state()
+        """Возвращает список всех аккаунтов, когда-либо поставленных на прогрев."""
+        rows = (
+            get_db().table("accounts")
+            .select("id")
+            .not_.is_("warming_started_at", "null")
+            .execute()
+        ).data or []
         results = []
-        for account_id in state:
+        for row in rows:
+            account_id = row["id"]
             r = self.check(account_id)
             results.append({
                 "account_id": account_id,
@@ -348,7 +342,6 @@ class WarmupManager:
                 "day": r.current_day,
                 "total": r.total_days,
                 "progress": r.progress_pct,
-                "geo": state[account_id]["geo"],
                 "ready": r.ready_to_publish,
                 "issues": len(r.infra_issues),
             })
@@ -356,8 +349,8 @@ class WarmupManager:
 
     def enable_bio_link(self, account_id: str) -> dict:
         """Разрешает ссылку в bio для аккаунта."""
-        state = _load_state()
-        if account_id not in state:
+        acc = AccountReader.get_by_id(account_id)
+        if not acc:
             return {"success": False, "message": "Аккаунт не найден"}
         r = self.check(account_id)
         if not r.bio_link_allowed:
@@ -365,19 +358,20 @@ class WarmupManager:
                 "success": False,
                 "message": f"Слишком рано. День {r.current_day} из {r.total_days}. Ждать до дня 10+.",
             }
-        state[account_id]["bio_link_enabled"] = True
-        _save_state(state)
+        AccountWriter.update_status(account_id, acc.get("status", "warming"), {"bio_link_enabled": True})
         return {"success": True, "message": f"Ссылка в bio разрешена для {account_id}"}
 
     def reset(self, account_id: str) -> dict:
         """Сбрасывает прогрев аккаунта (например, после длительного перерыва)."""
-        state = _load_state()
-        if account_id not in state:
+        acc = AccountReader.get_by_id(account_id)
+        if not acc:
             return {"success": False, "message": "Аккаунт не найден"}
-        state[account_id]["start_date"] = date.today().isoformat()
-        state[account_id]["warmup_status"] = WarmupStatus.WARMING_UP
-        state[account_id]["bio_link_enabled"] = False
-        _save_state(state)
+        AccountWriter.update_status(account_id, "warming", {
+            "warming_started_at": datetime.now(timezone.utc).isoformat(),
+            "warming_day": 1,
+            "warming_phase": _warming_phase_for_day(1),
+            "bio_link_enabled": False,
+        })
         return {"success": True, "message": f"Прогрев {account_id} сброшен. Начат заново."}
 
     def validate_infra(

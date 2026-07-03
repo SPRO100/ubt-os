@@ -31,37 +31,41 @@ db-init:
 	@if [ -z "$(DATABASE_URL)" ]; then \
 		export $$(cat .env | xargs); \
 	fi
-	@echo "  [1/15] 01_schema_sot.sql"
+	@echo "  [1/17] 01_schema_sot.sql"
 	psql $${DATABASE_URL} -f deploy/01_schema_sot.sql
-	@echo "  [2/15] strategy_schema.sql"
+	@echo "  [2/17] strategy_schema.sql"
 	psql $${DATABASE_URL} -f deploy/strategy_schema.sql
-	@echo "  [3/15] revenue_schema.sql"
+	@echo "  [3/17] revenue_schema.sql"
 	psql $${DATABASE_URL} -f deploy/revenue_schema.sql
-	@echo "  [4/15] risk_schema.sql"
+	@echo "  [4/17] risk_schema.sql"
 	psql $${DATABASE_URL} -f deploy/risk_schema.sql
-	@echo "  [5/15] vertical_schema.sql"
+	@echo "  [5/17] vertical_schema.sql"
 	psql $${DATABASE_URL} -f deploy/vertical_schema.sql
-	@echo "  [6/15] creative_vault_schema.sql"
+	@echo "  [6/17] creative_vault_schema.sql"
 	psql $${DATABASE_URL} -f deploy/creative_vault_schema.sql
-	@echo "  [7/15] recovery_schema.sql"
+	@echo "  [7/17] recovery_schema.sql"
 	psql $${DATABASE_URL} -f deploy/recovery_schema.sql
-	@echo "  [8/15] 02_patch_missing_tables.sql"
+	@echo "  [8/17] 02_patch_missing_tables.sql"
 	psql $${DATABASE_URL} -f deploy/02_patch_missing_tables.sql
-	@echo "  [9/15] 03_patch_knowledge_entries.sql"
+	@echo "  [9/17] 03_patch_knowledge_entries.sql"
 	psql $${DATABASE_URL} -f deploy/03_patch_knowledge_entries.sql
-	@echo "  [10/15] 04_patch_competitor_patterns.sql"
+	@echo "  [10/17] 04_patch_competitor_patterns.sql"
 	psql $${DATABASE_URL} -f deploy/04_patch_competitor_patterns.sql
-	@echo "  [11/15] 05_patch_projects_chat.sql  ← chat_messages + vertical_id"
+	@echo "  [11/17] 05_patch_projects_chat.sql  ← chat_messages + vertical_id"
 	psql $${DATABASE_URL} -f deploy/05_patch_projects_chat.sql
-	@echo "  [12/15] dohoo_features_schema.sql  ← hook_templates, transcriptions, direct_publish_*"
+	@echo "  [12/17] dohoo_features_schema.sql  ← hook_templates, transcriptions, direct_publish_*"
 	psql $${DATABASE_URL} -f deploy/dohoo_features_schema.sql
-	@echo "  [13/15] 06_patch_accounts_align.sql  ← id TEXT + facebook/pinterest + publer/proxy колонки"
+	@echo "  [13/17] 06_patch_accounts_align.sql  ← id TEXT + facebook/pinterest + publer/proxy колонки"
 	psql $${DATABASE_URL} -f deploy/06_patch_accounts_align.sql
-	@echo "  [14/15] 07_patch_post_metrics.sql  ← post_metrics, нативная аналитика по постам"
+	@echo "  [14/17] 07_patch_post_metrics.sql  ← post_metrics, нативная аналитика по постам"
 	psql $${DATABASE_URL} -f deploy/07_patch_post_metrics.sql
-	@echo "  [15/15] 08_patch_kb_entries.sql  ← kb_entries, версионируемая база знаний (таксономия)"
+	@echo "  [15/17] 08_patch_kb_entries.sql  ← kb_entries, версионируемая база знаний (таксономия)"
 	psql $${DATABASE_URL} -f deploy/08_patch_kb_entries.sql
-	@echo "✅ Все 15 схем применены"
+	@echo "  [16/17] 10_patch_warmup_accounts.sql  ← A28 warmup_manager: поля инфраструктуры на accounts"
+	psql $${DATABASE_URL} -f deploy/10_patch_warmup_accounts.sql
+	@echo "  [17/17] 11_patch_video_uniqualizer.sql  ← accounts.project_id, videos.account_id/parent_video_id"
+	psql $${DATABASE_URL} -f deploy/11_patch_video_uniqualizer.sql
+	@echo "✅ Все 17 схем применены"
 
 apply-schema:
 	psql $${DATABASE_URL} -f $(SCHEMA)
@@ -116,9 +120,9 @@ test-budget:
 	usage = asyncio.run(guard.get_usage_today()); print(usage)"
 
 test-warming:
-	@echo "🌡️  Тест State Machine..."
+	@echo "🌡️  Тест Warmup Manager..."
 	@export $$(cat .env | xargs) && \
-	python -c "from ubt_os.agents import WarmingStateMachine; print('WarmingStateMachine OK')"
+	python -c "from ubt_os.agents import WarmupManager; print('WarmupManager OK')"
 
 # ── RAILWAY ДЕПЛОЙ ──────────────────────────────────────────
 deploy-railway:
@@ -133,7 +137,7 @@ fixes-status:
 	@echo "FIX #1  SOT Schema    — deploy/01_schema_sot.sql + ubt_os/core/agent_api_layer.py"
 	@echo "FIX #2  Circuit Break — ubt_os/core/circuit_breaker.py"
 	@echo "FIX #3  Lock          — ubt_os/core/pipeline_lock.py + n8n/workflows/"
-	@echo "FIX #4  Warming FSM   — ubt_os/agents/warming_state_machine.py"
+	@echo "FIX #4  Warmup Mgr    — ubt_os/agents/warmup_manager.py"
 	@echo "FIX #5  Checker       — ubt_os/agents/account_checker.py"
 	@echo "FIX #6  LiteLLM       — deploy/litellm_config.yaml + ubt_os/core/budget_guard.py"
 	@echo "FIX #7  Higgs Queue   — ubt_os/pipelines/higgsfield_queue.py"

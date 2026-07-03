@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS account_risk_profiles (
     account_id          TEXT NOT NULL UNIQUE,
     platform            TEXT NOT NULL,
     geo                 TEXT,
-    warming_phase       TEXT,              -- из warming_state_machine
+    warming_phase       TEXT,              -- из accounts.warming_phase (warmup_manager)
 
     -- Пять компонентов риска (0-100, чем выше — хуже)
     proxy_risk          FLOAT DEFAULT 0,

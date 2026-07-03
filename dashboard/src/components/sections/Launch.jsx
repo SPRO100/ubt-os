@@ -130,50 +130,6 @@ function AgentResult({ data, agent }) {
     </div>
   }
 
-  if (agent === 'ads_auditor') {
-    const score = data.health_score ?? 0; const grade = String(data.grade ?? '—')
-    const gc = {'A+':'var(--green)','A':'var(--green)','B':'var(--indigo)','C':'var(--amber)','D':'var(--red)','F':'var(--red)'}[grade]||'var(--muted)'
-    return <div>
-      {copyBtn}
-      <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:12 }}>
-        <div>
-          <div style={{ fontSize:28, fontWeight:700, fontFamily:"'IBM Plex Mono',monospace", color:gc }}>{grade}</div>
-          <div style={{ fontSize:10, color:'var(--faint)' }}>GRADE</div>
-        </div>
-        <div style={{ flex:1 }}>
-          <div style={{ fontSize:11, color:'var(--faint)', marginBottom:4 }}>Health Score: <b style={{ color:gc }}>{score}/100</b></div>
-          <div className="score-bar"><div className="score-fill" style={{ width:score+'%', background:gc }} /></div>
-        </div>
-      </div>
-      <div style={{ marginBottom:8 }}>
-        <b style={{ color:'var(--red)', fontSize:11 }}>КРИТИЧЕСКИЕ ПРОБЛЕМЫ</b><br/>
-        {(data.critical_issues||[]).map((i,k)=><div key={k} style={{ padding:'3px 0', borderBottom:'1px solid var(--border)' }}>• {i}</div>)||<span style={{ color:'var(--faint)' }}>нет</span>}
-      </div>
-      <div><b style={{ color:'var(--green)', fontSize:11 }}>QUICK WINS</b><br/>
-        {(data.quick_wins||[]).map((i,k)=><div key={k} style={{ padding:'3px 0', borderBottom:'1px solid var(--border)' }}>• {i}</div>)||<span style={{ color:'var(--faint)' }}>нет</span>}
-      </div>
-    </div>
-  }
-
-  if (agent === 'obsidian_brain') {
-    return <div>
-      {copyBtn}
-      {data.answer && <div style={{ whiteSpace:'pre-wrap', lineHeight:1.65, marginBottom:10 }}>{data.answer}</div>}
-      {data.confidence !== undefined && (
-        <div style={{ fontSize:11, color:'var(--faint)', marginBottom:8 }}>
-          Уверенность: <b style={{ color: (data.confidence||0) > 0.7 ? 'var(--green)' : 'var(--amber)' }}>
-            {Math.round((data.confidence||0)*100)}%
-          </b>
-        </div>
-      )}
-      {(data.sources||[]).length > 0 && <div>
-        <b style={{ fontSize:11, color:'var(--indigo)' }}>ИСТОЧНИКИ</b>
-        {data.sources.map((s,i) => <div key={i} style={{ padding:'2px 0', fontSize:11, color:'var(--faint)' }}>• {s}</div>)}
-      </div>}
-      {!data.answer && <pre style={{ margin:0, fontSize:11 }}>{JSON.stringify(data, null, 2)}</pre>}
-    </div>
-  }
-
   if (agent === 'compliance_gate') {
     const risk = data.risk_level ?? '—'; const score = data.score ?? 0
     const rc = risk==='safe'?'var(--green)':risk==='warning'?'var(--amber)':'var(--red)'
@@ -245,41 +201,6 @@ function AgentResult({ data, agent }) {
       </div>
       {data.next_action && <div style={{ padding:8, background:'var(--surface2)', borderRadius:6, fontSize:12 }}>
         <b style={{ color:'var(--text)' }}>Следующее действие:</b><br/>{data.next_action}
-      </div>}
-    </div>
-  }
-
-  if (agent === 'prelanding_generator') {
-    return <div>
-      {copyBtn}
-      <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginBottom:10, fontSize:12 }}>
-        <span>Формат: <b style={{ color:'var(--text)' }}>{data.format||'?'}</b></span>
-        <span>CR: <b style={{ color:'var(--green)' }}>{data.estimated_cr||'?'}</b></span>
-        <span>Слов: <b style={{ color:'var(--text)' }}>{data.word_count||0}</b></span>
-      </div>
-      {data.html_content && <div>
-        <b style={{ fontSize:11, color:'var(--text)' }}>HTML КОД</b>
-        <pre style={{ margin:'6px 0 0', padding:10, background:'var(--surface2)', borderRadius:6, fontSize:10, maxHeight:280, overflowY:'auto', whiteSpace:'pre-wrap', wordBreak:'break-all' }}>
-          {data.html_content.substring(0,2000)}{data.html_content.length>2000?'\n…ещё '+(data.html_content.length-2000)+' символов':''}
-        </pre>
-      </div>}
-    </div>
-  }
-
-  if (agent === 'spy_analyzer') {
-    const hooks=(data.hook_patterns||[])
-    return <div>
-      {copyBtn}
-      <div style={{ fontSize:11, color:'var(--faint)', marginBottom:10 }}>Проанализировано крипов: <b style={{ color:'var(--text)' }}>{data.creatives_analyzed||0}</b></div>
-      {hooks.length ? <div style={{ marginBottom:10 }}>
-        <b style={{ fontSize:11, color:'var(--green)' }}>ПАТТЕРНЫ ХУКОВ</b>
-        {hooks.map((h,i)=><div key={i} style={{ padding:'4px 0', borderBottom:'1px solid var(--border)', fontSize:12 }}>
-          <span style={{ color:'var(--text)' }}>{h.pattern||''}</span>
-          {h.example && <><br/><span style={{ color:'var(--faint)', fontStyle:'italic' }}>«{h.example}»</span></>}
-        </div>)}
-      </div> : null}
-      {data.creative_brief && <div style={{ marginTop:8, padding:10, background:'var(--surface2)', borderRadius:6, fontSize:12, whiteSpace:'pre-wrap', lineHeight:1.6 }}>
-        <b style={{ color:'var(--text)', fontSize:11 }}>CREATIVE BRIEF для A21</b><br/>{data.creative_brief}
       </div>}
     </div>
   }
@@ -428,48 +349,7 @@ function A19Card() {
   )
 }
 
-function A20Card() {
-  const [url, setUrl] = useState('')
-  const [vert, setVert] = useState('nutra')
-  const [geo, setGeo] = useState('US')
-  return (
-    <AgentCard id="A20" name="trend_scraper" desc="Анализ конкурентов по URL или поиск трендов через Firecrawl">
-      {(run, loading) => <>
-        <label className="form-label">URL конкурента (или пусто — поиск трендов)</label>
-        <input className="form-control" value={url} onChange={e=>setUrl(e.target.value)}
-          placeholder="https://competitor.com/post/…" style={{ marginBottom:6 }} />
-        <label className="form-label">Вертикаль</label><Vertical value={vert} onChange={setVert} />
-        <label className="form-label">GEO</label><GEO value={geo} onChange={setGeo} />
-        <button className="btn btn-primary btn-block" disabled={loading} style={{ marginTop:2 }}
-          onClick={() => run('trend_scraper', { url, vertical:vert, geo })}>
-          {loading ? '⏳ Работает…' : '▶ Запустить'}
-        </button>
-      </>}
-    </AgentCard>
-  )
-}
 
-function A22Card() {
-  const [platform, setPlatform] = useState('tiktok')
-  const [vert, setVert] = useState('nutra')
-  const [geo, setGeo] = useState('US')
-  return (
-    <AgentCard id="A22" name="ads_auditor" desc="250+ проверок. Health Score 0–100 и quick wins">
-      {(run, loading) => <>
-        <label className="form-label">Платформа</label>
-        <Sel value={platform} onChange={setPlatform}>
-          <option value="tiktok">TikTok</option><option value="meta">Meta (FB/IG)</option><option value="youtube">YouTube</option>
-        </Sel>
-        <label className="form-label">Вертикаль</label><Vertical value={vert} onChange={setVert} />
-        <label className="form-label">GEO</label><GEO value={geo} onChange={setGeo} />
-        <button className="btn btn-primary btn-block" disabled={loading} style={{ marginTop:2 }}
-          onClick={() => run('ads_auditor', { platform, vertical:vert, geo, account_data:{} })}>
-          {loading ? '⏳ Работает…' : '▶ Запустить аудит'}
-        </button>
-      </>}
-    </AgentCard>
-  )
-}
 
 function A23Card() {
   const [fmt, setFmt] = useState('shorts')
@@ -494,50 +374,6 @@ function A23Card() {
         <button className="btn btn-primary btn-block" disabled={loading || !topic.trim()} style={{ marginTop:2 }}
           onClick={() => { if (!topic.trim()) return; run('youtube_creator', { format:fmt, topic, vertical:vert, geo }) }}>
           {loading ? '⏳ Работает…' : '▶ Создать'}
-        </button>
-      </>}
-    </AgentCard>
-  )
-}
-
-function A24Card() {
-  const [action, setAction] = useState('query')
-  const [question, setQuestion] = useState('')
-  const [text, setText] = useState('')
-  const [source, setSource] = useState('')
-
-  function runA24(run) {
-    const params = { action }
-    if (action === 'query')  params.question = question
-    if (action === 'ingest') { params.text = text; params.source_name = source || 'dashboard' }
-    run('obsidian_brain', params)
-  }
-
-  return (
-    <AgentCard id="A24" name="obsidian_brain" desc="Запрос к базе знаний, добавление источника или health check">
-      {(run, loading) => <>
-        <label className="form-label">Действие</label>
-        <Sel value={action} onChange={setAction}>
-          <option value="query">Задать вопрос</option>
-          <option value="ingest">Добавить источник</option>
-          <option value="health">Health check</option>
-        </Sel>
-        {action === 'query' && <>
-          <label className="form-label">Вопрос</label>
-          <input className="form-control" value={question} onChange={e=>setQuestion(e.target.value)}
-            placeholder="Что мы знаем о прогреве TikTok?" style={{ marginBottom:6 }} />
-        </>}
-        {action === 'ingest' && <>
-          <label className="form-label">Текст источника</label>
-          <textarea className="form-control" value={text} onChange={e=>setText(e.target.value)}
-            rows={3} placeholder="Вставь статью, пост, исследование…" style={{ marginBottom:6 }} />
-          <label className="form-label">Название источника</label>
-          <input className="form-control" value={source} onChange={e=>setSource(e.target.value)}
-            placeholder="competitor-analysis-june" style={{ marginBottom:6 }} />
-        </>}
-        <button className="btn btn-primary btn-block" disabled={loading} style={{ marginTop:2 }}
-          onClick={() => runA24(run)}>
-          {loading ? '⏳ Работает…' : '▶ Запустить'}
         </button>
       </>}
     </AgentCard>
@@ -591,35 +427,6 @@ function A26Card() {
         <button className="btn btn-primary btn-block" disabled={loading}
           onClick={() => run('publer_publisher', { text, platform, affiliate_url:url, vertical:vert, geo, dry_run:true })}>
           {loading ? '⏳ Работает…' : '▶ Проверить (dry run)'}
-        </button>
-      </>}
-    </AgentCard>
-  )
-}
-
-function A27Card() {
-  const [creatives, setCreatives] = useState('')
-  const [vert, setVert] = useState('nutra')
-  const [geo, setGeo] = useState('US')
-  const [platform, setPlatform] = useState('tiktok')
-  return (
-    <AgentCard id="A27" name="spy_analyzer" desc="Анализ крипов конкурентов → паттерны хуков + creative brief для A21">
-      {(run, loading) => <>
-        <label className="form-label">Крипы конкурентов</label>
-        <textarea className="form-control" value={creatives} onChange={e=>setCreatives(e.target.value)}
-          rows={4} placeholder={"Описания рекламных крипов (каждый с новой строки)\n'I lost 23 lbs doing THIS one trick…'"} style={{ marginBottom:6 }} />
-        <label className="form-label">Вертикаль</label><Vertical value={vert} onChange={setVert} />
-        <label className="form-label">GEO</label><GEO value={geo} onChange={setGeo} />
-        <label className="form-label">Платформа</label>
-        <Sel value={platform} onChange={setPlatform}>
-          <option value="tiktok">TikTok</option><option value="facebook">Facebook</option><option value="instagram">Instagram</option>
-        </Sel>
-        <button className="btn btn-primary btn-block" disabled={loading} style={{ marginTop:2 }}
-          onClick={() => {
-            const arr = creatives.split(/\n---\n|\n{2,}/).map(s=>s.trim()).filter(Boolean)
-            run('spy_analyzer', { creatives:arr, vertical:vert, geo, platform, focus:'all' })
-          }}>
-          {loading ? '⏳ Анализирует…' : '▶ Анализировать крипы'}
         </button>
       </>}
     </AgentCard>
@@ -692,51 +499,6 @@ function A28Card() {
   )
 }
 
-function A29Card() {
-  const [offer, setOffer] = useState('')
-  const [vert, setVert] = useState('nutra')
-  const [geo, setGeo] = useState('US')
-  const [billing, setBilling] = useState('COD')
-  const [fmt, setFmt] = useState('story')
-  const [benefits, setBenefits] = useState('')
-  const [lander, setLander] = useState('')
-  return (
-    <AgentCard id="A29" name="prelanding_generator" desc="HTML прелендинги: quiz / story / native article / VSL · COD/Trial/SS">
-      {(run, loading) => <>
-        <input className="form-control" value={offer} onChange={e=>setOffer(e.target.value)}
-          placeholder="Название оффера (напр. BloodSugarX)" style={{ marginBottom:6 }} />
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, marginBottom:6 }}>
-          <div><label className="form-label">Вертикаль</label><Vertical value={vert} onChange={setVert} /></div>
-          <div><label className="form-label">GEO</label><GEO value={geo} onChange={setGeo} /></div>
-          <div><label className="form-label">Биллинг</label>
-            <Sel value={billing} onChange={setBilling}>
-              <option value="COD">COD (наложенный)</option><option value="Trial">Trial</option><option value="SS">SS (прямая)</option>
-            </Sel>
-          </div>
-          <div><label className="form-label">Формат</label>
-            <Sel value={fmt} onChange={setFmt}>
-              <option value="story">Story</option><option value="native_article">Native Article</option>
-              <option value="quiz">Quiz</option><option value="vsl">VSL</option>
-            </Sel>
-          </div>
-        </div>
-        <label className="form-label">Преимущества (по одному на строку)</label>
-        <textarea className="form-control" value={benefits} onChange={e=>setBenefits(e.target.value)}
-          rows={3} placeholder={"Натуральный состав\nЭффект за 30 дней\nТысячи клиентов"} style={{ marginBottom:6 }} />
-        <input className="form-control" value={lander} onChange={e=>setLander(e.target.value)}
-          placeholder="URL лендинга" style={{ marginBottom:8 }} />
-        <button className="btn btn-primary btn-block" disabled={loading}
-          onClick={() => run('prelanding_generator', {
-            offer_name: offer||'Product', vertical:vert, geo, billing_model:billing, format:fmt,
-            product_benefits: benefits.split('\n').map(s=>s.trim()).filter(Boolean),
-            lander_url: lander||'LANDER_URL',
-          })}>
-          {loading ? '⏳ Генерирует…' : '▶ Генерировать прелендинг'}
-        </button>
-      </>}
-    </AgentCard>
-  )
-}
 
 function A30Card() {
   const [fmt, setFmt] = useState('ugc')
@@ -831,71 +593,6 @@ function A30Card() {
   )
 }
 
-function splitLines(t) {
-  return (t || '').split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
-}
-
-function A31Card() {
-  const [vert, setVert] = useState('nutra')
-  return (
-    <AgentCard id="A31" name="competitor_analyst" desc="Проактивный анализ хуков конкурентов из competitor_signals → тренды (дополняет A27)">
-      {(run, loading) => <>
-        <label className="form-label">Вертикаль</label>
-        <Vertical value={vert} onChange={setVert} />
-        <button className="btn btn-primary" disabled={loading}
-          onClick={() => run('competitor_analyst', { vertical: vert })}>
-          {loading ? 'Анализирую…' : 'Анализировать конкурентов'}
-        </button>
-      </>}
-    </AgentCard>
-  )
-}
-
-function A32Card() {
-  const [vert, setVert] = useState('nutra')
-  const [geo, setGeo] = useState('US')
-  const [hashtags, setHashtags] = useState('')
-  const [sounds, setSounds] = useState('')
-  return (
-    <AgentCard id="A32" name="trend_radar" desc="Ранжирует трендовые звуки/хэштеги под vertical/GEO — на чём ехать сейчас">
-      {(run, loading) => <>
-        <label className="form-label">Вертикаль</label><Vertical value={vert} onChange={setVert} />
-        <label className="form-label">GEO</label><GEO value={geo} onChange={setGeo} />
-        <label className="form-label">Хэштеги (по строке/запятой)</label>
-        <textarea className="form-control" rows={3} value={hashtags} onChange={e => setHashtags(e.target.value)}
-          placeholder="#glowup, #detox" style={{ marginBottom: 6 }} />
-        <label className="form-label">Звуки</label>
-        <textarea className="form-control" rows={2} value={sounds} onChange={e => setSounds(e.target.value)}
-          placeholder="original sound - x" style={{ marginBottom: 6 }} />
-        <button className="btn btn-primary" disabled={loading}
-          onClick={() => run('trend_radar', { vertical: vert, geo, hashtags: splitLines(hashtags), sounds: splitLines(sounds) })}>
-          {loading ? 'Анализирую…' : 'Проанализировать тренды'}
-        </button>
-      </>}
-    </AgentCard>
-  )
-}
-
-function A33Card() {
-  const [vert, setVert] = useState('nutra')
-  const [geo, setGeo] = useState('US')
-  const [query, setQuery] = useState('')
-  return (
-    <AgentCard id="A33" name="competitor_scraper" desc="Авто-сбор крипов по хэштегу/ключу в competitor_signals (кормит A31). Нужен TIKTOK_SCRAPER_URL">
-      {(run, loading) => <>
-        <label className="form-label">Хэштег / ключ</label>
-        <input className="form-control" value={query} onChange={e => setQuery(e.target.value)}
-          placeholder="weightloss" style={{ marginBottom: 6 }} />
-        <label className="form-label">Вертикаль</label><Vertical value={vert} onChange={setVert} />
-        <label className="form-label">GEO</label><GEO value={geo} onChange={setGeo} />
-        <button className="btn btn-primary" disabled={loading}
-          onClick={() => { if (!query.trim()) return; run('competitor_scraper', { query: query.trim(), vertical: vert, geo }) }}>
-          {loading ? 'Собираю…' : 'Собрать крипы'}
-        </button>
-      </>}
-    </AgentCard>
-  )
-}
 
 function A34Card() {
   const [videoUrl, setVideoUrl] = useState('')
@@ -967,19 +664,11 @@ export default function Launch() {
       <PipelineCard />
       <A21Card />
       <A19Card />
-      <A20Card />
-      <A22Card />
       <A23Card />
-      <A24Card />
       <A25Card />
       <A26Card />
-      <A27Card />
       <A28Card />
-      <A29Card />
       <A30Card />
-      <A31Card />
-      <A32Card />
-      <A33Card />
       <A34Card />
       <A35Card />
       <A36Card />

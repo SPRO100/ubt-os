@@ -2,6 +2,13 @@ import { useEffect, useState, useRef } from 'react'
 import { fetchRows, insertRows, postAgents, SUPABASE_URL, SUPABASE_ANON_KEY, AGENTS_SERVER } from '../../api'
 import CollapsibleCard from '../CollapsibleCard'
 
+const VIDEO_STATUS_META = {
+  ready:      { label: '✅ Готово',    color: 'var(--green)' },
+  queued:     { label: '⏳ В очереди',  color: 'var(--amber)' },
+  generating: { label: '🎬 Генерация', color: 'var(--indigo)' },
+  failed:     { label: '❌ Ошибка',    color: 'var(--red)' },
+}
+
 const SB_HEADERS = {
   apikey: SUPABASE_ANON_KEY,
   Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
@@ -80,6 +87,10 @@ export default function Projects({ onCreateTask }) {
   const [current,     setCurrent]     = useState(null)
   const [knowledge,   setKnowledge]   = useState([])
   const [history,     setHistory]     = useState([])
+  const [projAccounts, setProjAccounts] = useState([])
+  const [projVideos,   setProjVideos]   = useState([])
+  const [uniqBusy,     setUniqBusy]     = useState(null)  // video_id в процессе уникализации
+  const [uniqMsg,      setUniqMsg]      = useState('')
   const [input,       setInput]       = useState('')
   const [sending,     setSending]     = useState(false)
   const [pendingTask, setPendingTask] = useState(null)
@@ -125,9 +136,18 @@ export default function Projects({ onCreateTask }) {
   }
   useEffect(loadProjects, [])
 
+  async function loadProjectMedia(projectId) {
+    const accs = await fetchRows('accounts', `select=id,platform,status&project_id=eq.${projectId}&order=created_at.asc`)
+    setProjAccounts(accs)
+    if (!accs.length) { setProjVideos([]); return }
+    const ids = accs.map(a => `"${a.id}"`).join(',')
+    const vids = await fetchRows('videos', `select=id,status,storage_url,duration_sec,account_id,parent_video_id,created_at&account_id=in.(${ids})&order=created_at.desc&limit=100`)
+    setProjVideos(vids)
+  }
+
   async function openProject(p) {
     if (editId || deleteId || menuId) return
-    setCurrent(p); setPendingTask(null); setCfgOpen(false)
+    setCurrent(p); setPendingTask(null); setCfgOpen(false); setUniqMsg('')
     const vert = deriveVertical(p)
     const kbQuery = vert
       ? `select=entry_key,title,category,vertical&is_current=eq.true&vertical=eq.${vert}&order=category.asc,entry_key.asc&limit=100`
@@ -135,8 +155,24 @@ export default function Projects({ onCreateTask }) {
     const [k, h] = await Promise.all([
       fetchRows('kb_entries', kbQuery),
       fetchRows('chat_messages', `select=role,content,created_at&vertical_id=eq.${p.id}&order=created_at.asc&limit=30`),
+      loadProjectMedia(p.id),
     ])
     setKnowledge(k); setHistory(h)
+  }
+
+  async function runUniqualize(videoId) {
+    setUniqBusy(videoId); setUniqMsg('')
+    try {
+      const data = await postAgents('/video/uniqualize', { video_id: videoId }, 600000)
+      if (data.error) { setUniqMsg('❌ ' + data.error); return }
+      const n = data.created?.length || 0
+      const errN = data.errors?.length || 0
+      setUniqMsg(`✅ Готово ${n} копий на другие аккаунты проекта` + (errN ? `, ошибок: ${errN}` : ''))
+      if (current) await loadProjectMedia(current.id)
+    } catch (e) {
+      setUniqMsg('❌ ' + e.message)
+    }
+    setUniqBusy(null)
   }
 
   useEffect(() => {
@@ -186,7 +222,9 @@ export default function Projects({ onCreateTask }) {
     try {
       await sbDelete('vertical_configs', deleteId)
       setProjects(ps => ps.filter(p => p.id !== deleteId))
-      if (current?.id === deleteId) { setCurrent(null); setHistory([]); setKnowledge([]) }
+      if (current?.id === deleteId) {
+        setCurrent(null); setHistory([]); setKnowledge([]); setProjAccounts([]); setProjVideos([])
+      }
     } catch (e) { alert('Ошибка удаления: ' + e.message) }
     setDeleteId(null); setDeleting(false)
   }
@@ -465,6 +503,77 @@ export default function Projects({ onCreateTask }) {
                   </tbody>
                 </table>
             }
+          </CollapsibleCard>
+
+          <CollapsibleCard
+            title="🎬 Аккаунты и видео проекта"
+            tag={`${projAccounts.length} акк · ${projVideos.length} видео`}
+            tagClass="live-tag" defaultOpen>
+            {projAccounts.length === 0 ? (
+              <div className="note-box">
+                К проекту не привязано ни одного аккаунта. Открой раздел «Аккаунты» и укажи
+                этот проект при добавлении (1 аккаунт = 1 проект).
+              </div>
+            ) : (
+              <>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:12 }}>
+                  {projAccounts.map(a => (
+                    <span key={a.id} className="badge badge-indigo" style={{ fontSize:11 }}>
+                      {a.id} · {a.platform}
+                    </span>
+                  ))}
+                </div>
+
+                {uniqMsg && (
+                  <div className="note-box" style={{ marginBottom:10,
+                    color: uniqMsg.startsWith('✅') ? 'var(--green)' : 'var(--red)' }}>
+                    {uniqMsg}
+                  </div>
+                )}
+
+                {projVideos.length === 0 ? (
+                  <div className="note-box">
+                    У аккаунтов проекта пока нет видео. Запусти пайплайн (профиль <b>video</b>) —
+                    ролики появятся здесь.
+                  </div>
+                ) : (
+                  <table>
+                    <thead><tr><th>Видео</th><th>Аккаунт</th><th>Статус</th><th></th></tr></thead>
+                    <tbody>
+                      {projVideos.map(v => {
+                        const st = VIDEO_STATUS_META[v.status] || { label: v.status, color: 'var(--faint)' }
+                        const ready = v.status === 'ready' && v.storage_url
+                        const isCopy = !!v.parent_video_id
+                        const canUniqualize = ready && !isCopy && projAccounts.length > 1
+                        return (
+                          <tr key={v.id}>
+                            <td>
+                              {ready
+                                ? <a href={v.storage_url} target="_blank" rel="noreferrer" style={{ color:'var(--indigo)' }}>
+                                    {isCopy ? '↳ копия' : 'открыть'} ↗
+                                  </a>
+                                : <span style={{ color:st.color }}>{st.label}</span>}
+                            </td>
+                            <td className="mono">{v.account_id || '—'}</td>
+                            <td><span className="badge" style={{ color:st.color, background:st.color+'1a' }}>{st.label}</span></td>
+                            <td>
+                              {canUniqualize && (
+                                <button onClick={() => runUniqualize(v.id)} disabled={uniqBusy === v.id}
+                                  style={{ fontSize:11, padding:'4px 10px', borderRadius:6, cursor:'pointer',
+                                    background:'var(--indigo)', color:'#fff', border:'none', fontWeight:600,
+                                    opacity: uniqBusy === v.id ? .5 : 1, whiteSpace:'nowrap' }}>
+                                  {uniqBusy === v.id ? '⏳ Уникализирую…' : '🧬 На все аккаунты'}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </>
+            )}
           </CollapsibleCard>
 
           <div className="card">

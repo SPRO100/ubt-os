@@ -1,7 +1,13 @@
 """
 A18 — KNOWLEDGE_SYNTHESIZER
-Превращает операционную активность в институциональное знание.
-Ежедневно 23:45 + воскресенье 22:00.
+Превращает операционную активность (видео/выручка/хуки/инциденты за день —
+НЕ конкурентов, только наши собственные результаты) в институциональное
+знание. Ежедневно 21:00 + воскресенье 22:00.
+
+Пишет в kb_entries (не в legacy knowledge_entries) — через save_kb_entry(),
+тот же механизм, что и [LEARN:]-маркеры оркестратора, чтобы дашборд и
+оркестратор видели записи сразу. Каждый день/неделя получает свой entry_key
+(с датой/неделей в хвосте) — знания накапливаются, а не перезаписываются.
 """
 from __future__ import annotations
 import asyncio, json, logging, os
@@ -9,8 +15,9 @@ from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
 from anthropic import AsyncAnthropic
 
+from ubt_os.core.kb_writer import save_kb_entry
 from ubt_os.utils.llm_utils import extract_json as _extract_json, response_text
-from ubt_os.utils.supabase_utils import first_row, one_row
+from ubt_os.utils.supabase_utils import first_row
 
 logger = logging.getLogger("ubt_os.knowledge_synthesizer")
 
@@ -81,13 +88,17 @@ class KnowledgeDataCollector:
                 .select("*").eq("is_active", True).execute()).data
 
     def _hypotheses(self) -> list:
-        return (self.db.table("knowledge_entries")
-                .select("*").eq("type", "hypothesis")
+        """Последние синтезы (category=analytics) — контекст для недельного обзора."""
+        return (self.db.table("kb_entries")
+                .select("entry_key,title,content,created_at")
+                .eq("category", "analytics").eq("is_current", True)
                 .order("created_at", desc=True).limit(10).execute()).data
 
     def _prev_learnings(self, n: int = 5) -> list:
-        return (self.db.table("knowledge_entries")
-                .select("content,created_at").eq("type", "daily_learning")
+        """Последние дневные синтезы — чтобы не повторяться в новом отчёте."""
+        return (self.db.table("kb_entries")
+                .select("content,created_at").eq("category", "analytics")
+                .eq("is_current", True)
                 .order("created_at", desc=True).limit(n).execute()).data
 
 
@@ -164,42 +175,42 @@ class KnowledgeWriter:
     def __init__(self, db: Client):
         self.db = db
 
-    def save_daily(self, synthesis: dict) -> list[int]:
-        """Append-only записи — никогда не обновляем существующие."""
-        ids = []
+    def save_daily(self, synthesis: dict) -> str | None:
+        """
+        Пишет один сводный отчёт дня в kb_entries (category=analytics).
+        entry_key включает дату — каждый день добавляет НОВОЕ знание, не
+        затирая предыдущие (в отличие от простого is_current-обновления).
+        """
         date = datetime.now(timezone.utc).date().isoformat()
+        entry_key = f"analytics.any.any.white.{date}"
 
-        # Сохраняем каждый вывод как отдельную запись
-        entries = []
-
-        for item in synthesis.get("what_worked", []):
-            entries.append({"type": "daily_learning", "subtype": "worked",
-                            "content": item, "date": date})
-        for item in synthesis.get("what_failed", []):
-            entries.append({"type": "daily_learning", "subtype": "failed",
-                            "content": item, "date": date})
-
-        hyp = synthesis.get("new_hypothesis")
-        if hyp and hyp.get("statement"):
-            entries.append({"type": "hypothesis",
-                            "content": hyp["statement"],
-                            "metadata": hyp, "date": date})
-
-        exp = synthesis.get("experiment_tomorrow")
+        lines = ["## Что сработало"]
+        lines += [f"- ✅ {w}" for w in synthesis.get("what_worked", [])] or ["- —"]
+        lines.append("\n## Что провалилось")
+        lines += [f"- ❌ {f}" for f in synthesis.get("what_failed", [])] or ["- —"]
+        why = synthesis.get("why_analysis", "")
+        if why:
+            lines.append(f"\n## Почему\n{why}")
+        exp = synthesis.get("experiment_tomorrow", "")
         if exp:
-            entries.append({"type": "experiment",
-                            "content": exp, "date": date})
+            lines.append(f"\n## Эксперимент завтра\n> {exp}")
+        hyp = synthesis.get("new_hypothesis") or {}
+        if hyp.get("statement"):
+            lines.append(f"\n## Новая гипотеза\n> {hyp['statement']}")
+        metric = synthesis.get("key_metric_today") or {}
+        if metric.get("name"):
+            lines.append(f"\n## Ключевая метрика\n{metric.get('name')}: "
+                          f"{metric.get('value')} (vs вчера: {metric.get('vs_yesterday')})")
+        content = synthesis.get("markdown_content") or "\n".join(lines)
 
-        for entry in entries:
-            res = self.db.table("knowledge_entries").insert(entry).execute()
-            ids.append(one_row(res)["id"])
+        ok = save_kb_entry(
+            self.db, entry_key=entry_key,
+            title=f"Синтез знаний — {date}",
+            content=content, category="analytics", vertical="any",
+        )
+        return entry_key if ok else None
 
-        return ids
-
-    def save_weekly(self, synthesis: dict) -> list[int]:
-        ids  = []
-        week = f"W{datetime.now(timezone.utc).isocalendar()[1]:02d}"
-
+    def save_weekly(self, synthesis: dict) -> str | None:
         for p in synthesis.get("winning_patterns", []):
             self.db.table("winning_patterns").upsert(
                 {"pattern_name": p["pattern"][:100],
@@ -208,15 +219,22 @@ class KnowledgeWriter:
             ).execute()
 
         compound = synthesis.get("compound_learning")
-        if compound:
-            res = self.db.table("knowledge_entries").insert({
-                "type": "compound_learning", "content": compound,
-                "date": datetime.now(timezone.utc).date().isoformat(),
-                "metadata": {"week": week}
-            }).execute()
-            ids.append(one_row(res)["id"])
+        if not compound:
+            return None
 
-        return ids
+        week = f"W{datetime.now(timezone.utc).isocalendar()[1]:02d}"
+        entry_key = f"analytics.any.any.white.weekly-{week}"
+        priority = synthesis.get("next_week_priority", "")
+        content = (
+            f"## Главный вывод недели\n{compound}\n\n"
+            f"## Приоритет следующей недели\n> {priority}"
+        )
+        ok = save_kb_entry(
+            self.db, entry_key=entry_key,
+            title=f"Недельный обзор — {week}",
+            content=content, category="analytics", vertical="any",
+        )
+        return entry_key if ok else None
 
     def to_obsidian_daily(self, synthesis: dict, date: str) -> tuple[str, str]:
         """Возвращает (path, content) для Obsidian."""
@@ -309,7 +327,7 @@ async def run_daily_synthesis() -> dict:
     synthesis = await analyst.synthesize_daily(data, prev)
 
     logger.info("KNOWLEDGE_SYNTHESIZER: сохранение...")
-    writer.save_daily(synthesis)
+    synthesis["kb_entry_key"] = writer.save_daily(synthesis)
 
     date       = datetime.now(timezone.utc).date().isoformat()
     path, md   = writer.to_obsidian_daily(synthesis, date)
@@ -334,7 +352,7 @@ async def run_weekly_synthesis() -> dict:
     synthesis = await analyst.synthesize_weekly(data)
 
     logger.info("KNOWLEDGE_SYNTHESIZER: сохранение...")
-    writer.save_weekly(synthesis)
+    synthesis["kb_entry_key"] = writer.save_weekly(synthesis)
 
     week       = f"W{datetime.now(timezone.utc).isocalendar()[1]:02d}"
     path, md   = writer.to_obsidian_weekly(synthesis, week)

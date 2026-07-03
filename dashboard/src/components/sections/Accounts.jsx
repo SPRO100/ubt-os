@@ -20,6 +20,7 @@ const WARMUP_ROWS = [
 
 export default function Accounts() {
   const [accounts, setAccounts] = useState([])
+  const [projects, setProjects] = useState([])
   const [filter,   setFilter]   = useState('all')
   const [tab,      setTab]      = useState('single') // 'single' | 'bulk' | 'file'
   const [msg,      setMsg]      = useState('')
@@ -33,6 +34,7 @@ export default function Accounts() {
   const [publer,   setPubler]   = useState('')
   const [geo,      setGeo]      = useState('US')
   const [acctType, setAcctType] = useState('aged')
+  const [projectId, setProjectId] = useState('')
   const [doWarmup, setDoWarmup] = useState(true)
 
   // bulk CSV
@@ -48,11 +50,17 @@ export default function Accounts() {
   const [fileImporting, setFileImporting] = useState(false)
 
   const load = async () => {
-    const rows = await fetchRows('accounts', 'select=id,platform,status,proxy,publer_profile_id,created_at&order=created_at.desc&limit=50')
+    const rows = await fetchRows('accounts', 'select=id,platform,status,proxy,publer_profile_id,project_id,created_at&order=created_at.desc&limit=50')
     setAccounts(rows)
   }
+  const loadProjects = async () => {
+    const rows = await fetchRows('vertical_configs', 'select=id,name&order=name.asc')
+    setProjects(rows)
+  }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(); loadProjects() }, [])
+
+  const projectName = id => projects.find(p => p.id === id)?.name || null
 
   const visible = filter === 'all' ? accounts : accounts.filter(a => a.platform === filter)
 
@@ -60,7 +68,7 @@ export default function Accounts() {
     if (!acctId.trim()) { setMsg('❌ Укажи ID аккаунта'); return }
     setMsg('Сохраняю…')
     try {
-      await insertRows('accounts', { id: acctId, platform, status: 'new', proxy: proxy || null, publer_profile_id: publer || null })
+      await insertRows('accounts', { id: acctId, platform, status: 'new', proxy: proxy || null, publer_profile_id: publer || null, project_id: projectId || null })
       if (doWarmup) {
         setMsg('Регистрирую в A28…')
         try {
@@ -76,7 +84,7 @@ export default function Accounts() {
       } else {
         setMsg('✅ Добавлен')
       }
-      setAcctId(''); setProxy(''); setPubler('')
+      setAcctId(''); setProxy(''); setPubler(''); setProjectId('')
       await load()
     } catch(e) { setMsg('❌ ' + e.message) }
   }
@@ -212,7 +220,7 @@ export default function Accounts() {
           ) : (
             <table>
               <thead>
-                <tr><th>ID</th><th>Платформа</th><th>Статус</th><th>Прокси</th><th>Publer ID</th><th>Добавлен</th></tr>
+                <tr><th>ID</th><th>Платформа</th><th>Проект</th><th>Статус</th><th>Прокси</th><th>Publer ID</th><th>Добавлен</th></tr>
               </thead>
               <tbody>
                 {visible.map(a => (
@@ -220,6 +228,11 @@ export default function Accounts() {
                     <td className="primary mono">{a.id}</td>
                     <td>
                       <span className="badge badge-indigo">{a.platform}</span>
+                    </td>
+                    <td>
+                      {projectName(a.project_id)
+                        ? <span className="badge badge-muted">{projectName(a.project_id)}</span>
+                        : <span style={{ color:'var(--faint)' }}>—</span>}
                     </td>
                     <td>
                       <span className={`badge ${a.status === 'warming_up' ? 'badge-amber' : a.status === 'ready' ? 'badge-green' : a.status === 'banned' ? 'badge-red' : 'badge-muted'}`}>
@@ -285,6 +298,10 @@ export default function Accounts() {
                   </select>],
                   ['Тип аккаунта', <select key="acctType" className="form-control" value={acctType} onChange={e=>setAcctType(e.target.value)}>
                     <option value="aged">Aged (купленный)</option><option value="new">Новый</option>
+                  </select>],
+                  ['Проект', <select key="projectId" className="form-control" value={projectId} onChange={e=>setProjectId(e.target.value)}>
+                    <option value="">— без проекта —</option>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>],
                 ].map(([label, ctrl]) => (
                   <div key={label}><label className="form-label">{label}</label>{ctrl}</div>

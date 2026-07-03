@@ -314,22 +314,14 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/run/obsidian-sync":  self._run_obsidian,
             "/run/daily-report":   self._run_report,
             # FIX #1 — маршруты, которые n8n уже вызывал, но сервер не знал о них:
-            "/strategy/collect":      self._run_strategy_collect,
             "/risk/run":              self._run_risk,
             "/knowledge/synthesize":  self._run_knowledge_synthesize,
             "/obsidian/write":        self._run_obsidian_write,
             "/obsidian/append":       self._run_obsidian_append,
             "/orchestrator/chat":     self._run_orchestrator_chat,
             "/agents/run":            self._run_agent,
-            # Новые агенты: анализ конкурентов, прямая публикация, транскрипция
-            "/competitor/analyze":    self._run_competitor_analyze,
             "/publish/direct":        self._run_publish_direct,
             "/publish/bulk":          self._run_publish_bulk,
-            "/transcribe":            self._run_transcribe,
-            "/hooks/top":             self._run_hooks_top,
-            # A32/A33: тренды + авто-сбор крипов
-            "/trends/radar":          self._run_trends_radar,
-            "/competitor/scrape":     self._run_competitor_scrape,
             # A34/A35: субтитры + озвучка
             "/caption":               self._run_caption,
             "/tts":                   self._run_tts,
@@ -337,6 +329,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/analytics/sync":        self._run_analytics_sync,
             # Бесплатный стоковый видео-конвейер (Pexels + edge-tts + ffmpeg)
             "/video/stock":           self._run_video_stock,
+            # Уникализация готового видео на все аккаунты того же проекта
+            "/video/uniqualize":      self._run_video_uniqualize,
             # Структурированная база знаний по таксономии
             "/knowledge/kb":          self._run_kb_search,
             # Парсинг файлов аккаунтов (txt/csv/zip → список записей)
@@ -540,32 +534,22 @@ class WebhookHandler(BaseHTTPRequestHandler):
         agent_catalog = (
             "\n\nДОСТУПНЫЕ АГЕНТЫ (предлагай когда они помогут задаче):\n"
             "- A19 text_humanizer: очистка текста от AI-маркеров и шаблонности\n"
-            "- A20 trend_scraper: анализ трендов и конкурентов по URL или вертикали\n"
             "- A21 content_creator: генерация before/after, хуков, UGC по Brand Voice\n"
-            "- A22 ads_auditor: аудит TikTok/Meta/YouTube аккаунтов, Health Score 0–100\n"
             "- A23 youtube_creator: сценарии Shorts/Long-form, хуки, metadata, thumbnail\n"
-            "- A24 obsidian_brain: запрос или добавление знаний в Obsidian Vault\n"
             "- A25 compliance_gate: проверка текста на запрещённые заявления перед публикацией\n"
             "- A26 publer_publisher: публикация в TikTok/Facebook/Instagram через Publer API\n"
-            "- A27 spy_analyzer: анализ крипов конкурентов из PiPiAds/AdHeart, паттерны хуков и brief для A21\n"
             "- A28 warmup_manager: трекер 14-дневного прогрева аккаунтов, GEO-инфраструктура, лимиты активности\n"
-            "- A29 prelanding_generator: генерация HTML прелендингов (quiz/story/article/vsl) для воронки\n"
             "- A30 higgsfield_agent: генерация UGC-видео 9:16, Shorts 15–60с и каруселей через Higgsfield AI\n"
-            "- A31 competitor_analyst: проактивный анализ хуков конкурентов из competitor_signals → тренды\n"
-            "- A32 trend_radar: ранжирование трендовых звуков/хэштегов под vertical/GEO — «на чём ехать сейчас»\n"
-            "- A33 competitor_scraper: авто-сбор крипов конкурентов по хэштегу/ключу в competitor_signals (кормит A31)\n"
             "- A34 caption_agent: стилизованные субтитры (ASS/SRT, TikTok-style) для видео + ffmpeg burn\n"
             "- A35 tts_agent: озвучка faceless-видео (self-hosted TTS → ElevenLabs)\n"
-            "- transcription_agent: транскрипция видео (Deepgram → Whisper) + извлечение хука\n"
             "- social_publisher: прямая публикация на 8 платформ через нативные API (без лимитов Publer)\n"
             "- A36 post_analytics_agent: синхронизация нативных метрик постов (impressions/reach/likes/comments/shares)\n\n"
             "ВЫБОР ПРОФИЛЯ ПАЙПЛАЙНА. Не гони задачу через лишние агенты. Обязательны всегда "
             "только A21 (контент) → A19 (humanizer) → A25 (compliance). Остальное — по нужде:\n"
             "  • text/native (белый текстовый пост, прогнозы, статьи, Telegram-контент) — "
-            "БЕЗ видео, БЕЗ Higgsfield/TTS/прелендинга. Профиль output=text.\n"
+            "БЕЗ видео, БЕЗ Higgsfield/TTS. Профиль output=text.\n"
             "  • video — нужен UGC-ролик → +A30 (Higgsfield). output=video.\n"
             "  • carousel — нужна карусель → +A30. output=carousel.\n"
-            "  • prelander — нужен HTML-лендинг → +A29. output=full (или отдельный A29).\n"
             "  • озвучка (A35) и субтитры (A34) — только если реально нужен голос/сабы к видео.\n"
             "Если для сервиса нет API-ключа (Higgsfield/TTS) — предложи текстовый профиль или "
             "stock-провайдер, но не навязывай платный сервис. Сначала пойми, ЧТО на выходе нужно "
@@ -675,19 +659,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
         # Auto-add agent launch quick_links from suggestions
         _agent_links = {
-            "spy_analyzer":         [
-                {"label": "PiPiAds", "url": "https://www.pipiads.com"},
-                {"label": "AdHeart", "url": "https://adheart.me"},
-            ],
             "publer_publisher":     [{"label": "Publer", "url": "https://app.publer.io"}],
             "higgsfield_agent":     [{"label": "Higgsfield", "url": "https://higgsfield.ai"}],
-            "prelanding_generator": [{"label": "Keitaro", "url": "https://keitaro.io"}],
             "warmup_manager":       [
                 {"label": "IPRoyal", "url": "https://iproyal.com"},
                 {"label": "Airalo", "url": "https://www.airalo.com"},
             ],
-            "competitor_analyst":   [{"label": "TikTok Creative Center", "url": "https://ads.tiktok.com/business/creativecenter"}],
-            "trend_radar":          [{"label": "TikTok Creative Center", "url": "https://ads.tiktok.com/business/creativecenter"}],
             "tts_agent":            [{"label": "ElevenLabs", "url": "https://elevenlabs.io"}],
         }
         existing_urls = {ql["url"] for ql in quick_links}
@@ -822,29 +799,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 )
                 return {"result": result.humanized_text, "score": result.total_score, "passed": result.passed}
 
-            elif agent == "trend_scraper":
-                from ubt_os.agents import TrendScraper
-                scraper = TrendScraper()
-                if params.get("url"):
-                    r = await scraper.analyze_url(params["url"], kb_context=_kb_ctx)
-                else:
-                    r = await scraper.find_trends(params.get("vertical", "nutra"), params.get("geo", "US"),
-                                                  kb_context=_kb_ctx)
-                return {"hooks": r.hooks, "pains": r.pains, "action_items": r.action_items, "trend_score": r.trend_score}
-
-            elif agent == "ads_auditor":
-                from ubt_os.agents import AdsAuditor
-                auditor = AdsAuditor()
-                result  = await auditor.audit(
-                    params.get("platform", "tiktok"),
-                    params.get("vertical", "nutra"),
-                    params.get("account_data", {}),
-                    params.get("geo", "US"),
-                    kb_context=_kb_ctx,
-                )
-                return {"health_score": result.health_score, "grade": result.grade,
-                        "critical_issues": result.critical_issues, "quick_wins": result.quick_wins}
-
             elif agent == "youtube_creator":
                 from ubt_os.agents import YoutubeCreator, YTFormat
                 creator = YoutubeCreator()
@@ -865,20 +819,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     except Exception as _le:
                         logger.warning("kb_writer: %s", _le)
                 return _out
-
-            elif agent == "obsidian_brain":
-                from ubt_os.agents import ObsidianBrain
-                brain  = ObsidianBrain()
-                action = params.get("action", "query")
-                if action == "ingest":
-                    r = await brain.ingest(params.get("text", ""), params.get("source_name", "dashboard"))
-                    return {"pages_created": r.pages_created, "filenames": r.filenames, "summary": r.summary}
-                elif action == "health":
-                    r = await brain.health_check()
-                    return {"health_score": r.health_score, "dead_links": len(r.dead_links), "action_items": r.action_items}
-                else:
-                    r = await brain.query(params.get("question", ""))
-                    return {"answer": r.answer, "sources": r.sources, "confidence": r.confidence}
 
             elif agent == "compliance_gate":
                 from ubt_os.agents import ComplianceGate
@@ -920,46 +860,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     "url": result.url,
                     "error": result.error,
                 }
-
-            elif agent == "spy_analyzer":
-                from ubt_os.agents import SpyAnalyzer
-                analyzer = SpyAnalyzer()
-                creatives = params.get("creatives", [])
-                if isinstance(creatives, str):
-                    creatives = [creatives]
-                action = params.get("action", "analyze")
-                if action == "compare_hooks":
-                    result = await analyzer.compare_hooks(
-                        params.get("hooks", []),
-                        params.get("vertical", "nutra"),
-                        params.get("geo", "US"),
-                    )
-                    return result
-                result = await analyzer.analyze(
-                    creatives,
-                    params.get("vertical", "nutra"),
-                    params.get("geo", "US"),
-                    params.get("platform", "tiktok"),
-                    params.get("focus", "all"),
-                    kb_context=_kb_ctx + LEARN_INSTRUCTION if _kb_ctx else LEARN_INSTRUCTION,
-                )
-                _out = {
-                    "hook_patterns": result.hook_patterns,
-                    "content_structures": result.content_structures,
-                    "key_phrases": result.key_phrases,
-                    "forbidden_phrases": result.forbidden_phrases,
-                    "winning_formats": result.winning_formats,
-                    "creative_brief": result.creative_brief,
-                    "a21_prompt_extension": result.a21_prompt_extension,
-                    "creatives_analyzed": result.creatives_analyzed,
-                }
-                _out, _ll = scan_and_strip(_out)
-                if _ll:
-                    try:
-                        save_learnings(_get_db(), _ll, params.get("vertical", "any"))
-                    except Exception as _le:
-                        logger.warning("kb_writer: %s", _le)
-                return _out
 
             elif agent == "warmup_manager":
                 from ubt_os.agents import WarmupManager
@@ -1006,50 +906,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     "ready_to_publish": result.ready_to_publish,
                     "next_action": result.next_action,
                     "message": result.message,
-                }
-
-            elif agent == "prelanding_generator":
-                from ubt_os.agents import PrelandingGenerator
-                gen    = PrelandingGenerator()
-                action = params.get("action", "generate")
-                if action == "generate_variants":
-                    results = await gen.generate_variants(
-                        params.get("offer_name", "Product"),
-                        params.get("vertical", "nutra"),
-                        params.get("geo", "US"),
-                        params.get("billing_model", "COD"),
-                        params.get("formats", ["story", "native_article"]),
-                        kb_context=_kb_ctx,
-                    )
-                    return {
-                        "variants": [
-                            {"format": r.format, "language": r.language,
-                             "estimated_cr": r.estimated_cr, "word_count": r.word_count,
-                             "html_content": r.html_content, "funnel_tips": r.funnel_tips}
-                            for r in results
-                        ]
-                    }
-                result = await gen.generate(
-                    params.get("offer_name", "Product"),
-                    params.get("vertical", "nutra"),
-                    params.get("geo", "US"),
-                    params.get("billing_model", "COD"),
-                    params.get("format", "story"),
-                    params.get("language"),
-                    params.get("product_benefits", []),
-                    params.get("target_audience", ""),
-                    params.get("lander_url", "LANDER_URL"),
-                    kb_context=_kb_ctx,
-                )
-                return {
-                    "offer_name": result.offer_name,
-                    "format": result.format,
-                    "language": result.language,
-                    "estimated_cr": result.estimated_cr,
-                    "word_count": result.word_count,
-                    "html_content": result.html_content,
-                    "compliance_notes": result.compliance_notes,
-                    "funnel_tips": result.funnel_tips,
                 }
 
             elif agent == "higgsfield_agent":
@@ -1102,35 +958,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     "prompt_used": r.prompt_used, "error": r.error,
                 }
 
-            # ── Доп. агенты A31–A35 (свои run_-функции возвращают dict) ──
-            elif agent == "competitor_analyst":
-                from ubt_os.agents import run_competitor_analyst
-                return await run_competitor_analyst(
-                    params.get("vertical", "nutra"),
-                    int(params.get("lookback_days", 3)),
-                    kb_context=_kb_ctx)
-
-            elif agent == "trend_radar":
-                from ubt_os.agents import run_trend_radar
-                return await run_trend_radar(
-                    vertical=params.get("vertical", "nutra"),
-                    geo=params.get("geo", "US"),
-                    platform=params.get("platform", "tiktok"),
-                    hashtags=params.get("hashtags"),
-                    sounds=params.get("sounds"),
-                    kb_context=_kb_ctx,
-                )
-
-            elif agent == "competitor_scraper":
-                from ubt_os.agents import run_competitor_scrape
-                return await run_competitor_scrape(
-                    query=params.get("query", ""),
-                    vertical=params.get("vertical", "nutra"),
-                    geo=params.get("geo", "US"),
-                    platform=params.get("platform", "tiktok"),
-                    limit=int(params.get("limit", 20)),
-                )
-
+            # ── Доп. агенты A34–A35 (свои run_-функции возвращают dict) ──
             elif agent == "caption_agent":
                 from ubt_os.agents import run_caption
                 return await run_caption(
@@ -1147,16 +975,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     text=params.get("text", ""),
                     voice=params.get("voice"),
                     provider=params.get("provider"),
-                )
-
-            elif agent == "transcription_agent":
-                from ubt_os.agents import run_transcription
-                return await run_transcription(
-                    params.get("video_url", ""),
-                    vertical=params.get("vertical", "nutra"),
-                    platform=params.get("platform", "tiktok"),
-                    geo=params.get("geo", "US"),
-                    language=params.get("language", "ru"),
                 )
 
             elif agent == "post_analytics":
@@ -1183,20 +1001,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
             await DeadLetterQueueManager(db).daily_report()
 
     # ── FIX #1: новые обработчики ──────────────────────────
-
-    async def _run_strategy_collect(self, body: dict):
-        """A15 STRATEGY_ENGINE: собирает данные за период и пишет анализ в vault."""
-        from ubt_os.core import pipeline_lock
-        from ubt_os.agents.strategy_engine import run_strategy_engine
-        async with pipeline_lock("strategy-collect", 600) as acquired:
-            if not acquired:
-                logger.info("strategy/collect: lock занят, пропускаем")
-                return
-            lookback_days = int(body.get("lookback_days", 7))
-            result = await run_strategy_engine(lookback_days=lookback_days)
-            logger.info(f"strategy/collect завершён: brief_id={result.get('brief_id')}")
-            return result
-        return {"status": "skipped", "reason": "lock_busy"}
 
     async def _run_risk(self, body: dict):
         """Risk Engine: пересчитывает риск-скор всех активных аккаунтов."""
@@ -1230,19 +1034,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
             return result
         return {"status": "skipped", "reason": "lock_busy"}
 
-    # ── DOHOO-inspired роуты ──────────────────────────────────
-
-    async def _run_competitor_analyze(self, body: dict):
-        """A14 COMPETITOR_ANALYST: анализ хуков конкурентов."""
-        from ubt_os.core import pipeline_lock
-        from ubt_os.agents.competitor_analyst import run_competitor_analyst
-        vertical     = body.get("vertical", "nutra")
-        lookback     = int(body.get("lookback_days", 3))
-        async with pipeline_lock(f"competitor-analyze-{vertical}", 600) as acquired:
-            if not acquired:
-                return {"status": "skipped", "reason": "lock_busy"}
-            return await run_competitor_analyst(vertical=vertical, lookback_days=lookback)
-
     async def _run_publish_direct(self, body: dict):
         """Прямая публикация в соцсеть без лимитов аккаунтов."""
         from ubt_os.pipelines.social_publisher import create_and_publish
@@ -1269,23 +1060,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
             return {"error": "jobs[] обязателен"}
         return {"results": await bulk_publish(jobs)}
 
-    async def _run_transcribe(self, body: dict):
-        """AI-транскрипция видео + извлечение хука."""
-        from ubt_os.agents.transcription_agent import run_transcription, run_batch_transcription
-        urls = body.get("video_urls") or ([body.get("video_url")] if body.get("video_url") else [])
-        if not urls:
-            return {"error": "video_url или video_urls обязателен"}
-        kwargs = {
-            "source":   body.get("source", "competitor"),
-            "vertical": body.get("vertical", "nutra"),
-            "platform": body.get("platform", "tiktok"),
-            "geo":      body.get("geo", "RU"),
-            "language": body.get("language", "ru"),
-        }
-        if len(urls) == 1:
-            return await run_transcription(urls[0], **kwargs)
-        return {"results": await run_batch_transcription(urls, **kwargs)}
-
     async def _run_video_stock(self, body: dict):
         """Бесплатное faceless-видео: стоковые клипы Pexels + озвучка + ffmpeg."""
         from ubt_os.pipelines.stock_video import run_stock_video
@@ -1297,6 +1071,14 @@ class WebhookHandler(BaseHTTPRequestHandler):
             max_clips=int(body.get("max_clips", 4)),
             keywords=body.get("keywords"),
         )
+
+    async def _run_video_uniqualize(self, body: dict):
+        """Уникализация готового видео на все другие аккаунты того же проекта."""
+        from ubt_os.pipelines.video_uniqualizer import uniqualize_video
+        video_id = body.get("video_id", "")
+        if not video_id:
+            return {"error": "video_id обязателен"}
+        return await uniqualize_video(video_id)
 
     async def _run_kb_search(self, body: dict):
         """Поиск по структурированной базе знаний kb_entries (таксономия)."""
@@ -1324,48 +1106,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
             if not acquired:
                 return {"status": "skipped", "reason": "lock_busy"}
             return await run_post_analytics(platform=platform, limit=limit)
-
-    async def _run_hooks_top(self, body: dict):
-        """Возвращает топ хуков из библиотеки hook_templates."""
-        db       = _get_db()
-        vertical = body.get("vertical", "nutra")
-        platform = body.get("platform")
-        limit    = int(body.get("limit", 20))
-        q = (
-            db.table("hook_templates")
-            .select("hook_type,hook_text,visual_style,platform,geo,views_at_capture,er_at_capture,created_at")
-            .eq("vertical", vertical)
-            .eq("is_active", True)
-            .order("er_at_capture", desc=True)
-            .limit(limit)
-        )
-        if platform:
-            q = q.eq("platform", platform)
-        return {"hooks": q.execute().data}
-
-    async def _run_trends_radar(self, body: dict):
-        """A32 TREND_RADAR — ранжирование трендовых звуков/хэштегов под vertical/GEO."""
-        from ubt_os.agents.trend_radar import run_trend_radar
-        return await run_trend_radar(
-            vertical=body.get("vertical", "nutra"),
-            geo=body.get("geo", "US"),
-            platform=body.get("platform", "tiktok"),
-            hashtags=body.get("hashtags"),
-            sounds=body.get("sounds"),
-            persist=body.get("persist", True),
-        )
-
-    async def _run_competitor_scrape(self, body: dict):
-        """A33 COMPETITOR_SCRAPER — авто-сбор крипов в competitor_signals (для A31)."""
-        from ubt_os.agents.competitor_scraper import run_competitor_scrape
-        return await run_competitor_scrape(
-            query=body.get("query", ""),
-            vertical=body.get("vertical", "nutra"),
-            geo=body.get("geo", "US"),
-            platform=body.get("platform", "tiktok"),
-            limit=int(body.get("limit", 20)),
-            persist=body.get("persist", True),
-        )
 
     async def _run_caption(self, body: dict):
         """A34 CAPTION_AGENT — стилизованные субтитры (ASS/SRT) + ffmpeg burn."""
@@ -1524,8 +1264,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
         """GET /health/env — какие API-ключи прописаны (наличие, не значения)."""
         keys = [
             "ANTHROPIC_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_KEY",
-            "REDIS_URL", "FIRECRAWL_API_KEY", "HIGGSFIELD_API_KEY",
-            "PUBLER_API_KEY", "TIKTOK_SCRAPER_URL", "ELEVENLABS_API_KEY",
+            "REDIS_URL", "HIGGSFIELD_API_KEY",
+            "PUBLER_API_KEY", "ELEVENLABS_API_KEY",
             "WEBHOOK_SECRET", "AGENTS_API_TOKEN", "TELEGRAM_ALERT_TOKEN",
             "KEITARO_URL", "LITELLM_BASE_URL",
         ]

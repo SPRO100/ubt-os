@@ -9,7 +9,6 @@ import Pipeline from './components/sections/Pipeline'
 import Clients from './components/sections/Clients'
 import Agents from './components/sections/Agents'
 import Launch from './components/sections/Launch'
-import Trends from './components/sections/Trends'
 import Media from './components/sections/Media'
 import Tasks from './components/sections/Tasks'
 import Analytics from './components/sections/Analytics'
@@ -25,7 +24,6 @@ const NAV = [
   { id:'launch',    icon:'🚀', label:'Запуск агентов',  section:'Работа' },
   // ── Контент и агенты ───────────────────────────────
   { id:'clients',   icon:'📁', label:'Проекты',          section:'Контент' },
-  { id:'trends',    icon:'📡', label:'Тренды',          section:'Контент' },
   { id:'media',     icon:'🎙️', label:'Медиа',           section:'Контент' },
   { id:'content',   icon:'🎬', label:'Производство',    section:'Контент' },
   { id:'agents',    icon:'🧩', label:'Агенты',          section:'Контент' },
@@ -38,14 +36,13 @@ const NAV = [
 
 const TITLES = {
   dashboard: ['Dashboard',         'Реальное состояние системы прямо сейчас'],
-  tasks:     ['Задания',           'Очередь заданий · согласование → пайплайн A27→A26'],
+  tasks:     ['Задания',           'Очередь заданий · согласование → пайплайн A21→A26'],
   accounts:  ['Аккаунты',          'TikTok / Facebook / Instagram / Pinterest · прогрев A28'],
-  launch:    ['Запуск агентов',    'Прямой запуск A19–A35 из браузера'],
+  launch:    ['Запуск агентов',    'Прямой запуск агентов из браузера'],
   clients:   ['Проекты',            'Управление проектами · чат с оркестратором → задания'],
-  trends:    ['Тренды',            'Trend Radar (A32) + авто-сбор крипов конкурентов (A33 → A31)'],
   media:     ['Медиа',             'Озвучка скриптов (A35 TTS) + авто-субтитры для видео (A34)'],
-  content:   ['Производство',      'Архитектура пайплайна контента · A19–A30'],
-  agents:    ['Агенты',            '26 агентов A12–A35 · Publer + прямые API · TikTok / Facebook / Instagram / Pinterest'],
+  content:   ['Производство',      'Генерация видео · A19–A21 → A25 → A30'],
+  agents:    ['Агенты',            'Генерация видео + безопасная доставка на аккаунты'],
   analytics: ['Аналитика',         'Реальная выручка из Supabase · условия партнёрок'],
   knowledge: ['База знаний',       'Obsidian Vault · синхронизация через n8n каждый час'],
   infra:     ['Инфраструктура',    'FirstVDS Амстердам · 4 сервиса live'],
@@ -139,7 +136,6 @@ export default function App() {
       case 'content':   return <Content />
       case 'pipeline':  return <Pipeline />
       case 'clients':   return <Clients onCreateTask={handleCreateTask} />
-      case 'trends':    return <Trends />
       case 'media':     return <Media />
       case 'tasks':     return <Tasks tasks={tasks} onUpdate={handleUpdateTask} />
       case 'agents':    return <Agents />

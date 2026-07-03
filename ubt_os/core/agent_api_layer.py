@@ -148,11 +148,11 @@ class VideoWriter:
     """Только VIDEO_DIRECTOR."""
 
     @staticmethod
-    def create(content_plan_id: str) -> dict:
-        return one_row(get_db().table("videos").insert({
-            "content_plan_id": content_plan_id,
-            "status": "queued",
-        }).execute())
+    def create(content_plan_id: str, account_id: str | None = None) -> dict:
+        payload = {"content_plan_id": content_plan_id, "status": "queued"}
+        if account_id:
+            payload["account_id"] = account_id
+        return one_row(get_db().table("videos").insert(payload).execute())
 
     @staticmethod
     def set_generating(video_id: str, job_id: str) -> Any:
