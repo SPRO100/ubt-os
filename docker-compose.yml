@@ -53,31 +53,16 @@ services:
       retries: 3
 
   # ── N8N ОРКЕСТРАТОР ───────────────────────────────────────
-  n8n:
-    image: n8nio/n8n:latest
-    restart: unless-stopped
-    ports:
-      - "5678:5678"
-    environment:
-      DB_TYPE:                postgresdb
-      DB_POSTGRESDB_HOST:     postgres
-      DB_POSTGRESDB_PORT:     5432
-      DB_POSTGRESDB_DATABASE: ubt_os
-      DB_POSTGRESDB_USER:     ubt_os
-      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
-      N8N_ENCRYPTION_KEY:     ${N8N_ENCRYPTION_KEY}
-      N8N_HOST:               ${N8N_HOST:-localhost}
-      N8N_PORT:               5678
-      WEBHOOK_URL:            ${N8N_WEBHOOK_URL}
-      EXECUTIONS_PROCESS:     main
-    volumes:
-      - n8n_data:/home/node/.n8n
-      - ./n8n/workflows:/workflows:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+  # ВАЖНО: n8n здесь НЕ управляется этим docker-compose — на проде он поднят
+  # отдельным контейнером (имя "n8n", вне жизненного цикла `docker compose
+  # up/down` этого проекта) и подключён к сети ubt-os_default вручную:
+  #   docker network connect ubt-os_default n8n
+  # Раньше здесь был сервис "n8n", который создавал ВТОРОЙ контейнер и падал
+  # с "port is already allocated" (5678 уже занят настоящим n8n) — это и
+  # роняло весь nginx (он не мог зарезолвить "n8n", т.к. второй контейнер
+  # так и не стартовал, а первый не был в сети ubt-os_default). Если нужно
+  # поднимать n8n именно через этот compose — сначала остановите/удалите
+  # отдельный контейнер "n8n", иначе снова будет конфликт порта 5678.
 
   # ── NGINX РЕВЕРС-ПРОКСИ + ДАШБОРД ────────────────────────
   nginx:
@@ -199,5 +184,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  n8n_data:
   obsidian_vault:
