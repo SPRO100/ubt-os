@@ -18,10 +18,10 @@ const PIPELINE_STEPS = [
 ]
 
 const FORMAT_MAP = {
-  'before': 'before_after', 'before-after': 'before_after', 'before/after': 'before_after',
+  'before': 'before_after_testimonial', 'before-after': 'before_after_testimonial', 'before/after': 'before_after_testimonial',
   'ugc': 'ugc_reaction', 'story': 'ugc_reaction',
   'article': 'seo_article', 'vsl': 'seo_article', 'quiz': 'seo_article',
-  'shorts': 'hook_problem', 'carousel': 'before_after',
+  'shorts': 'short_hook_problem_solution', 'carousel': 'before_after_testimonial',
 }
 
 function ProgressBar({ steps, currentStep }) {
@@ -175,7 +175,7 @@ export default function Tasks({ tasks = [], onUpdate }) {
     const vert = task.params?.vertical || 'nutra'
     const geo  = task.params?.geo      || 'US'
     const rawFmt = (task.params?.format || '').toLowerCase()
-    const fmt  = FORMAT_MAP[rawFmt] || 'before_after'
+    const fmt  = FORMAT_MAP[rawFmt] || 'before_after_testimonial'
 
     onUpdate(id, { status: 'in_progress', step: 0, approvedAt: new Date().toISOString() })
 

@@ -25,11 +25,6 @@ class ContentFormat(str, Enum):
     CAPTION      = "caption"
 
 
-class Vertical(str, Enum):
-    NUTRA   = "nutra"
-    BETTING = "betting"
-
-
 BRAND_VOICE = {
     "nutra": {
         "US": "Ты — доверительный друг, уже прошедший через похудение/здоровье. Говоришь от первого лица. Признаёшь скептицизм. Конкретные детали вместо общих слов. Без суперлативов.",
@@ -141,13 +136,13 @@ class ContentCreator:
     async def create(
         self,
         fmt: ContentFormat,
-        vertical: Vertical,
+        vertical: str,
         geo: str,
         offer: str = "",
         day: int = 1,
         kb_context: str = "",
     ) -> ContentPiece:
-        system = self._build_system(vertical.value, geo)
+        system = self._build_system(vertical, geo)
         if kb_context:
             system = system + f"\n\n{kb_context}"
         prompt_template = CONTENT_PROMPTS.get(fmt, CONTENT_PROMPTS[ContentFormat.HOOK_PROBLEM])
@@ -165,11 +160,11 @@ class ContentCreator:
         raw = _extract_json(response_text(response), fallback={"script": response_text(response)})
 
         main_text = raw.get("script") or raw.get("caption") or str(raw)
-        humanized: HumanizeResult = await self.humanizer.humanize(main_text, geo=geo, vertical=vertical.value)
+        humanized: HumanizeResult = await self.humanizer.humanize(main_text, geo=geo, vertical=vertical)
 
         piece = ContentPiece(
             format=fmt.value,
-            vertical=vertical.value,
+            vertical=vertical,
             geo=geo,
             raw_content=raw,
             humanized_text=humanized.humanized_text,
@@ -179,7 +174,7 @@ class ContentCreator:
 
         logger.info(
             "content_creator | fmt=%s vertical=%s geo=%s score=%d passed=%s",
-            fmt.value, vertical.value, geo, piece.humanize_score, piece.passed_quality,
+            fmt.value, vertical, geo, piece.humanize_score, piece.passed_quality,
         )
         return piece
 
@@ -187,7 +182,7 @@ class ContentCreator:
         tasks = [
             self.create(
                 fmt=ContentFormat(r["format"]),
-                vertical=Vertical(r["vertical"]),
+                vertical=r["vertical"],
                 geo=r.get("geo", "US"),
                 offer=r.get("offer", ""),
                 day=r.get("day", 1),

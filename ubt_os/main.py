@@ -310,6 +310,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
         routes = {
             "/run/nutra":          self._run_nutra,
             "/run/ubt":            self._run_ubt,
+            "/run/pipeline":       self._run_pipeline,
             "/run/account-check":  self._run_checker,
             "/run/obsidian-sync":  self._run_obsidian,
             "/run/daily-report":   self._run_report,
@@ -423,6 +424,30 @@ class WebhookHandler(BaseHTTPRequestHandler):
             return await run_video_pipeline(
                 "betting",
                 geo=body.get("geo", "BR"),
+                offer=body.get("offer", ""),
+                count=int(body.get("count", 1)),
+                account_id=body.get("account_id"),
+                provider=body.get("provider", ""),
+                output=body.get("output", "video"),
+            )
+
+    async def _run_pipeline(self, body: dict):
+        """Generic video-pipeline route — принимает произвольную вертикаль (проект),
+        в отличие от /run/nutra и /run/ubt (оставлены для обратной совместимости
+        с уже настроенными n8n cron-задачами)."""
+        import re as _re
+        from ubt_os.core import pipeline_lock
+        from ubt_os.pipelines.video_pipeline import run_video_pipeline
+        vertical = str(body.get("vertical") or "nutra").strip().lower()
+        lock_name = "video-pipeline-" + _re.sub(r"[^a-z0-9_]", "_", vertical)
+        async with pipeline_lock(lock_name, 600) as acquired:
+            if not acquired:
+                logger.info("PIPELINE[%s]: lock занят, пропускаем", vertical)
+                return {"status": "skipped", "reason": "lock_busy"}
+            logger.info("PIPELINE[%s]: запуск ✅", vertical)
+            return await run_video_pipeline(
+                vertical,
+                geo=body.get("geo", "US"),
                 offer=body.get("offer", ""),
                 count=int(body.get("count", 1)),
                 account_id=body.get("account_id"),
@@ -562,10 +587,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "Пример: [AGENT_SUGGEST: content_creator|Создать 3 варианта hook для нутра GEO US]\n"
             "Добавляй не более 2 предложений. Если агент не нужен — ничего не добавляй.\n\n"
             "ЗАПУСК ПАЙПЛАЙНА. Если пользователь ЯВНО просит запустить/сгенерировать партию "
-            "контента для вертикали nutra или betting — добавь в конец ответа ОДИН маркер:\n"
+            "контента — добавь в конец ответа ОДИН маркер:\n"
             "[RUN_PIPELINE: vertical|geo|output|count]\n"
-            "  vertical: nutra|betting (только эти — другие вертикали пока без видео-пайплайна)\n"
-            "  geo: US|BR|MX|DE|PL  ·  output: text|video|carousel|full  ·  count: 1-10\n"
+            "  vertical: вертикаль/ниша ЭТОГО проекта (nutra, betting, auto, tourism, realty, "
+            "construction, beauty, fitness, ecommerce, b2b, food, gambling, finance, crypto, "
+            "dating, edtech и т.д. — бери из конфигурации проекта выше, не выдумывай)\n"
+            "  geo: US|BR|MX|DE|PL|RU|TR|IN|NG  ·  output: text|video|carousel|full|shorts  ·  count: 1-10\n"
             "Пример: [RUN_PIPELINE: nutra|US|text|3] — 3 текстовых скрипта без видео.\n"
             "Выбирай output по правилу профиля выше (белое/текст → text). Пользователь ещё раз "
             "подтвердит запуск кнопкой — маркер лишь предлагает. Не добавляй маркер, если "
@@ -637,17 +664,18 @@ class WebhookHandler(BaseHTTPRequestHandler):
             _rp = _re.search(r"\[RUN_PIPELINE:\s*([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\]]+)\]", text)
             if _rp:
                 _vert = _rp.group(1).strip().lower()
-                if _vert in ("nutra", "betting"):
+                if _vert:
                     try:
                         _cnt = max(1, min(int(_rp.group(4).strip()), 10))
                     except ValueError:
                         _cnt = 1
+                    _path = {"nutra": "/run/nutra", "betting": "/run/ubt"}.get(_vert, "/run/pipeline")
                     run_action = {
                         "vertical": _vert,
                         "geo":      _rp.group(2).strip().upper(),
                         "output":   _rp.group(3).strip().lower(),
                         "count":    _cnt,
-                        "path":     "/run/ubt" if _vert == "betting" else "/run/nutra",
+                        "path":     _path,
                     }
             text = _re.sub(r"\[AGENT_SUGGEST:[^\]]+\]", "", text)
             text = _re.sub(r"\[QUICK_LINK:[^\]]+\]", "", text)
@@ -774,7 +802,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             if agent == "content_creator":
                 from ubt_os.agents import ContentCreator, ContentFormat
                 creator = ContentCreator()
-                fmt     = ContentFormat(params.get("format", "hook_problem"))
+                fmt     = ContentFormat(params.get("format", "short_hook_problem_solution"))
                 result  = await creator.create(
                     fmt,
                     params.get("vertical", "nutra"),
@@ -782,7 +810,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     params.get("offer", ""),
                     kb_context=_kb_ctx + LEARN_INSTRUCTION if _kb_ctx else LEARN_INSTRUCTION,
                 )
-                _out = {"result": result.humanized_text, "score": result.score, "passed": result.passed_quality}
+                _out = {"result": result.humanized_text, "score": result.humanize_score, "passed": result.passed_quality}
                 _out, _ll = scan_and_strip(_out)
                 if _ll:
                     try:
@@ -800,7 +828,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     params.get("vertical", "nutra"),
                     kb_context=_kb_ctx,
                 )
-                return {"result": result.humanized_text, "score": result.total_score, "passed": result.passed}
+                return {"result": result.humanized_text, "score": result.final_score.get("total", 0), "passed": result.passed}
 
             elif agent == "youtube_creator":
                 from ubt_os.agents import YoutubeCreator, YTFormat

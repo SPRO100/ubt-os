@@ -7,7 +7,13 @@ const stripSlash = (u) => (u || "").replace(/\/+$/, "");
 export const SUPABASE_URL = stripSlash(env.VITE_SUPABASE_URL || "https://ricuoztdelapexfpqsux.supabase.co");
 export const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY || "sb_publishable_f_z6goLZoPN68j2N71wX6g_r6jNjrJt";
 export const AGENTS_SERVER = env.VITE_AGENTS_SERVER !== undefined ? stripSlash(env.VITE_AGENTS_SERVER) : "http://88.218.121.108";
+// N8N_URL — прямая ссылка на админку n8n (кнопки "Открыть n8n →", импорт/редактирование
+// воркфлоу); порт 5678 не проксируется nginx, должен быть доступен напрямую.
 export const N8N_URL = env.VITE_N8N_URL !== undefined ? stripSlash(env.VITE_N8N_URL) : "http://88.218.121.108:5678";
+// N8N_API_BASE — для fetch() из дашборда (список/старт-стоп воркфлоу). Идёт через
+// nginx-прокси (/n8n-api/*, см. deploy/nginx.conf) на тот же origin — без этого
+// браузер бьётся либо в закрытый файрволом порт, либо в CORS от n8n.
+export const N8N_API_BASE = env.VITE_N8N_API_BASE !== undefined ? stripSlash(env.VITE_N8N_API_BASE) : "/n8n-api";
 // Set N8N_API_KEY in localStorage: localStorage.setItem('n8n_api_key', 'your-key')
 export const getN8nApiKey = () => localStorage.getItem('n8n_api_key') || '';
 
@@ -125,7 +131,7 @@ export async function fetchN8nWorkflows() {
   if (!key) return { error: 'no_key', workflows: [] };
   try {
     const res = await fetchWithTimeout(
-      `${N8N_URL}/api/v1/workflows`,
+      `${N8N_API_BASE}/api/v1/workflows`,
       { headers: { 'X-N8N-API-KEY': key } },
       8000
     );
@@ -141,7 +147,7 @@ export async function toggleN8nWorkflow(id, active) {
   const key = getN8nApiKey();
   if (!key) throw new Error('no_key');
   const res = await fetchWithTimeout(
-    `${N8N_URL}/api/v1/workflows/${id}/${active ? 'activate' : 'deactivate'}`,
+    `${N8N_API_BASE}/api/v1/workflows/${id}/${active ? 'activate' : 'deactivate'}`,
     { method: 'POST', headers: { 'X-N8N-API-KEY': key } },
     8000
   );

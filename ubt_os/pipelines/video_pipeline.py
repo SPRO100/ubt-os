@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 import os
 
-from ubt_os.agents.content_creator import ContentCreator, ContentFormat, Vertical
+from ubt_os.agents.content_creator import ContentCreator, ContentFormat
 from ubt_os.agents.compliance_gate import ComplianceGate
 from ubt_os.core.agent_api_layer import AccountReader, ContentPlanWriter, VideoWriter
 from ubt_os.pipelines.higgsfield_queue import HiggsFieldQueue, VideoJob
@@ -104,7 +104,7 @@ async def run_video_pipeline(
     for i in range(count):
         fmt = DEFAULT_FORMATS[i % len(DEFAULT_FORMATS)]
 
-        piece = await creator.create(fmt, Vertical(vertical), geo, offer)
+        piece = await creator.create(fmt, vertical, geo, offer)
         text  = piece.humanized_text
 
         check = await gate.check(text, vertical, geo)
