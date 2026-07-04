@@ -335,6 +335,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/knowledge/kb":          self._run_kb_search,
             # Парсинг файлов аккаунтов (txt/csv/zip → список записей)
             "/accounts/parse-file":   self._run_parse_file,
+            "/accounts/delete-cascade": self._run_delete_account_cascade,
             # Health check (POST для совместимости с n8n — делает то же что GET)
             "/health/check-all":      self._run_health_check_post,
             # Экстренная пауза всех активных аккаунтов (n8n health-monitor)
@@ -1259,6 +1260,20 @@ class WebhookHandler(BaseHTTPRequestHandler):
         if len(raw_bytes) > 10 * 1024 * 1024:
             return {"error": "Файл слишком большой (макс. 10 МБ)"}
         return _parse_file_bytes(raw_bytes, filename, platform_hint)
+
+    async def _run_delete_account_cascade(self, body: dict) -> dict:
+        """POST /accounts/delete-cascade — удаляет аккаунт вместе со связанными
+        content_plans/videos/publications (обычный DELETE упирается в FK).
+
+        dry_run=true (по умолчанию) только считает связанные записи — дашборд
+        показывает их пользователю перед вторым подтверждением.
+        """
+        from ubt_os.pipelines.account_cleanup import delete_account_cascade
+        account_id = body.get("account_id", "")
+        if not account_id:
+            return {"error": "account_id обязателен"}
+        dry_run = bool(body.get("dry_run", True))
+        return await delete_account_cascade(account_id, dry_run=dry_run)
 
     def _serve_env_check(self):
         """GET /health/env — какие API-ключи прописаны (наличие, не значения)."""
