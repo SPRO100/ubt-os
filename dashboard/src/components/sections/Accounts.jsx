@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { fetchRows, insertRows, deleteRow, AGENTS_SERVER, agentsHeaders } from '../../api'
+import { fetchRows, insertRows, deleteRow, patchWhere, AGENTS_SERVER, agentsHeaders } from '../../api'
 import CollapsibleCard from '../CollapsibleCard'
 
 const PLATFORMS_TABS = [
@@ -37,6 +37,12 @@ export default function Accounts() {
   const [projectId, setProjectId] = useState('')
   const [doWarmup, setDoWarmup] = useState(true)
   const [deletingId, setDeletingId] = useState(null)
+
+  // массовая привязка к проекту (чекбоксы)
+  const [selected,      setSelected]      = useState(new Set())
+  const [bulkAssignTo,  setBulkAssignTo]  = useState('')
+  const [assigning,     setAssigning]     = useState(false)
+  const [assignMsg,     setAssignMsg]     = useState('')
 
   // bulk CSV
   const [bulkCsv,    setBulkCsv]    = useState('')
@@ -190,12 +196,44 @@ export default function Accounts() {
     setFileImporting(false)
   }
 
+  function toggleSelected(id) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAllVisible() {
+    setSelected(prev => {
+      const allSelected = visible.length > 0 && visible.every(a => prev.has(a.id))
+      if (allSelected) return new Set()
+      return new Set(visible.map(a => a.id))
+    })
+  }
+
+  async function bulkAssignProject() {
+    if (!selected.size) return
+    setAssigning(true); setAssignMsg('')
+    try {
+      const ids = [...selected].map(id => `"${id}"`).join(',')
+      await patchWhere('accounts', `id=in.(${ids})`, { project_id: bulkAssignTo || null })
+      setAccounts(prev => prev.map(a => selected.has(a.id) ? { ...a, project_id: bulkAssignTo || null } : a))
+      setAssignMsg(`✅ Привязано ${selected.size} аккаунтов`)
+      setSelected(new Set())
+    } catch (e) {
+      setAssignMsg('❌ ' + e.message)
+    }
+    setAssigning(false)
+  }
+
   async function deleteAccount(id) {
     if (!window.confirm(`Удалить аккаунт «${id}»? Это действие необратимо.`)) return
     setDeletingId(id)
     try {
       await deleteRow('accounts', id)
       setAccounts(prev => prev.filter(a => a.id !== id))
+      setSelected(prev => { const next = new Set(prev); next.delete(id); return next })
     } catch (e) {
       alert('Не удалось удалить (возможно, есть связанные видео/публикации): ' + e.message)
     }
@@ -231,43 +269,81 @@ export default function Accounts() {
           {visible.length === 0 ? (
             <div className="note-box" style={{ padding:'8px 0' }}>Нет аккаунтов — добавь через форму ниже.</div>
           ) : (
-            <table>
-              <thead>
-                <tr><th>ID</th><th>Платформа</th><th>Проект</th><th>Статус</th><th>Прокси</th><th>Publer ID</th><th>Добавлен</th><th></th></tr>
-              </thead>
-              <tbody>
-                {visible.map(a => (
-                  <tr key={a.id}>
-                    <td className="primary mono">{a.id}</td>
-                    <td>
-                      <span className="badge badge-indigo">{a.platform}</span>
-                    </td>
-                    <td>
-                      {projectName(a.project_id)
-                        ? <span className="badge badge-muted">{projectName(a.project_id)}</span>
-                        : <span style={{ color:'var(--faint)' }}>—</span>}
-                    </td>
-                    <td>
-                      <span className={`badge ${a.status === 'warming_up' ? 'badge-amber' : a.status === 'ready' ? 'badge-green' : a.status === 'banned' ? 'badge-red' : 'badge-muted'}`}>
-                        {a.status}
-                      </span>
-                    </td>
-                    <td className="mono">{a.proxy || '—'}</td>
-                    <td className="mono">{a.publer_profile_id || '—'}</td>
-                    <td className="mono">{(a.created_at || '').slice(0,10)}</td>
-                    <td>
-                      <button onClick={() => deleteAccount(a.id)} disabled={deletingId === a.id}
-                        title="Удалить аккаунт"
-                        style={{ fontSize:12, padding:'3px 8px', borderRadius:6, cursor:'pointer',
-                          background:'transparent', border:'1px solid var(--border)', color:'var(--red)',
-                          opacity: deletingId === a.id ? .5 : 1 }}>
-                        {deletingId === a.id ? '…' : '🗑'}
-                      </button>
-                    </td>
+            <>
+              {selected.size > 0 && (
+                <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap',
+                  padding:'10px 14px', marginBottom:10, borderRadius:8,
+                  background:'var(--indigo-bg)', border:'1px solid var(--indigo-bd)' }}>
+                  <span style={{ fontSize:12, color:'var(--text)', fontWeight:600 }}>
+                    Выбрано: {selected.size}
+                  </span>
+                  <select className="form-control" style={{ fontSize:12, maxWidth:220 }}
+                    value={bulkAssignTo} onChange={e => setBulkAssignTo(e.target.value)}>
+                    <option value="">— без проекта —</option>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                  <button onClick={bulkAssignProject} disabled={assigning}
+                    style={{ fontSize:12, padding:'5px 14px', borderRadius:6, cursor:'pointer',
+                      background:'var(--indigo)', color:'#fff', border:'none', fontWeight:600,
+                      opacity: assigning ? .5 : 1 }}>
+                    {assigning ? 'Привязываю…' : '📁 Привязать к проекту'}
+                  </button>
+                  <button onClick={() => setSelected(new Set())}
+                    style={{ fontSize:12, padding:'5px 10px', borderRadius:6, cursor:'pointer',
+                      background:'transparent', border:'1px solid var(--border)', color:'var(--faint)' }}>
+                    Отменить выбор
+                  </button>
+                  {assignMsg && <span style={{ fontSize:12, color: assignMsg.startsWith('✅') ? 'var(--green)' : 'var(--red)' }}>{assignMsg}</span>}
+                </div>
+              )}
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width:28 }}>
+                      <input type="checkbox"
+                        checked={visible.length > 0 && visible.every(a => selected.has(a.id))}
+                        onChange={toggleSelectAllVisible} />
+                    </th>
+                    <th>ID</th><th>Платформа</th><th>Проект</th><th>Статус</th><th>Прокси</th><th>Publer ID</th><th>Добавлен</th><th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {visible.map(a => (
+                    <tr key={a.id}>
+                      <td>
+                        <input type="checkbox" checked={selected.has(a.id)} onChange={() => toggleSelected(a.id)} />
+                      </td>
+                      <td className="primary mono">{a.id}</td>
+                      <td>
+                        <span className="badge badge-indigo">{a.platform}</span>
+                      </td>
+                      <td>
+                        {projectName(a.project_id)
+                          ? <span className="badge badge-muted">{projectName(a.project_id)}</span>
+                          : <span style={{ color:'var(--faint)' }}>—</span>}
+                      </td>
+                      <td>
+                        <span className={`badge ${a.status === 'warming_up' ? 'badge-amber' : a.status === 'ready' ? 'badge-green' : a.status === 'banned' ? 'badge-red' : 'badge-muted'}`}>
+                          {a.status}
+                        </span>
+                      </td>
+                      <td className="mono">{a.proxy || '—'}</td>
+                      <td className="mono">{a.publer_profile_id || '—'}</td>
+                      <td className="mono">{(a.created_at || '').slice(0,10)}</td>
+                      <td>
+                        <button onClick={() => deleteAccount(a.id)} disabled={deletingId === a.id}
+                          title="Удалить аккаунт"
+                          style={{ fontSize:12, padding:'3px 8px', borderRadius:6, cursor:'pointer',
+                            background:'transparent', border:'1px solid var(--border)', color:'var(--red)',
+                            opacity: deletingId === a.id ? .5 : 1 }}>
+                          {deletingId === a.id ? '…' : '🗑'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
           )}
         </div>
       </div>
