@@ -303,7 +303,7 @@ function Vertical({ value, onChange }) {
 /* ── INDIVIDUAL AGENT FORMS ── */
 
 function A21Card() {
-  const [fmt, setFmt] = useState('hook_problem')
+  const [fmt, setFmt] = useState('short_hook_problem_solution')
   const [vert, setVert] = useState('nutra')
   const [geo, setGeo] = useState('US')
   const [offer, setOffer] = useState('')
@@ -312,7 +312,7 @@ function A21Card() {
       {(run, loading) => <>
         <label className="form-label">Формат</label>
         <Sel value={fmt} onChange={setFmt}>
-          <option value="hook_problem">Hook + Problem</option><option value="before_after">Before / After</option>
+          <option value="short_hook_problem_solution">Hook + Problem</option><option value="before_after_testimonial">Before / After</option>
           <option value="ugc_reaction">UGC Reaction</option><option value="series_day">Series Day</option>
           <option value="seo_article">SEO Article</option><option value="caption">Caption</option>
         </Sel>

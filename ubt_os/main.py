@@ -802,7 +802,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             if agent == "content_creator":
                 from ubt_os.agents import ContentCreator, ContentFormat
                 creator = ContentCreator()
-                fmt     = ContentFormat(params.get("format", "hook_problem"))
+                fmt     = ContentFormat(params.get("format", "short_hook_problem_solution"))
                 result  = await creator.create(
                     fmt,
                     params.get("vertical", "nutra"),
