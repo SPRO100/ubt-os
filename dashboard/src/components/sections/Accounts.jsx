@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { fetchRows, insertRows, deleteRow, patchWhere, AGENTS_SERVER, agentsHeaders } from '../../api'
+import { fetchRows, insertRows, deleteRow, patchWhere, postAgents, AGENTS_SERVER, agentsHeaders } from '../../api'
 import CollapsibleCard from '../CollapsibleCard'
 
 const PLATFORMS_TABS = [
@@ -9,6 +9,24 @@ const PLATFORMS_TABS = [
   { id: 'instagram', label: 'Instagram', color: 'var(--pink)' },
   { id: 'pinterest', label: 'Pinterest', color: '#e60023' },
 ]
+
+// Реальные значения accounts.status (см. deploy/01_schema_sot.sql CHECK constraint)
+const STATUS_META = {
+  new:           { label: 'Новый',       cls: 'badge-muted' },
+  warming:       { label: 'Прогрев',     cls: 'badge-amber' },
+  active:        { label: 'Активен',     cls: 'badge-green' },
+  shadow_banned: { label: 'Теневой бан', cls: 'badge-amber' },
+  hard_banned:   { label: 'Бан',         cls: 'badge-red' },
+  replaced:      { label: 'Заменён',     cls: 'badge-muted' },
+  paused:        { label: 'Пауза',       cls: 'badge-muted' },
+}
+
+// Общий срок прогрева A28: 7 дней для aged, 14 для new (см. warmup_manager.py)
+function warmupProgress(a) {
+  if (a.status !== 'warming' || !a.warming_day) return null
+  const total = a.account_type === 'aged' ? 7 : 14
+  return `День ${a.warming_day}/${total}` + (a.warming_phase ? ` · ${a.warming_phase}` : '')
+}
 
 const WARMUP_ROWS = [
   ['1',   'Скролль FYP 20–30 мин. Только просмотры.',             'Просмотр ленты, лайки (10–15). Без постов.'],
@@ -57,7 +75,7 @@ export default function Accounts() {
   const [fileImporting, setFileImporting] = useState(false)
 
   const load = async () => {
-    const rows = await fetchRows('accounts', 'select=id,platform,status,proxy,publer_profile_id,project_id,created_at&order=created_at.desc&limit=50')
+    const rows = await fetchRows('accounts', 'select=id,platform,status,proxy,publer_profile_id,project_id,account_type,warming_day,warming_phase,created_at&order=created_at.desc&limit=50')
     setAccounts(rows)
   }
   const loadProjects = async () => {
@@ -227,15 +245,40 @@ export default function Accounts() {
     setAssigning(false)
   }
 
+  function forgetAccountLocally(id) {
+    setAccounts(prev => prev.filter(a => a.id !== id))
+    setSelected(prev => { const next = new Set(prev); next.delete(id); return next })
+  }
+
   async function deleteAccount(id) {
     if (!window.confirm(`Удалить аккаунт «${id}»? Это действие необратимо.`)) return
     setDeletingId(id)
     try {
       await deleteRow('accounts', id)
-      setAccounts(prev => prev.filter(a => a.id !== id))
-      setSelected(prev => { const next = new Set(prev); next.delete(id); return next })
+      forgetAccountLocally(id)
     } catch (e) {
-      alert('Не удалось удалить (возможно, есть связанные видео/публикации): ' + e.message)
+      const isFkError = /23503|foreign key/i.test(e.message)
+      if (!isFkError) {
+        alert('Не удалось удалить: ' + e.message)
+        setDeletingId(null)
+        return
+      }
+      // Есть связанные записи — узнаём сколько и предлагаем удалить каскадом
+      try {
+        const check = await postAgents('/accounts/delete-cascade', { account_id: id, dry_run: true })
+        const c = check.counts || {}
+        const summary = `видео: ${c.videos ?? '?'}, контент-планов: ${c.content_plans ?? '?'}, публикаций: ${c.publications ?? '?'}`
+        const confirmed = window.confirm(
+          `У аккаунта «${id}» есть связанные записи (${summary}).\n` +
+          `Удалить аккаунт вместе со всем этим? Это необратимо.`
+        )
+        if (confirmed) {
+          await postAgents('/accounts/delete-cascade', { account_id: id, dry_run: false })
+          forgetAccountLocally(id)
+        }
+      } catch (e2) {
+        alert('Не удалось выполнить каскадное удаление: ' + e2.message)
+      }
     }
     setDeletingId(null)
   }
@@ -304,7 +347,7 @@ export default function Accounts() {
                         checked={visible.length > 0 && visible.every(a => selected.has(a.id))}
                         onChange={toggleSelectAllVisible} />
                     </th>
-                    <th>ID</th><th>Платформа</th><th>Проект</th><th>Статус</th><th>Прокси</th><th>Publer ID</th><th>Добавлен</th><th></th>
+                    <th>ID</th><th>Платформа</th><th>Проект</th><th>Статус</th><th>Прогрев</th><th>Прокси</th><th>Publer ID</th><th>Добавлен</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -323,10 +366,11 @@ export default function Accounts() {
                           : <span style={{ color:'var(--faint)' }}>—</span>}
                       </td>
                       <td>
-                        <span className={`badge ${a.status === 'warming_up' ? 'badge-amber' : a.status === 'ready' ? 'badge-green' : a.status === 'banned' ? 'badge-red' : 'badge-muted'}`}>
-                          {a.status}
+                        <span className={`badge ${STATUS_META[a.status]?.cls || 'badge-muted'}`}>
+                          {STATUS_META[a.status]?.label || a.status}
                         </span>
                       </td>
+                      <td style={{ fontSize:12, color:'var(--muted)' }}>{warmupProgress(a) || '—'}</td>
                       <td className="mono">{a.proxy || '—'}</td>
                       <td className="mono">{a.publer_profile_id || '—'}</td>
                       <td className="mono">{(a.created_at || '').slice(0,10)}</td>
