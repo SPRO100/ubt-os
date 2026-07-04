@@ -106,6 +106,31 @@ async def test_pipeline_no_accounts(env):
         assert result["status"] == "skipped"
 
 
+async def test_pipeline_arbitrary_vertical_passes_raw_string(env):
+    """Проект вне nutra/betting (напр. "tourism") должен пройти пайплайн так же —
+    creator.create() принимает вертикаль строкой (без Vertical(...)-обёртки)."""
+    with patch.object(vp, "AccountReader") as reader, \
+         patch.object(vp, "ContentCreator") as creator_cls, \
+         patch.object(vp, "ComplianceGate") as gate_cls, \
+         patch.object(vp, "ContentPlanWriter") as plan_w, \
+         patch.object(vp, "VideoWriter") as video_w, \
+         patch.object(vp, "HiggsFieldQueue") as queue_cls:
+        reader.get_active.return_value = [{"id": "tg_ru_001", "vertical": "tourism"}]
+        create = AsyncMock(return_value=_piece("Летим в Турцию всей семьёй"))
+        creator_cls.return_value.create = create
+        gate_cls.return_value.check = AsyncMock(return_value=_check())
+        plan_w.create.return_value = {"id": "plan-1"}
+        video_w.create.return_value = {"id": "video-1"}
+        queue_cls.return_value.enqueue = AsyncMock()
+
+        result = await vp.run_video_pipeline("tourism", geo="RU", offer="TezTour")
+
+        assert result["status"] == "ok"
+        assert result["created"] == 1
+        create.assert_awaited_once()
+        assert create.await_args.args[1] == "tourism"  # передан как str, не Vertical(...)
+
+
 async def test_pipeline_batch_rotates_formats(env):
     with patch.object(vp, "AccountReader") as reader, \
          patch.object(vp, "ContentCreator") as creator_cls, \
