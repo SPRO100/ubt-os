@@ -7,6 +7,19 @@ const VIDEO_STATUS_META = {
   queued:     { label: '⏳ В очереди',  color: 'var(--amber)' },
   generating: { label: '🎬 Генерация', color: 'var(--indigo)' },
   failed:     { label: '❌ Ошибка',    color: 'var(--red)' },
+  expired:    { label: '⌛ Истекло',   color: 'var(--faint)' },
+}
+
+// Копии живут 24ч (COPY_TTL_HOURS в video_uniqualizer.py) — показываем
+// оставшееся время или момент истечения как аудит-след.
+function expiryLabel(v) {
+  if (!v.expires_at) return null
+  const expires = new Date(v.expires_at)
+  if (v.status === 'expired') {
+    return `истекло ${expires.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+  }
+  const hoursLeft = Math.max(0, Math.round((expires - new Date()) / 3600000))
+  return `истекает через ${hoursLeft}ч`
 }
 
 const SB_HEADERS = {
@@ -91,6 +104,8 @@ export default function Projects({ onCreateTask }) {
   const [projVideos,   setProjVideos]   = useState([])
   const [uniqBusy,     setUniqBusy]     = useState(null)  // video_id в процессе уникализации
   const [uniqMsg,      setUniqMsg]      = useState('')
+  const [expanded,     setExpanded]     = useState(new Set())  // раскрытые оригиналы (id)
+  const [deletingVideoId, setDeletingVideoId] = useState(null)
   const [input,       setInput]       = useState('')
   const [sending,     setSending]     = useState(false)
   const [pendingTask, setPendingTask] = useState(null)
@@ -141,8 +156,34 @@ export default function Projects({ onCreateTask }) {
     setProjAccounts(accs)
     if (!accs.length) { setProjVideos([]); return }
     const ids = accs.map(a => `"${a.id}"`).join(',')
-    const vids = await fetchRows('videos', `select=id,status,storage_url,duration_sec,account_id,parent_video_id,created_at&account_id=in.(${ids})&order=created_at.desc&limit=100`)
+    const vids = await fetchRows('videos', `select=id,status,storage_url,duration_sec,account_id,parent_video_id,expires_at,created_at&account_id=in.(${ids})&order=created_at.desc&limit=200`)
     setProjVideos(vids)
+  }
+
+  function toggleExpanded(id) {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  async function deleteVideo(videoId) {
+    try {
+      const check = await postAgents('/video/delete', { video_id: videoId, dry_run: true })
+      if (check.error) { alert('Ошибка: ' + check.error); return }
+      const c = check.counts || {}
+      const extra = (c.copies || c.publications)
+        ? ` Вместе с ним удалятся: копий — ${c.copies || 0}, публикаций — ${c.publications || 0}.`
+        : ''
+      if (!window.confirm(`Удалить это видео?${extra} Действие необратимо.`)) return
+      setDeletingVideoId(videoId)
+      await postAgents('/video/delete', { video_id: videoId, dry_run: false })
+      if (current) await loadProjectMedia(current.id)
+    } catch (e) {
+      alert('Не удалось удалить видео: ' + e.message)
+    }
+    setDeletingVideoId(null)
   }
 
   async function openProject(p) {
@@ -536,42 +577,84 @@ export default function Projects({ onCreateTask }) {
                     У аккаунтов проекта пока нет видео. Запусти пайплайн (профиль <b>video</b>) —
                     ролики появятся здесь.
                   </div>
-                ) : (
-                  <table>
-                    <thead><tr><th>Видео</th><th>Аккаунт</th><th>Статус</th><th></th></tr></thead>
-                    <tbody>
-                      {projVideos.map(v => {
-                        const st = VIDEO_STATUS_META[v.status] || { label: v.status, color: 'var(--faint)' }
-                        const ready = v.status === 'ready' && v.storage_url
-                        const isCopy = !!v.parent_video_id
-                        const canUniqualize = ready && !isCopy && projAccounts.length > 1
+                ) : (() => {
+                  const originals = projVideos.filter(v => !v.parent_video_id)
+                  const copiesByParent = {}
+                  for (const v of projVideos) {
+                    if (v.parent_video_id) (copiesByParent[v.parent_video_id] ||= []).push(v)
+                  }
+                  return (
+                    <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                      {originals.map(orig => {
+                        const st = VIDEO_STATUS_META[orig.status] || { label: orig.status, color: 'var(--faint)' }
+                        const ready = orig.status === 'ready' && orig.storage_url
+                        const copies = copiesByParent[orig.id] || []
+                        const isOpen = expanded.has(orig.id)
+                        const canUniqualize = ready && projAccounts.length > 1
                         return (
-                          <tr key={v.id}>
-                            <td>
+                          <div key={orig.id} style={{ border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px',
+                              background:'var(--surface2)', flexWrap:'wrap' }}>
+                              <button onClick={() => copies.length > 0 && toggleExpanded(orig.id)}
+                                disabled={copies.length === 0}
+                                style={{ background:'none', border:'none', cursor: copies.length ? 'pointer' : 'default',
+                                  color:'var(--faint)', fontSize:11, width:16 }}>
+                                {copies.length > 0 ? (isOpen ? '▾' : '▸') : ' '}
+                              </button>
                               {ready
-                                ? <a href={v.storage_url} target="_blank" rel="noreferrer" style={{ color:'var(--indigo)' }}>
-                                    {isCopy ? '↳ копия' : 'открыть'} ↗
-                                  </a>
-                                : <span style={{ color:st.color }}>{st.label}</span>}
-                            </td>
-                            <td className="mono">{v.account_id || '—'}</td>
-                            <td><span className="badge" style={{ color:st.color, background:st.color+'1a' }}>{st.label}</span></td>
-                            <td>
+                                ? <a href={orig.storage_url} target="_blank" rel="noreferrer" style={{ color:'var(--indigo)', fontSize:12 }}>открыть ↗</a>
+                                : <span style={{ color:st.color, fontSize:12 }}>{st.label}</span>}
+                              <span className="mono" style={{ fontSize:11, color:'var(--faint)' }}>{orig.account_id}</span>
+                              <span className="badge" style={{ color:st.color, background:st.color+'1a', fontSize:10 }}>{st.label}</span>
+                              {copies.length > 0 && (
+                                <span className="badge badge-muted" style={{ fontSize:10 }}>{copies.length} копий</span>
+                              )}
+                              <div style={{ flex:1 }} />
                               {canUniqualize && (
-                                <button onClick={() => runUniqualize(v.id)} disabled={uniqBusy === v.id}
+                                <button onClick={() => runUniqualize(orig.id)} disabled={uniqBusy === orig.id}
                                   style={{ fontSize:11, padding:'4px 10px', borderRadius:6, cursor:'pointer',
                                     background:'var(--indigo)', color:'#fff', border:'none', fontWeight:600,
-                                    opacity: uniqBusy === v.id ? .5 : 1, whiteSpace:'nowrap' }}>
-                                  {uniqBusy === v.id ? '⏳ Уникализирую…' : '🧬 На все аккаунты'}
+                                    opacity: uniqBusy === orig.id ? .5 : 1, whiteSpace:'nowrap' }}>
+                                  {uniqBusy === orig.id ? '⏳ Уникализирую…' : '🧬 На все аккаунты'}
                                 </button>
                               )}
-                            </td>
-                          </tr>
+                              <button onClick={() => deleteVideo(orig.id)} disabled={deletingVideoId === orig.id}
+                                title="Удалить видео вместе со всеми копиями"
+                                style={{ fontSize:11, padding:'4px 8px', borderRadius:6, cursor:'pointer',
+                                  background:'transparent', border:'1px solid var(--border)', color:'var(--red)',
+                                  opacity: deletingVideoId === orig.id ? .5 : 1 }}>
+                                {deletingVideoId === orig.id ? '…' : '🗑'}
+                              </button>
+                            </div>
+                            {isOpen && copies.length > 0 && (
+                              <table style={{ margin:0 }}>
+                                <thead><tr><th>Копия</th><th>Аккаунт</th><th>Статус</th><th>Срок</th></tr></thead>
+                                <tbody>
+                                  {copies.map(c => {
+                                    const cst = VIDEO_STATUS_META[c.status] || { label: c.status, color: 'var(--faint)' }
+                                    const cReady = c.status === 'ready' && c.storage_url
+                                    return (
+                                      <tr key={c.id}>
+                                        <td>
+                                          {cReady
+                                            ? <a href={c.storage_url} target="_blank" rel="noreferrer" style={{ color:'var(--indigo)' }}>↳ открыть ↗</a>
+                                            : <span style={{ color:cst.color }}>↳ {cst.label}</span>}
+                                        </td>
+                                        <td className="mono">{c.account_id}</td>
+                                        <td><span className="badge" style={{ color:cst.color, background:cst.color+'1a', fontSize:10 }}>{cst.label}</span></td>
+                                        <td style={{ fontSize:11, color:'var(--faint)' }}>{expiryLabel(c) || '—'}</td>
+                                      </tr>
+                                    )
+                                  })}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
                         )
                       })}
-                    </tbody>
-                  </table>
-                )}
+                    </div>
+                  )
+                })()}
               </>
             )}
           </CollapsibleCard>

@@ -188,25 +188,41 @@ because copies don't get their own content plan, and `videos.parent_video_id`
 points a copy back at its source.
 
 **Own storage, not the provider's temp CDN:** `ubt_os/core/media_storage.py`
-(`upload_video(source, folder, filename)`) is the single point that uploads
-into Supabase Storage (`MEDIA_BUCKET`, direct object-upload endpoint — both
-`Authorization` and `apikey` headers required for `sb_secret_*` keys).
-`HiggsFieldWorker._save_result` calls it right after generation to move the
-Higgsfield/fal/Pexels temp URL into `projects/{project_id}/{account_id}/…`
-before writing `videos.storage_url` — so clips don't expire and don't end up
-in one undifferentiated pile.
+(`upload_video(source, folder, filename)` / `delete_video(storage_url)`) is the
+single point that uploads into and removes from Supabase Storage (`MEDIA_BUCKET`,
+direct object-upload endpoint — both `Authorization` and `apikey` headers
+required for `sb_secret_*` keys; delete uses the bulk-remove endpoint
+`DELETE /object/{bucket}` with `{"prefixes": [path]}`). `HiggsFieldWorker._save_result`
+calls `upload_video` right after generation to move the Higgsfield/fal/Pexels
+temp URL into `projects/{project_id}/{account_id}/original/…` before writing
+`videos.storage_url` — so clips don't expire and don't end up in one
+undifferentiated pile.
 
 **Uniqualizer** (`ubt_os/pipelines/video_uniqualizer.py`, `POST
 /video/uniqualize {"video_id": "..."}`): takes one ready video, resolves its
-account's project, and for every *other* active account in that project
-produces a separate re-encoded copy (light ffmpeg jitter — speed ±3%, 1–4%
-zoom-crop, brightness/contrast wobble, 50% mirror flip, stripped metadata) so
-platforms don't flag them as duplicate content. Each copy is a new `videos`
-row (`account_id` = target, `parent_video_id` = source, own Storage path).
-Requires `ffmpeg` on the host; best-effort per account (one failure doesn't
-block the rest). **Publishing stays a separate manual step** — this endpoint
-only prepares per-account files, same principle as the rest of UBT OS (user is
-the final decision-maker).
+account's project, and for every *other* active account in that project **that
+doesn't already have a live copy of this original** (dedup — no repeat clicks
+piling up duplicates) produces a separate re-encoded copy (light ffmpeg jitter
+— speed ±3%, 1–4% zoom-crop, brightness/contrast wobble, 50% mirror flip,
+stripped metadata) so platforms don't flag them as duplicate content. Each
+copy is a new `videos` row (`account_id` = target, `parent_video_id` = source,
+storage path `.../{account_id}/copies/…`, `expires_at` = now + 24h). Requires
+`ffmpeg` on the host; best-effort per account (one failure doesn't block the
+rest). **Publishing stays a separate manual step** — this endpoint only
+prepares per-account files, same principle as the rest of UBT OS (user is the
+final decision-maker).
+
+**Copy lifecycle (24h TTL) + cascade delete:** copies are cheap to regenerate,
+so they don't live forever — `cleanup_expired_copies()` (`POST
+/video/cleanup-expired`, hourly n8n cron `n8n/workflows/video-cleanup.json`)
+finds copies past `expires_at`, deletes the Storage file, and sets
+`status='expired', storage_url=NULL` — the row itself stays as an audit trail
+("this account had a copy of original X, created at Y"). Originals never
+expire. `delete_video_cascade()` (`POST /video/delete {"video_id", "dry_run"}`)
+lets you delete a video you're not happy with — `dry_run=true` (default) just
+counts affected copies/publications so the dashboard can show a real number
+before the user confirms; `dry_run=false` deletes the whole branch (all its
+copies + every affected `publications` row + the Storage files) in one shot.
 
 ### Post analytics (`post_analytics_agent.py`, `deploy/06_patch_post_metrics.sql`)
 
@@ -273,6 +289,9 @@ LiteLLM spend before each call. Global daily cap via `LITELLM_DAILY_BUDGET`
 | POST | `/analytics/sync` | A36 sync native post metrics (impressions/reach/likes/comments/shares) |
 | POST | `/video/stock` | Free stock video pipeline (Pexels + edge-tts + ffmpeg) |
 | POST | `/video/uniqualize` | Uniqualize a ready video onto every other account in its project |
+| POST | `/video/cleanup-expired` | Delete Storage files for copies past `expires_at`, mark them `expired` |
+| POST | `/video/delete` | Delete a video + its whole copy branch (`dry_run` counts first) |
+| POST | `/accounts/delete-cascade` | Delete an account + its content_plans/videos/publications (`dry_run` counts first) |
 | POST | `/knowledge/kb` | Structured KB search by taxonomy |
 | POST | `/accounts/parse-file` | Parse account files (txt/csv/zip) into records |
 | POST | `/system/emergency-pause` | Pause all active accounts (n8n health-monitor) |
@@ -328,10 +347,12 @@ columns (`device_type`, `proxy_type`, `has_local_sim`, `bio_link_enabled`,
 survives container rebuilds. `_PROTECTED_STATUSES`
 (`shadow_banned`/`hard_banned`/`replaced`/`paused`) in `warmup_manager.py`
 guard against a routine warmup check overwriting another agent's ban/pause
-decision. `11_patch_video_uniqualizer.sql` (also part of `make db-init`, 17
-steps total) adds `accounts.project_id` and `videos.account_id` /
-`videos.parent_video_id` (and drops the `NOT NULL` on
+decision. `11_patch_video_uniqualizer.sql` adds `accounts.project_id` and
+`videos.account_id` / `videos.parent_video_id` (and drops the `NOT NULL` on
 `videos.content_plan_id`) — see "Video storage + uniqualizer" above.
+`12_patch_video_lifecycle.sql` (also part of `make db-init`, 18 steps total)
+adds `videos.expires_at` and the `'expired'` value to `videos.status` — the
+24h copy TTL described above.
 
 ### Knowledge base — `kb_entries` (versioned, `08_patch_kb_entries.sql`)
 
@@ -380,8 +401,9 @@ pytest tests/test_circuit_breaker.py -v       # circuit breaker state transition
 pytest tests/test_vault_path.py -v            # path traversal protection
 pytest tests/test_warmup_manager.py -v        # A28 Supabase-backed warmup state
 pytest tests/test_knowledge_synthesizer.py -v # A18 writes into kb_entries
-pytest tests/test_video_uniqualizer.py -v     # per-project uniqualize + jitter bounds
-pytest tests/test_media_storage.py -v         # Supabase Storage folder path building
+pytest tests/test_video_uniqualizer.py -v     # uniqualize dedup, cleanup TTL, cascade delete
+pytest tests/test_media_storage.py -v         # Supabase Storage upload/delete path building
+pytest tests/test_account_cleanup.py -v       # cascade-delete account + dependents
 ```
 
 Use `monkeypatch.setenv(...)` for env-dependent tests; don't hit real services

@@ -476,7 +476,7 @@ class HiggsFieldWorker:
 
         account = AccountReader.get_by_id(job.account_id)
         project = (account or {}).get("project_id") or "unassigned"
-        folder = f"projects/{project}/{job.account_id}"
+        folder = f"projects/{project}/{job.account_id}/original"
         try:
             storage_url = await upload_video(provider_url, folder=folder)
         except Exception as e:
