@@ -3,12 +3,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from ubt_os.core.media_storage import upload_video
+from ubt_os.core.media_storage import delete_video, upload_video
 
 
 def _mock_async_client(post_return=None):
     client = AsyncMock()
     client.post.return_value = post_return or MagicMock(raise_for_status=MagicMock())
+    client.request.return_value = MagicMock(raise_for_status=MagicMock())
     cm = MagicMock()
     cm.__aenter__ = AsyncMock(return_value=client)
     cm.__aexit__ = AsyncMock(return_value=False)
@@ -55,3 +56,40 @@ async def test_upload_video_from_url_downloads_first(monkeypatch):
 
     client.get.assert_called_once()
     assert client.post.call_args.kwargs["content"] == b"downloaded"
+
+
+@pytest.mark.asyncio
+async def test_delete_video_parses_bucket_and_path(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "secret")
+    cm, client = _mock_async_client()
+
+    with patch("ubt_os.core.media_storage.httpx.AsyncClient", return_value=cm):
+        ok = await delete_video("https://example.supabase.co/storage/v1/object/public/media/projects/p1/acc1/clip.mp4")
+
+    assert ok is True
+    args, kwargs = client.request.call_args
+    assert args[0] == "DELETE"
+    assert args[1] == "https://example.supabase.co/storage/v1/object/media"
+    assert kwargs["json"] == {"prefixes": ["projects/p1/acc1/clip.mp4"]}
+
+
+@pytest.mark.asyncio
+async def test_delete_video_returns_false_for_foreign_url(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "secret")
+    ok = await delete_video("https://cdn.other.com/video.mp4")
+    assert ok is False
+
+
+@pytest.mark.asyncio
+async def test_delete_video_swallows_http_errors(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "secret")
+    cm, client = _mock_async_client()
+    client.request.side_effect = RuntimeError("boom")
+
+    with patch("ubt_os.core.media_storage.httpx.AsyncClient", return_value=cm):
+        ok = await delete_video("https://example.supabase.co/storage/v1/object/public/media/projects/p1/acc1/clip.mp4")
+
+    assert ok is False

@@ -31,41 +31,43 @@ db-init:
 	@if [ -z "$(DATABASE_URL)" ]; then \
 		export $$(cat .env | xargs); \
 	fi
-	@echo "  [1/17] 01_schema_sot.sql"
+	@echo "  [1/18] 01_schema_sot.sql"
 	psql $${DATABASE_URL} -f deploy/01_schema_sot.sql
-	@echo "  [2/17] strategy_schema.sql"
+	@echo "  [2/18] strategy_schema.sql"
 	psql $${DATABASE_URL} -f deploy/strategy_schema.sql
-	@echo "  [3/17] revenue_schema.sql"
+	@echo "  [3/18] revenue_schema.sql"
 	psql $${DATABASE_URL} -f deploy/revenue_schema.sql
-	@echo "  [4/17] risk_schema.sql"
+	@echo "  [4/18] risk_schema.sql"
 	psql $${DATABASE_URL} -f deploy/risk_schema.sql
-	@echo "  [5/17] vertical_schema.sql"
+	@echo "  [5/18] vertical_schema.sql"
 	psql $${DATABASE_URL} -f deploy/vertical_schema.sql
-	@echo "  [6/17] creative_vault_schema.sql"
+	@echo "  [6/18] creative_vault_schema.sql"
 	psql $${DATABASE_URL} -f deploy/creative_vault_schema.sql
-	@echo "  [7/17] recovery_schema.sql"
+	@echo "  [7/18] recovery_schema.sql"
 	psql $${DATABASE_URL} -f deploy/recovery_schema.sql
-	@echo "  [8/17] 02_patch_missing_tables.sql"
+	@echo "  [8/18] 02_patch_missing_tables.sql"
 	psql $${DATABASE_URL} -f deploy/02_patch_missing_tables.sql
-	@echo "  [9/17] 03_patch_knowledge_entries.sql"
+	@echo "  [9/18] 03_patch_knowledge_entries.sql"
 	psql $${DATABASE_URL} -f deploy/03_patch_knowledge_entries.sql
-	@echo "  [10/17] 04_patch_competitor_patterns.sql"
+	@echo "  [10/18] 04_patch_competitor_patterns.sql"
 	psql $${DATABASE_URL} -f deploy/04_patch_competitor_patterns.sql
-	@echo "  [11/17] 05_patch_projects_chat.sql  ← chat_messages + vertical_id"
+	@echo "  [11/18] 05_patch_projects_chat.sql  ← chat_messages + vertical_id"
 	psql $${DATABASE_URL} -f deploy/05_patch_projects_chat.sql
-	@echo "  [12/17] dohoo_features_schema.sql  ← hook_templates, transcriptions, direct_publish_*"
+	@echo "  [12/18] dohoo_features_schema.sql  ← hook_templates, transcriptions, direct_publish_*"
 	psql $${DATABASE_URL} -f deploy/dohoo_features_schema.sql
-	@echo "  [13/17] 06_patch_accounts_align.sql  ← id TEXT + facebook/pinterest + publer/proxy колонки"
+	@echo "  [13/18] 06_patch_accounts_align.sql  ← id TEXT + facebook/pinterest + publer/proxy колонки"
 	psql $${DATABASE_URL} -f deploy/06_patch_accounts_align.sql
-	@echo "  [14/17] 07_patch_post_metrics.sql  ← post_metrics, нативная аналитика по постам"
+	@echo "  [14/18] 07_patch_post_metrics.sql  ← post_metrics, нативная аналитика по постам"
 	psql $${DATABASE_URL} -f deploy/07_patch_post_metrics.sql
-	@echo "  [15/17] 08_patch_kb_entries.sql  ← kb_entries, версионируемая база знаний (таксономия)"
+	@echo "  [15/18] 08_patch_kb_entries.sql  ← kb_entries, версионируемая база знаний (таксономия)"
 	psql $${DATABASE_URL} -f deploy/08_patch_kb_entries.sql
-	@echo "  [16/17] 10_patch_warmup_accounts.sql  ← A28 warmup_manager: поля инфраструктуры на accounts"
+	@echo "  [16/18] 10_patch_warmup_accounts.sql  ← A28 warmup_manager: поля инфраструктуры на accounts"
 	psql $${DATABASE_URL} -f deploy/10_patch_warmup_accounts.sql
-	@echo "  [17/17] 11_patch_video_uniqualizer.sql  ← accounts.project_id, videos.account_id/parent_video_id"
+	@echo "  [17/18] 11_patch_video_uniqualizer.sql  ← accounts.project_id, videos.account_id/parent_video_id"
 	psql $${DATABASE_URL} -f deploy/11_patch_video_uniqualizer.sql
-	@echo "✅ Все 17 схем применены"
+	@echo "  [18/18] 12_patch_video_lifecycle.sql  ← videos.expires_at, status 'expired' (24ч жизнь копий)"
+	psql $${DATABASE_URL} -f deploy/12_patch_video_lifecycle.sql
+	@echo "✅ Все 18 схем применены"
 
 apply-schema:
 	psql $${DATABASE_URL} -f $(SCHEMA)

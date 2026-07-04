@@ -331,6 +331,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
             "/video/stock":           self._run_video_stock,
             # Уникализация готового видео на все аккаунты того же проекта
             "/video/uniqualize":      self._run_video_uniqualize,
+            "/video/cleanup-expired": self._run_video_cleanup_expired,
+            "/video/delete":          self._run_video_delete,
             # Структурированная база знаний по таксономии
             "/knowledge/kb":          self._run_kb_search,
             # Парсинг файлов аккаунтов (txt/csv/zip → список записей)
@@ -1080,6 +1082,21 @@ class WebhookHandler(BaseHTTPRequestHandler):
         if not video_id:
             return {"error": "video_id обязателен"}
         return await uniqualize_video(video_id)
+
+    async def _run_video_cleanup_expired(self, body: dict) -> dict:
+        """Чистит уникализированные копии с истёкшим expires_at (почасовой n8n-крон)."""
+        from ubt_os.pipelines.video_uniqualizer import cleanup_expired_copies
+        return await cleanup_expired_copies(limit=int(body.get("limit", 200)))
+
+    async def _run_video_delete(self, body: dict) -> dict:
+        """Удаляет видео вместе со всей веткой его уникализированных копий.
+        dry_run=true (по умолчанию) только считает связанные записи."""
+        from ubt_os.pipelines.video_uniqualizer import delete_video_cascade
+        video_id = body.get("video_id", "")
+        if not video_id:
+            return {"error": "video_id обязателен"}
+        dry_run = bool(body.get("dry_run", True))
+        return await delete_video_cascade(video_id, dry_run=dry_run)
 
     async def _run_kb_search(self, body: dict):
         """Поиск по структурированной базе знаний kb_entries (таксономия)."""

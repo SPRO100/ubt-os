@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { countOf, fetchRows } from '../../api'
+import { countOf, fetchRows, postAgents } from '../../api'
 import CollapsibleCard from '../CollapsibleCard'
 
 const STATUS_META = {
@@ -25,8 +25,17 @@ export default function Content() {
   const [videos, setVideos]   = useState(0)
   const [clips, setClips]     = useState([])
   const [plans, setPlans]     = useState({})
+  const [accounts, setAccounts] = useState([])
+  const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [openClip, setOpenClip] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
+
+  // фильтры галереи
+  const [fProject,  setFProject]  = useState('')
+  const [fAccount,  setFAccount]  = useState('')
+  const [fPlatform, setFPlatform] = useState('')
+  const [fStatus,   setFStatus]   = useState('')
 
   useEffect(() => {
     if (!openClip) return
@@ -37,18 +46,55 @@ export default function Content() {
 
   async function loadGallery() {
     setLoading(true)
-    const [count, vids, planRows] = await Promise.all([
-      countOf('videos'),
-      fetchRows('videos', 'select=id,status,storage_url,duration_sec,created_at,content_plan_id&order=created_at.desc&limit=60'),
+    // Только оригиналы (parent_video_id IS NULL) — копии видны в карточке проекта,
+    // чтобы уникализация не забивала общую галерею дублями.
+    const [count, vids, planRows, accRows, projRows] = await Promise.all([
+      countOf('videos', '&parent_video_id=is.null'),
+      fetchRows('videos', 'select=id,status,storage_url,duration_sec,created_at,content_plan_id,account_id&parent_video_id=is.null&order=created_at.desc&limit=60'),
       fetchRows('content_plans', 'select=id,title,vertical,format&order=created_at.desc&limit=200'),
+      fetchRows('accounts', 'select=id,platform,project_id'),
+      fetchRows('vertical_configs', 'select=id,name&order=name.asc'),
     ])
     setVideos(count)
     setClips(vids || [])
     setPlans(Object.fromEntries((planRows || []).map(p => [p.id, p])))
+    setAccounts(accRows || [])
+    setProjects(projRows || [])
     setLoading(false)
   }
 
   useEffect(() => { loadGallery() }, [])
+
+  const accountsById = Object.fromEntries(accounts.map(a => [a.id, a]))
+  const accountOptions = fProject ? accounts.filter(a => a.project_id === fProject) : accounts
+
+  const filteredClips = clips.filter(v => {
+    const acc = accountsById[v.account_id]
+    if (fProject && acc?.project_id !== fProject) return false
+    if (fAccount && v.account_id !== fAccount) return false
+    if (fPlatform && acc?.platform !== fPlatform) return false
+    if (fStatus && v.status !== fStatus) return false
+    return true
+  })
+
+  async function deleteVideo(id) {
+    try {
+      const check = await postAgents('/video/delete', { video_id: id, dry_run: true })
+      if (check.error) { alert('Ошибка: ' + check.error); return }
+      const c = check.counts || {}
+      const extra = (c.copies || c.publications)
+        ? ` Вместе с ним удалятся: копий — ${c.copies || 0}, публикаций — ${c.publications || 0}.`
+        : ''
+      if (!window.confirm(`Удалить это видео?${extra} Действие необратимо.`)) return
+      setDeletingId(id)
+      await postAgents('/video/delete', { video_id: id, dry_run: false })
+      setClips(prev => prev.filter(v => v.id !== id))
+      if (openClip?.id === id) setOpenClip(null)
+    } catch (e) {
+      alert('Не удалось удалить видео: ' + e.message)
+    }
+    setDeletingId(null)
+  }
 
   return (
     <>
@@ -63,13 +109,44 @@ export default function Content() {
         </div>
       </div>
 
-      <CollapsibleCard title="🎞 Галерея видео" count={clips.length} defaultOpen
+      <CollapsibleCard title="🎞 Галерея видео (оригиналы)" count={filteredClips.length} defaultOpen
         headerRight={
           <button onClick={loadGallery} disabled={loading}
             style={{ fontSize:11, padding:'3px 10px', borderRadius:6, background:'var(--surface2)',
               border:'1px solid var(--border)', color:'var(--muted)', cursor:'pointer' }}>
             ↻ Обновить
           </button>}>
+        {!loading && clips.length > 0 && (
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
+            <select className="form-control" style={{ fontSize:12, maxWidth:160 }}
+              value={fProject} onChange={e => { setFProject(e.target.value); setFAccount('') }}>
+              <option value="">— все проекты —</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <select className="form-control" style={{ fontSize:12, maxWidth:160 }}
+              value={fAccount} onChange={e => setFAccount(e.target.value)}>
+              <option value="">— все аккаунты —</option>
+              {accountOptions.map(a => <option key={a.id} value={a.id}>{a.id}</option>)}
+            </select>
+            <select className="form-control" style={{ fontSize:12, maxWidth:140 }}
+              value={fPlatform} onChange={e => setFPlatform(e.target.value)}>
+              <option value="">— все платформы —</option>
+              {['tiktok','facebook','instagram','pinterest'].map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <select className="form-control" style={{ fontSize:12, maxWidth:140 }}
+              value={fStatus} onChange={e => setFStatus(e.target.value)}>
+              <option value="">— все статусы —</option>
+              {Object.keys(STATUS_META).map(s => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
+            </select>
+            {(fProject || fAccount || fPlatform || fStatus) && (
+              <button onClick={() => { setFProject(''); setFAccount(''); setFPlatform(''); setFStatus('') }}
+                style={{ fontSize:12, padding:'4px 10px', borderRadius:6, cursor:'pointer',
+                  background:'transparent', border:'1px solid var(--border)', color:'var(--faint)' }}>
+                ✕ Сбросить фильтры
+              </button>
+            )}
+          </div>
+        )}
         {loading && <div className="note-box">Загрузка…</div>}
         {!loading && clips.length === 0 && (
           <div className="note-box">
@@ -77,9 +154,12 @@ export default function Content() {
             оркестратора) — готовые ролики появятся здесь из таблицы <code>videos</code>.
           </div>
         )}
-        {!loading && clips.length > 0 && (
+        {!loading && clips.length > 0 && filteredClips.length === 0 && (
+          <div className="note-box">Ничего не найдено по этим фильтрам.</div>
+        )}
+        {!loading && filteredClips.length > 0 && (
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(110px,1fr))', gap:8 }}>
-            {clips.map(v => {
+            {filteredClips.map(v => {
               const plan = plans[v.content_plan_id] || {}
               const st = STATUS_META[v.status] || { label: v.status, color: 'var(--faint)' }
               const ready = v.status === 'ready' && v.storage_url
@@ -149,6 +229,12 @@ export default function Content() {
                     <> · <a href={openClip.storage_url} target="_blank" rel="noreferrer" style={{ color:'var(--indigo)' }}>открыть в новой вкладке ↗</a></>
                   )}
                 </div>
+                <button onClick={() => deleteVideo(openClip.id)} disabled={deletingId === openClip.id}
+                  style={{ marginTop:10, fontSize:12, padding:'5px 12px', borderRadius:6, cursor:'pointer',
+                    background:'transparent', border:'1px solid var(--border)', color:'var(--red)',
+                    opacity: deletingId === openClip.id ? .5 : 1 }}>
+                  {deletingId === openClip.id ? '⏳ Удаляю…' : '🗑 Удалить видео (и все его копии)'}
+                </button>
               </div>
               <button onClick={() => setOpenClip(null)}
                 style={{ position:'absolute', top:10, right:10, width:28, height:28, borderRadius:'50%',

@@ -1,0 +1,155 @@
+{
+  "name": "video-cleanup",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Cron 1h",
+      "type": "n8n-nodes-base.cron",
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "lock",
+      "name": "FIX#3 — Lock",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const KEY   = 'pipeline_lock:video-cleanup';\nconst TOKEN = `cleanup-${Date.now()}`;\nconst ok    = await $redis.set(KEY, TOKEN, 'EX', 300, 'NX');\nif (!ok) return [{ json: { status: 'skipped' } }];\n$execution.customData.set('lk', KEY);\n$execution.customData.set('lt', TOKEN);\nreturn [{ json: { status: 'acquired' } }];"
+      }
+    },
+    {
+      "id": "gate",
+      "name": "IF acquired",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "value2": "acquired",
+              "operation": "equal"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "run",
+      "name": "Очистить истёкшие копии",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        880,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AGENTS_WEBHOOK }}/video/cleanup-expired",
+        "options": {
+          "timeout": 120000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.AGENTS_API_TOKEN }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "release",
+      "name": "Release Lock",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1100,
+        200
+      ],
+      "parameters": {
+        "jsCode": "const k = $execution.customData.get('lk');\nconst t = $execution.customData.get('lt');\nif (k && t) { const lua=`if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end`; await $redis.eval(lua,1,k,t); }\nreturn [{ json: { done: true } }];"
+      }
+    },
+    {
+      "id": "skip",
+      "name": "Skip",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        880,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "Cron 1h": {
+      "main": [
+        [
+          {
+            "node": "FIX#3 — Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FIX#3 — Lock": {
+      "main": [
+        [
+          {
+            "node": "IF acquired",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF acquired": {
+      "main": [
+        [
+          {
+            "node": "Skip",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Очистить истёкшие копии",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Очистить истёкшие копии": {
+      "main": [
+        [
+          {
+            "node": "Release Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

@@ -9,7 +9,13 @@
 остаётся отдельным ручным шагом (принцип UBT OS: пользователь — финальное
 решение).
 
+Копии живут 24 часа (COPY_TTL_HOURS) — cleanup_expired_copies() чистит
+просроченные по расписанию, оставляя строку как аудит-след. Повторный вызов
+uniqualize_video на тот же оригинал пропускает аккаунты, у которых уже есть
+живая копия — дублей не плодит.
+
 Запуск: POST /video/uniqualize {"video_id": "..."}
+       POST /video/cleanup-expired  (почасовой n8n-крон)
 """
 from __future__ import annotations
 
@@ -20,9 +26,10 @@ import shutil
 import subprocess  # nosec B404 — вызываем только фиксированный ffmpeg, без shell
 import tempfile
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from ubt_os.core.agent_api_layer import AccountReader, VideoReader, get_db
-from ubt_os.core.media_storage import upload_video
+from ubt_os.core.media_storage import delete_video, upload_video
 from ubt_os.utils.supabase_utils import one_row, rows
 
 logger = logging.getLogger("ubt_os.video_uniqualizer")
@@ -35,6 +42,10 @@ BRIGHTNESS_RANGE = (-0.03, 0.03)
 CONTRAST_RANGE = (0.96, 1.04)
 FLIP_CHANCE    = 0.5
 
+# Уникализированные копии живут ограниченное время — дёшево перегенерировать
+# из оригинала, не нужно хранить вечно и захламлять галерею/Storage.
+COPY_TTL_HOURS = 24
+
 
 def _accounts_in_project(project_id: str, exclude_account_id: str | None) -> list[dict]:
     """Другие активные аккаунты того же проекта — цели уникализации."""
@@ -44,6 +55,16 @@ def _accounts_in_project(project_id: str, exclude_account_id: str | None) -> lis
     if exclude_account_id:
         accounts = [a for a in accounts if str(a.get("id")) != str(exclude_account_id)]
     return accounts
+
+
+def _accounts_with_live_copy(video_id: str) -> set[str]:
+    """Аккаунты, у которых уже есть неистёкшая копия этого оригинала —
+    чтобы не плодить дубли одного и того же видео при повторном клике."""
+    existing = rows(
+        get_db().table("videos").select("account_id")
+        .eq("parent_video_id", video_id).eq("status", "ready").execute()
+    )
+    return {str(r["account_id"]) for r in existing if r.get("account_id")}
 
 
 def jitter_params() -> dict:
@@ -108,8 +129,13 @@ async def uniqualize_video(video_id: str) -> dict:
         return {"error": "в проекте нет других активных аккаунтов для уникализации",
                  "project_id": project_id}
 
+    have_copy = _accounts_with_live_copy(video_id)
+    skipped = [str(a["id"]) for a in targets if str(a["id"]) in have_copy]
+    targets = [a for a in targets if str(a["id"]) not in have_copy]
+
     created: list[dict] = []
     errors: list[dict] = []
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=COPY_TTL_HOURS)).isoformat()
     with tempfile.TemporaryDirectory() as td:
         for acc in targets:
             acc_id = acc["id"]
@@ -118,7 +144,7 @@ async def uniqualize_video(video_id: str) -> dict:
                 _run_ffmpeg_variant(src["storage_url"], out_path, jitter_params())
                 with open(out_path, "rb") as f:
                     content = f.read()
-                folder = f"projects/{project_id}/{acc_id}"
+                folder = f"projects/{project_id}/{acc_id}/copies"
                 storage_url = await upload_video(content, folder=folder)
                 row = one_row(get_db().table("videos").insert({
                     "account_id": str(acc_id),
@@ -126,15 +152,91 @@ async def uniqualize_video(video_id: str) -> dict:
                     "storage_url": storage_url,
                     "duration_sec": src.get("duration_sec"),
                     "status": "ready",
+                    "expires_at": expires_at,
                 }).execute())
                 created.append({"account_id": acc_id, "video_id": row["id"], "storage_url": storage_url})
             except Exception as e:
                 logger.warning("uniqualize(%s): аккаунт %s — ошибка: %s", video_id, acc_id, e)
                 errors.append({"account_id": acc_id, "error": str(e)})
 
-    logger.info("uniqualize(%s): создано %d, ошибок %d", video_id, len(created), len(errors))
+    logger.info("uniqualize(%s): создано %d, пропущено (уже есть копия) %d, ошибок %d",
+                video_id, len(created), len(skipped), len(errors))
     return {
-        "status": "ok" if created else "failed",
+        "status": "ok" if created else ("skipped" if skipped and not errors else "failed"),
         "source_video_id": video_id, "project_id": project_id,
-        "created": created, "errors": errors,
+        "created": created, "skipped": skipped, "errors": errors,
     }
+
+
+async def cleanup_expired_copies(limit: int = 200) -> dict:
+    """
+    Находит уникализированные копии с истёкшим expires_at, удаляет файл из
+    Storage и помечает строку status='expired' (storage_url=NULL) — это и
+    есть аудит-след: "у аккаунта была копия оригинала X, создана тогда-то".
+    Оригиналы (parent_video_id IS NULL, expires_at IS NULL) не трогает.
+
+    Запуск: POST /video/cleanup-expired (почасовой n8n-крон).
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    expired = rows(
+        get_db().table("videos").select("id,storage_url")
+        .eq("status", "ready")
+        .lt("expires_at", now)
+        .limit(limit)
+        .execute()
+    )
+
+    cleaned, failed = 0, 0
+    for v in expired:
+        video_id = v["id"]
+        storage_url = v.get("storage_url")
+        ok = await delete_video(storage_url) if storage_url else True
+        if not ok:
+            failed += 1
+            logger.warning("cleanup_expired_copies: не удалось удалить файл %s", video_id)
+            continue
+        get_db().table("videos").update({
+            "status": "expired", "storage_url": None,
+        }).eq("id", video_id).execute()
+        cleaned += 1
+
+    if expired:
+        logger.info("cleanup_expired_copies: очищено %d, ошибок %d", cleaned, failed)
+    return {"status": "ok", "checked": len(expired), "cleaned": cleaned, "failed": failed}
+
+
+async def delete_video_cascade(video_id: str, dry_run: bool = True) -> dict:
+    """
+    Удаляет видео вместе со всей веткой его уникализированных копий
+    (videos где parent_video_id = video_id) — если оригинал не устраивает,
+    вся ветка дублей уходит вместе с ним. dry_run=true только считает.
+    """
+    video = VideoReader.get_by_id(video_id)
+    if not video:
+        return {"error": f"видео {video_id} не найдено"}
+
+    copies = rows(get_db().table("videos").select("id,storage_url")
+                  .eq("parent_video_id", video_id).execute())
+    copy_ids = [c["id"] for c in copies]
+    all_ids = [video_id] + copy_ids
+
+    pub_ids = [p["id"] for p in rows(
+        get_db().table("publications").select("id").in_("video_id", all_ids).execute()
+    )]
+
+    counts = {"copies": len(copy_ids), "publications": len(pub_ids)}
+    if dry_run:
+        return {"status": "dry_run", "video_id": video_id, "counts": counts}
+
+    if pub_ids:
+        get_db().table("publications").delete().in_("id", pub_ids).execute()
+
+    for url in [video.get("storage_url"), *[c.get("storage_url") for c in copies]]:
+        if url:
+            await delete_video(url)
+
+    get_db().table("videos").delete().in_("id", all_ids).execute()
+
+    logger.info("delete_video_cascade(%s): удалено копий %d, публикаций %d",
+                video_id, len(copy_ids), len(pub_ids))
+    return {"status": "deleted", "video_id": video_id, "counts": counts}

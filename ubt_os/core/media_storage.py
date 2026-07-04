@@ -52,3 +52,36 @@ async def upload_video(source: bytes | str, folder: str, filename: str | None = 
     public_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{path}"
     logger.info("media_storage: %s → %s", folder, public_url)
     return public_url
+
+
+async def delete_video(storage_url: str) -> bool:
+    """
+    Удаляет объект из Supabase Storage по его публичному URL (тот, что вернул
+    upload_video). Best-effort — не бросает исключение, только логирует и
+    возвращает False, чтобы фоновая очистка не падала на одном плохом URL.
+    """
+    marker = "/storage/v1/object/public/"
+    if marker not in storage_url:
+        logger.warning("media_storage: не похоже на наш Storage URL, пропуск: %s", storage_url[:80])
+        return False
+
+    supabase_url = os.environ["SUPABASE_URL"]
+    service_key  = os.environ["SUPABASE_SERVICE_KEY"]
+    bucket, _, path = storage_url.split(marker, 1)[1].partition("/")
+    if not path:
+        logger.warning("media_storage: не удалось разобрать путь из %s", storage_url[:80])
+        return False
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.request(
+                "DELETE",
+                f"{supabase_url}/storage/v1/object/{bucket}",
+                headers={"Authorization": f"Bearer {service_key}", "apikey": service_key},
+                json={"prefixes": [path]},
+            )
+            resp.raise_for_status()
+        return True
+    except Exception as e:
+        logger.warning("media_storage: не удалось удалить %s: %s", storage_url[:80], e)
+        return False
