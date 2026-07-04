@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { runAgentAPI, postAgents } from '../../api'
+import { VERTICAL_OPTIONS, VERTICAL_LABELS, GEO_OPTIONS } from '../../lib/vertical'
 
 // Провайдеры видеогенерации: '' = авто-цепочка из env VIDEO_PROVIDER_CHAIN
 const VIDEO_PROVIDERS = [
@@ -12,8 +13,9 @@ const VIDEO_PROVIDERS = [
 const OUTPUT_PROFILES = [
   { value: 'text',     label: '📝 Только текст — без видео (Higgsfield не нужен)' },
   { value: 'video',    label: '🎬 Видео UGC 9:16 (+A30 Higgsfield)' },
+  { value: 'shorts',   label: '📱 Shorts 15–60с (+A30)' },
   { value: 'carousel', label: '🖼 Карусель (+A30)' },
-  { value: 'full',     label: '🧩 Полный — видео + прелендинг' },
+  { value: 'full',     label: '🧩 Полный — мультиплатформенное видео (+A30)' },
 ]
 
 function PipelineCard() {
@@ -32,13 +34,12 @@ function PipelineCard() {
     localStorage.setItem('video_provider', v)
   }
 
-  const needsVideo = ['video', 'carousel', 'full'].includes(output)
+  const needsVideo = ['video', 'shorts', 'carousel', 'full'].includes(output)
 
   async function launch() {
     setLoading(true); setResult(null); setError(null)
     try {
-      const path = vert === 'betting' ? '/run/ubt' : '/run/nutra'
-      const data = await postAgents(path, { geo, offer, count: Number(count) || 1, provider, output }, 300000)
+      const data = await postAgents('/run/pipeline', { vertical: vert, geo, offer, count: Number(count) || 1, provider, output }, 300000)
       setResult(data)
     } catch (e) { setError(e.message) }
     setLoading(false)
@@ -58,13 +59,13 @@ function PipelineCard() {
         <div>
           <label className="form-label">Вертикаль</label>
           <select className="form-control" value={vert} onChange={e=>setVert(e.target.value)}>
-            <option value="nutra">Nutra</option><option value="betting">Betting (UBT)</option>
+            {VERTICAL_OPTIONS.map(v=><option key={v} value={v}>{VERTICAL_LABELS[v] || v}</option>)}
           </select>
         </div>
         <div>
           <label className="form-label">GEO</label>
           <select className="form-control" value={geo} onChange={e=>setGeo(e.target.value)}>
-            {['US','BR','MX','DE','PL'].map(g=><option key={g}>{g}</option>)}
+            {GEO_OPTIONS.map(g=><option key={g}>{g}</option>)}
           </select>
         </div>
         <div>
@@ -293,10 +294,10 @@ function Sel({ id, value, onChange, children }) {
   return <select id={id} className="form-control" value={value} onChange={e=>onChange(e.target.value)} style={{ marginBottom:6 }}>{children}</select>
 }
 function GEO({ value, onChange }) {
-  return <Sel value={value} onChange={onChange}>{['US','BR','MX','DE','PL'].map(g=><option key={g}>{g}</option>)}</Sel>
+  return <Sel value={value} onChange={onChange}>{GEO_OPTIONS.map(g=><option key={g}>{g}</option>)}</Sel>
 }
 function Vertical({ value, onChange }) {
-  return <Sel value={value} onChange={onChange}><option value="nutra">Nutra</option><option value="betting">Betting</option></Sel>
+  return <Sel value={value} onChange={onChange}>{VERTICAL_OPTIONS.map(v=><option key={v} value={v}>{VERTICAL_LABELS[v] || v}</option>)}</Sel>
 }
 
 /* ── INDIVIDUAL AGENT FORMS ── */
@@ -548,11 +549,7 @@ function A30Card() {
           <input className="form-control" value={cta} onChange={e=>setCta(e.target.value)}
             placeholder="Ссылка в bio → получи -50%" style={{ marginBottom:6 }} />
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, marginBottom:6 }}>
-            <div><label className="form-label">Вертикаль</label>
-              <Sel value={vert} onChange={setVert}>
-                <option value="nutra">Nutra</option><option value="betting">Betting</option><option value="white">White</option>
-              </Sel>
-            </div>
+            <div><label className="form-label">Вертикаль</label><Vertical value={vert} onChange={setVert} /></div>
             <div><label className="form-label">GEO</label><GEO value={geo} onChange={setGeo} /></div>
             <div><label className="form-label">Аватар</label>
               <Sel value={avatar} onChange={setAvatar}>

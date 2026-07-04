@@ -1,7 +1,7 @@
 from .account_checker       import AccountChecker
 from .telegram_jitter       import HumanJitter
 from .text_humanizer        import TextHumanizer, HumanizeResult
-from .content_creator       import ContentCreator, ContentPiece, ContentFormat, Vertical
+from .content_creator       import ContentCreator, ContentPiece, ContentFormat
 from .youtube_creator       import YoutubeCreator, YTContent, YTFormat
 from .compliance_gate       import ComplianceGate, ComplianceResult, RiskLevel
 from .publer_publisher      import BlatoPublisher, PubelerPublisher, PublishResult, PublishPlatform
@@ -17,7 +17,7 @@ __all__ = [
     "HumanJitter",
     # Контент-пайплайн
     "TextHumanizer", "HumanizeResult",
-    "ContentCreator", "ContentPiece", "ContentFormat", "Vertical",
+    "ContentCreator", "ContentPiece", "ContentFormat",
     "YoutubeCreator", "YTContent", "YTFormat",
     # Compliance + публикация
     "ComplianceGate", "ComplianceResult", "RiskLevel",

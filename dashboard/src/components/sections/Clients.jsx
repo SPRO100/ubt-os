@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { fetchRows, insertRows, postAgents, SUPABASE_URL, SUPABASE_ANON_KEY, AGENTS_SERVER } from '../../api'
 import CollapsibleCard from '../CollapsibleCard'
+import { deriveVertical } from '../../lib/vertical'
 
 const VIDEO_STATUS_META = {
   ready:      { label: '✅ Готово',    color: 'var(--green)' },
@@ -44,35 +45,6 @@ async function sbDelete(table, id) {
     headers: SB_HEADERS,
   })
   if (!res.ok) throw new Error(await res.text())
-}
-
-// Сопоставление проекта (название + категория) с вертикалью kb_entries.
-// Возвращает slug вертикали или null.
-const VERTICAL_ALIASES = [
-  ['betting',      ['беттинг', 'betting', 'ставк', 'букмекер']],
-  ['gambling',     ['гемблинг', 'gambling', 'казино', 'casino', 'слот']],
-  ['nutra',        ['нутра', 'nutra', 'бад', 'похуден']],
-  ['finance',      ['финанс', 'finance', 'займ', 'кредит', 'мфо', 'карт']],
-  ['crypto',       ['крипт', 'crypto', 'форекс', 'forex', 'бирж']],
-  ['dating',       ['дейтинг', 'dating', 'знакомств']],
-  ['edtech',       ['edtech', 'образован', 'обучен', 'курс', 'инфобиз', 'школ']],
-  ['auto',         ['авто', 'auto', 'машин', 'car', 'корея', 'кита', 'япони', 'пригон']],
-  ['tourism',      ['тур', 'туризм', 'travel', 'путешеств']],
-  ['realty',       ['недвиж', 'realty', 'квартир', 'застройщик']],
-  ['construction', ['строит', 'ремонт', 'construction']],
-  ['beauty',       ['красот', 'beauty', 'салон', 'бьюти']],
-  ['fitness',      ['фитнес', 'fitness', 'спортзал']],
-  ['ecommerce',    ['магазин', 'ecommerce', 'commerce', 'товар', 'shop']],
-  ['b2b',          ['b2b', 'услуг']],
-  ['food',         ['доставк', 'еда', 'food', 'ресторан']],
-]
-
-function deriveVertical(project) {
-  const hay = `${project?.name || ''} ${project?.category || ''}`.toLowerCase()
-  for (const [slug, aliases] of VERTICAL_ALIASES) {
-    if (aliases.some(a => hay.includes(a))) return slug
-  }
-  return null
 }
 
 function parseTaskFromReply(reply, verticalName) {
@@ -302,6 +274,7 @@ export default function Projects({ onCreateTask }) {
     setRunning(true)
     try {
       const data = await postAgents(runAction.path, {
+        vertical: runAction.vertical,
         geo:    runAction.geo,
         output: runAction.output,
         count:  runAction.count,

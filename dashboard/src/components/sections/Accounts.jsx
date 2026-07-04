@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { fetchRows, insertRows, deleteRow, patchWhere, postAgents, AGENTS_SERVER, agentsHeaders } from '../../api'
 import CollapsibleCard from '../CollapsibleCard'
+import { GEO_OPTIONS } from '../../lib/vertical'
 
 const PLATFORMS_TABS = [
   { id: 'all',       label: 'Все',       color: 'var(--muted)' },
@@ -118,7 +119,7 @@ export default function Accounts() {
     const raw = bulkCsv.trim()
     if (!raw) { setBulkMsg('❌ Вставь данные'); return }
     const VALID_PLATFORMS = ['tiktok','facebook','instagram','pinterest']
-    const VALID_GEOS = ['US','BR','MX','DE','PL','TR','IN','NG']
+    const VALID_GEOS = GEO_OPTIONS
     const lines = raw.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'))
     const records = []; const errors = []
     lines.forEach((line, i) => {
