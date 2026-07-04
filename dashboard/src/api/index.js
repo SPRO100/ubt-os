@@ -174,3 +174,19 @@ export async function deleteRow(table, id, idColumn = "id") {
   if (!res.ok) throw new Error(await res.text());
   return res;
 }
+
+// Массовое обновление: PATCH по произвольному PostgREST-фильтру
+// (напр. `id=in.("a","b","c")`).
+export async function patchWhere(table, filterQuery, body) {
+  const res = await fetchWithTimeout(
+    `${SUPABASE_URL}/rest/v1/${table}?${filterQuery}`,
+    {
+      method: "PATCH",
+      headers: { ...headers, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify(body),
+    },
+    20000
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res;
+}
