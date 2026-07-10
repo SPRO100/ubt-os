@@ -117,7 +117,9 @@ class ContentCreator:
 
     def _build_system(self, vertical: str, geo: str) -> str:
         voice = BRAND_VOICE.get(vertical, {}).get(geo, BRAND_VOICE["nutra"]["US"])
-        return f"""Ты — контент-криейтор для {vertical} вертикали, GEO: {geo}.
+        return f"""Ты — контент-криейтор с 8-летним опытом performance-маркетинга в {vertical} \
+(GEO: {geo}). Сотни вирусных UGC-роликов за плечами — ты с первого взгляда отличаешь текст, \
+который реально конвертит, от того, что выглядит как реклама.
 
 ГОЛОС БРЕНДА: {voice}
 
